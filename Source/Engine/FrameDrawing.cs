@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
-namespace Source.FrameDrawing
+namespace Engine.FrameDrawing
 {
     public interface IDrawer
     {

@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using static Source.UtilityTypes.HMath;
-using Source.UtilityTypes;
-using Source.FrameDrawing;
-using Source.Engine;
-using System.Collections.Generic;
+using static GlobalTypes.HMath;
+using Engine.FrameDrawing;
+using Engine.Modules;
+using GlobalTypes.Events;
+using GlobalTypes;
 
-namespace Source.GameUI
+namespace Monoproject.GameUI
 {
     public class UI : ILoadable
     {
@@ -18,15 +18,15 @@ namespace Source.GameUI
         private static SpriteFont font;
         private static InterfaceDrawer interfaceDrawer;
         private static SpriteBatch spriteBatch;
-
+        
         public void Load()
         {
-            GameEvents.Update += GetFps;
+            GameEvents.OnUpdate.AddListener(GetFps);
 
             interfaceDrawer = InterfaceDrawer.Instance;
             spriteBatch = interfaceDrawer.SpriteBatch;
 
-            font = GameMain.Instance.Content.Load<SpriteFont>("MainFont");
+            font = Main.Instance.Content.Load<SpriteFont>("MainFont");
 
             interfaceDrawer.AddDrawAction(DrawInfo, DrawMouse);
         }
@@ -46,7 +46,7 @@ namespace Source.GameUI
             frameCounter++;
             Point curPoint = Mouse.GetState().Position;
 
-            Collider coll = GameMain.Instance.player.GetModule<Collider>();
+            Collider coll = Main.Instance.player.GetModule<Collider>();
 
             spriteBatch.DrawString(font,
                 $"FPS: {(int)fps}\n" +
@@ -59,11 +59,10 @@ namespace Source.GameUI
         public static void DrawMouse(GameTime gameTime)
         {
             Point curPoint = Mouse.GetState().Position;
-
+              
             Vector2 curPosition = new(curPoint.X + 6f, curPoint.Y - 6f);
 
-            spriteBatch.DrawString(font, $"<- ", curPosition, Color.White, Deg2Rad(50), new(0, 0), 1.3f, SpriteEffects.None, 0);
-            //spriteBatch.DrawString(font, $"[{curPoint.X}:{curPoint.Y}]", new(curPoint.X - 3, curPoint.Y - 40), Color.White, 0, new(0, 0), 1, SpriteEffects.None, 0);
+            spriteBatch.DrawString(font, $"<- ", curPosition, Color.White, DegToRad(50), new(0, 0), 1.3f, SpriteEffects.None, 0);
         }
         public static SpriteFont Font => font;
     }

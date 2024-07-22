@@ -1,15 +1,18 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using Monoproject;
+using GlobalTypes.Events;
 
-namespace Source.UtilityTypes
+namespace GlobalTypes
 {
     public static class HMath
     {
-        public static float Deg2Rad(float degrees) => degrees * (float)Math.PI / 180;
+        public static float DegToRad(float degrees) => degrees * (float)Math.PI / 180;
+        public static float RadToDeg(float radians) => radians * 180f / (float)Math.PI;
     }
     public class HTime : IInitable
     {
-        public void Init() => GameEvents.Update += UpdateValues;
+        public void Init() => GameEvents.OnUpdate.AddListener(UpdateValues);
 
         public static void UpdateValues(GameTime gameTime)
         {

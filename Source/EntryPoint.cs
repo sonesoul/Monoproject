@@ -1,7 +1,7 @@
-﻿Source.GameMain game = null;
+﻿Monoproject.Main game = null;
 try
 {
-    game = new Source.GameMain();
+    game = new Monoproject.Main();
     game.Run();
 }
 catch (System.Exception e)

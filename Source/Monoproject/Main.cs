@@ -1,19 +1,23 @@
-﻿using Microsoft.Xna.Framework;
+﻿global using GlobalTypes.Extensions;
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
-using Source.UtilityTypes;
-using Source.FrameDrawing;
-using Source.Engine;
-using Source.GameUI;
-using static Source.UtilityTypes.HCoords;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace Source
+using Monoproject.GameUI;
+using GlobalTypes;
+using GlobalTypes.Events;
+using Engine;
+using Engine.FrameDrawing;
+using Engine.Modules;
+using Engine.Types;
+namespace Monoproject
 {
-    public class GameMain : Game
+    public class Main : Game
     {
         private GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
@@ -33,9 +37,9 @@ namespace Source
         public SpriteBatch SpriteBatch => spriteBatch;
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
-        public static GameMain Instance { get; private set; }
+        public static Main Instance { get; private set; }
 
-        public GameMain()
+        public Main()
         {
             Instance = this;
             graphics = new GraphicsDeviceManager(this);
@@ -57,15 +61,12 @@ namespace Source
             interfaceDrawer = InterfaceDrawer.CreateInstance(spriteBatch, GraphicsDevice);
 
             SetLoadables();
-            GameEvents.OnLoad();
         }
         protected override void Initialize()
         {
             base.Initialize();
-            GameEvents.OnInit();
-
+            
             SetInitables();
-
             CreateObjects();
         }
         protected override void Update(GameTime gameTime)
@@ -76,8 +77,8 @@ namespace Source
                 return;
             }
 
-            GameEvents.OnUpdate(gameTime);
 
+            GameEvents.OnUpdate.Trigger(gameTime);
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
                 Exit();
 
@@ -93,11 +94,12 @@ namespace Source
                 return;
             }
 
+
             GraphicsDevice.Clear(Color.Black);
             
-            GameEvents.OnBeforeDraw(gameTime);
+            GameEvents.OnBeforeDraw.Trigger(gameTime);
             DrawFrame(gameTime);
-            GameEvents.OnAfterDraw(gameTime);
+            GameEvents.OnAfterDraw.Trigger(gameTime);
 
             base.Draw(gameTime);
         }
@@ -126,7 +128,7 @@ namespace Source
             if (Keyboard.GetState().IsKeyDown(Keys.Space) && canJump)
             {
                 player.GetModule<Rigidbody>().velocity = Vector2.Zero;
-                player.GetModule<Rigidbody>().AddForce(new(0, ToPixels(-3)));
+                player.GetModule<Rigidbody>().AddForce(new(0, HCoords.ToPixels(-3)));
                 canJump = false;
             }
             if (Keyboard.GetState().IsKeyDown(Keys.F))
@@ -174,7 +176,7 @@ namespace Source
                 color = Color.Green
             };
 
-            player.AddModule<Collider>().polygon = PolygonFactory.Rectangle(50, 50);
+            player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             player.AddModule<Rigidbody>();
 
             cursorObj = new(ingameDrawer, "", UI.Font)
@@ -182,7 +184,7 @@ namespace Source
                 position = new(0, 0),
                 color = Color.White
             };
-            cursorObj.AddModule<Collider>().polygon = PolygonFactory.Rectangle(100, 30);
+            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(100, 30);
 
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)
             {
@@ -195,9 +197,9 @@ namespace Source
                 position = new(WindowWidth, WindowHeight / 2 - 11),
                 color = Color.Gray,
             }.AddModule<Collider>();
-            wallDown.polygon = PolygonFactory.Rectangle(WindowWidth, 20);
+            wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
             wallDown.Mode = ColliderMode.Static;
-            wallLeft.polygon = PolygonFactory.Rectangle(20, WindowHeight);
+            wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;
         }
 
@@ -230,96 +232,8 @@ namespace Source
 
             return instances;
         }
+
         public static void BreakCycle() => isGameCycled = false;
-    }
-    public static class GameEvents
-    {
-        public static event Action Loaded;
-        public static event Action Inited;
-        public static event Action<GameTime> Update;
-        public static event Action<GameTime> BeforeDraw;
-        public static event Action<GameTime> AfterDraw;
-
-        public static void OnLoad() => Loaded?.Invoke();
-        public static void OnInit() => Inited?.Invoke();
-        public static void OnUpdate(GameTime gameTime) => Update?.Invoke(gameTime);
-        public static void OnBeforeDraw(GameTime gameTime) => BeforeDraw?.Invoke(gameTime);
-        public static void OnAfterDraw(GameTime gameTime) => AfterDraw?.Invoke(gameTime);
-    }
-    public static class NewGameEvents
-    {
-        public struct EventSub<T>
-        {
-            public Action<T> action;
-            public int order;
-            public EventSub(Action<T> action, int order)
-            {
-                this.action = action;
-                this.order = order;
-            }
-        }
-        public struct EventSub
-        {
-            public Action action;
-            public int order;
-
-            public EventSub(Action action, int order)
-            {
-                this.action = action;
-                this.order = order;
-                
-            }
-        }
-
-        private readonly static List<EventSub<GameTime>> Update = new();
-        private readonly static List<EventSub<GameTime>> BeforeDraw = new();
-        private readonly static List<EventSub<GameTime>> AfterDraw = new();
-        private readonly static List<EventSub> Loaded = new();
-        private readonly static List<EventSub> Inited = new();
-        
-        public static void AddToUpdate(Action<GameTime> action, int order = 0) => AddTo(Update, action, order);
-        public static void AddToBeforeDraw(Action<GameTime> action, int order = 0) => AddTo(BeforeDraw, action, order);
-        public static void AddToAfterDraw(Action<GameTime> action, int order = 0) => AddTo(AfterDraw, action, order);
-        public static void AddToInited(Action action, int order = 0) => AddTo(Inited, action, order);
-        public static void AddToLoaded(Action action, int order = 0) => AddTo(Loaded, action, order);
-
-        public static void OnUpdate(GameTime gt)
-        {
-            foreach (var item in Update)
-                item.action?.Invoke(gt);
-        }
-        public static void OnBeforeDraw(GameTime gameTime)
-        {
-            foreach (var item in BeforeDraw)
-                item.action?.Invoke(gameTime);
-        }
-        public static void OnAfterDraw(GameTime gameTime)
-        {
-            foreach (var item in AfterDraw)
-                item.action?.Invoke(gameTime);
-        }
-        public static void OnLoaded()
-        {
-            foreach (var item in Loaded)
-                item.action?.Invoke();
-        }
-        public static void OnInited()
-        {
-            foreach (var item in Inited)
-                item.action?.Invoke();
-        }
-
-
-        private static void AddTo(List<EventSub> list, Action action, int order) 
-        {
-            list.Add(new(action, order));
-            list.Sort((first, second) => first.order.CompareTo(second));
-        }
-        private static void AddTo(List<EventSub<GameTime>> list, Action<GameTime> action, int order)
-        {
-            list.Add(new(action, order));
-            list.Sort((first, second) => first.order.CompareTo(second));
-        }
     }
     public static class Camera
     {
@@ -334,11 +248,11 @@ namespace Source
         }
         public static void Move(Vector2 direction, float speed)
         {
-            _position += ToPixels(direction) * speed * HTime.DeltaTime;
+            _position += HCoords.ToPixels(direction) * speed * HTime.DeltaTime;
         }
         public static void ZoomIn(float amount, float speed)
         {
-            _zoom += ToPixels(amount) * speed * HTime.DeltaTime;
+            _zoom += HCoords.ToPixels(amount) * speed * HTime.DeltaTime;
         }
         
         public static float Zoom 
