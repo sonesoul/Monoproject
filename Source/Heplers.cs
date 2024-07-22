@@ -1,12 +1,5 @@
-﻿using Source.FrameDrawing;
-using Source.Engine;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Source;
+﻿using Microsoft.Xna.Framework;
 using System;
-using System.Collections.Generic;
-using System.Windows.Forms;
-using Source.GameUI;
 
 namespace Source.UtilityTypes
 {

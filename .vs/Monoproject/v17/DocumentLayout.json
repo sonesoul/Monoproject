@@ -3,6 +3,14 @@
   "WorkspaceRootPath": "D:\\dev\\Git\\Visual studio\\Monoproject\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\heplers.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\heplers.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\engine\\framedrawing.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\engine\\framedrawing.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\ui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\ui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -11,24 +19,12 @@
       "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\engine\\engine.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\engine\\engine.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\gamemain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\gamemain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\engine\\framedrawing.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\engine\\framedrawing.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|d:\\dev\\git\\visual studio\\monoproject\\source\\heplers.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{7CEA99BB-38D1-4F12-9E17-728BF252B280}|Monoproject.csproj|solutionrelative:source\\heplers.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -40,19 +36,6 @@
           "DockedWidth": 262,
           "SelectedChildIndex": 8,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": ".gitignore",
-              "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\.gitignore",
-              "RelativeDocumentMoniker": ".gitignore",
-              "ToolTip": "D:\\dev\\Git\\Visual studio\\Monoproject\\.gitignore",
-              "RelativeToolTip": ".gitignore",
-              "ViewState": "AQIAAC0AAAAAAAAAAAAAAEwAAAAAAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2024-07-22T14:48:56.784Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
@@ -71,7 +54,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "Program.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Program.cs",
               "RelativeDocumentMoniker": "Source\\Program.cs",
@@ -79,12 +62,11 @@
               "RelativeToolTip": "Source\\Program.cs",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAABAAAAABAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-07-19T09:27:41.517Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-07-19T09:27:41.517Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "GameMain.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\GameMain.cs",
               "RelativeDocumentMoniker": "Source\\GameMain.cs",
@@ -92,12 +74,11 @@
               "RelativeToolTip": "Source\\GameMain.cs",
               "ViewState": "AQIAAJkAAAAAAAAAAADwv7gAAAAMAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-05-31T14:55:04.987Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-05-31T14:55:04.987Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "Engine.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Engine\\Engine.cs",
               "RelativeDocumentMoniker": "Source\\Engine\\Engine.cs",
@@ -105,44 +86,43 @@
               "RelativeToolTip": "Source\\Engine\\Engine.cs",
               "ViewState": "AQIAAO4CAAAAAAAAAAD4v/oCAABPAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-06-01T15:44:13.176Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-06-01T15:44:13.176Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
               "Title": "UI.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\UI.cs",
               "RelativeDocumentMoniker": "Source\\UI.cs",
               "ToolTip": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\UI.cs",
               "RelativeToolTip": "Source\\UI.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAB0AAAAAAAAA",
+              "ViewState": "AQIAAAYAAAAAAAAAAAAAACEAAAAJAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-06-01T12:33:29.702Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 0,
               "Title": "Heplers.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Heplers.cs",
               "RelativeDocumentMoniker": "Source\\Heplers.cs",
               "ToolTip": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Heplers.cs",
               "RelativeToolTip": "Source\\Heplers.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAIBJwA4AAABVAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAC8AAAABAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-06-01T11:47:50.447Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 1,
               "Title": "FrameDrawing.cs",
               "DocumentMoniker": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Engine\\FrameDrawing.cs",
               "RelativeDocumentMoniker": "Source\\Engine\\FrameDrawing.cs",
               "ToolTip": "D:\\dev\\Git\\Visual studio\\Monoproject\\Source\\Engine\\FrameDrawing.cs",
               "RelativeToolTip": "Source\\Engine\\FrameDrawing.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAD4AAAAAAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAIAAAANAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-06-01T07:46:41.064Z",
               "EditorCaption": ""
