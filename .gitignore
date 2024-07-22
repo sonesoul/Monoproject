@@ -1,0 +1,79 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Ll]og/
+[Ll]ogs/
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.ncb
+*.suo
+*.ide
+*.classpath
+*.project
+*.tmproj
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Package directories
+packages/
+
+# MonoGame specific files
+*.mgcb
+*.mgcb.suo
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Build directories
+*.build
+
+# Project-specific
+*.tlog
+*.ipch
+*.iobj
+*.idb
+
+# Exclude configuration files
+*.config
+
+# Exclude runtime files
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+*.lib
+*.a
+*.exp
+
+# Exclude temporary files created by MonoGame tools
+*.xnb
+*.xnb.log
+*.xnb.xml
+
+# Exclude assets and content files if needed
+Content/Assets/
