@@ -129,9 +129,7 @@ namespace Engine.Modules
             j /= 1 / mass;
 
 
-            Vector2 impulse = j * touchNormal;
-
-            
+            Vector2 impulse = j * touchNormal;            
             velocity += impulse / mass;
         }
 
