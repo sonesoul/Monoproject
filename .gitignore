@@ -77,3 +77,7 @@ packages/
 
 # Exclude assets and content files if needed
 Content/Assets/
+
+# Visual Studio
+.vs/
+.vs/Monoproject/

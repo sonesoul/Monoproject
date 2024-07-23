@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
+using Extensions.Extensions;
 
 namespace Engine.Modules
 {
@@ -52,7 +53,7 @@ namespace Engine.Modules
 
             while (accumulatedTime >= FixedDelta)
             {
-                //ApplyGravity();
+                ApplyGravity();
 
                 velocity += forces / mass * FixedDelta;
                 forces = Vector2.Zero;
@@ -74,31 +75,34 @@ namespace Engine.Modules
 
         private void HandleRigidbodyCollision(Rigidbody other)
         {
-            List<Point> touchPoints = GetTouchPoints(collider, other.collider);
+            List<(Point point, LineSegment edge)> touchPoints = GetTouchPointsWithEdges(collider, other.collider);
             if (touchPoints.Count < 1)
                 return;
 
-            Vector2 averageTouch = Vector2.Zero;
+            Vector2 finalImpulse = Vector2.Zero;
+
             foreach (var p in touchPoints)
-                averageTouch += p.ToVector2();
+            {
+                Vector2 point = p.point.ToVector2();
+                Vector2 touchNormal = other.Owner.position - point;
 
-            averageTouch /= touchPoints.Count;
+                touchNormal.Normalize();
 
-            Vector2 touchNormal = other.Owner.position - averageTouch;
-            touchNormal.Normalize();
+                float velocityAlongNormal = Vector2.Dot(other.velocity, touchNormal);
 
-            float velocityAlongNormal = Vector2.Dot(other.velocity, touchNormal);
-            if (velocityAlongNormal > 0)
-                return;
+                if (velocityAlongNormal > -1)
+                    return;
 
-            float e = Math.Min(bounciness, other.bounciness);
-            float j = -(1 + e) * velocityAlongNormal;
-            j /= 1 / mass + 1 / other.mass;
+                float e = Math.Min(bounciness, other.bounciness);
+                float j = -(1 + e) * velocityAlongNormal;
+                j /= 1 / mass + 1 / other.mass;
 
-            Vector2 impulse = j * touchNormal;
+                Vector2 impulse = j * touchNormal;
+                finalImpulse += impulse / touchPoints.Count;
+            }
 
-            velocity -= impulse / mass;
-            other.velocity += impulse / other.mass;
+            velocity -= finalImpulse / mass;
+            other.velocity += finalImpulse / other.mass;
         }
         private void HandleStaticCollision(Collider other)
         {
@@ -126,6 +130,8 @@ namespace Engine.Modules
 
 
             Vector2 impulse = j * touchNormal;
+
+            
             velocity += impulse / mass;
         }
 
@@ -175,6 +181,41 @@ namespace Engine.Modules
                 }
             }
             return points;
+        }
+
+        public static List<(Point touch, LineSegment edge)> GetVertsOnSegmentsWithEdges(LineSegment[] segments, Vector2[] vertices)
+        {
+            List<(Point touch, LineSegment edge)> points = new();
+
+            foreach (var s in segments)
+            {
+                foreach (var v in vertices)
+                {
+                    Point p = v.ToPoint();
+
+                    if (s.IsPointOn(p))
+                    {
+                        points.Add((p, s));
+                    }
+                }
+            }
+            return points;
+        }
+        public static List<(Point touch, LineSegment edge)> GetTouchPointsWithEdges(Collider coll1, Collider coll2)
+        {
+            LineSegment[] s1 = coll1.polygon.GetEdges().ToArray();
+            LineSegment[] s2 = coll2.polygon.GetEdges().ToArray();
+
+            Vector2[] v1 = coll1.polygon.Vertices.Select(v => v + coll1.polygon.IntegerPosition).ToArray();
+            Vector2[] v2 = coll2.polygon.Vertices.Select(v => v + coll2.polygon.IntegerPosition).ToArray();
+
+
+            List<(Point, LineSegment)> touchPoints = new();
+
+            touchPoints = touchPoints.Concat(GetVertsOnSegmentsWithEdges(s1, v2)).ToList();
+            touchPoints = touchPoints.Concat(GetVertsOnSegmentsWithEdges(s2, v1)).ToList();
+
+            return touchPoints.Distinct().ToList();
         }
     }
 }
