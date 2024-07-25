@@ -4,15 +4,15 @@
     {
         private GameObject _owner;
         public ObjectModule(GameObject owner) => Owner = owner;
-        public event System.Action OnDestruct;
+        public event System.Action OnRemoved;
 
         public GameObject Owner { get => _owner; set => _owner = value ?? _owner; }
         
-        protected virtual void DestructInvoke()
+        protected virtual void OnRemove()
         {
             Destruct();
-            OnDestruct?.Invoke();
-            OnDestruct = null;
+            OnRemoved?.Invoke();
+            OnRemoved = null;
         }
         protected abstract void Destruct();
     }

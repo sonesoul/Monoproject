@@ -25,15 +25,13 @@ namespace Monoproject
         private InterfaceDrawer interfaceDrawer;
         private IngameDrawer ingameDrawer;
         
-
         public TextObject player;
         private TextObject cursorObj;
 
         private List<IInitable> initables = new();
         private List<ILoadable> loadables = new();
-        private static bool isGameCycled = true;
-
-        bool canJump = false;
+        
+        private bool canJump = false;
 
         public SpriteBatch SpriteBatch => spriteBatch;
         public int WindowWidth => graphics.PreferredBackBufferWidth;
@@ -72,13 +70,6 @@ namespace Monoproject
         }
         protected override void Update(GameTime gameTime)
         {
-            if (!isGameCycled)
-            {
-                base.Update(gameTime);
-                return;
-            }
-
-
             GameEvents.OnUpdate.Trigger(gameTime);
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
                 Exit();
@@ -89,13 +80,6 @@ namespace Monoproject
         }
         protected override void Draw(GameTime gameTime)
         {
-            if (!isGameCycled) 
-            {
-                base.Draw(gameTime);
-                return;
-            }
-
-
             GraphicsDevice.Clear(Color.Black);
             
             GameEvents.OnBeforeDraw.Trigger(gameTime);
@@ -136,17 +120,22 @@ namespace Monoproject
             {
                 player.GetModule<Rigidbody>().AddForce(new(1, 0));
             }
+
             if (Keyboard.GetState().IsKeyUp(Keys.Space))
             {
                 canJump = true;
             }
+            if (Keyboard.GetState().IsKeyDown(Keys.Q))
+            {
 
+                objects[0].GetModule<Collider>().polygon = Polygon.RightTriangle(50, 50);
+            }
             cursorObj.position = Mouse.GetState().Position.ToVector2();
         }
+
+        TextObject[] objects = new TextObject[1];
         private void CreateObjects()
         {
-            TextObject[] objects = new TextObject[5];
-
             for (int i = 0; i < objects.Length; i++)
             {
                 static Vector2 RandomPos(Vector2 center, float radius)
@@ -167,7 +156,9 @@ namespace Monoproject
                         WindowWidth / 2,
                         WindowHeight / 2), 300)
                 };
-                objects[i].AddModule<Rigidbody>();
+                objects[i].AddModule<Rigidbody>().bounciness = 0.5f;
+                objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
+                objects[i].rotation = 180;
             }
 
 
@@ -176,7 +167,6 @@ namespace Monoproject
                 position = new(400, 400),
                 color = Color.Green
             };
-
             player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             player.AddModule<Rigidbody>();
 
@@ -185,21 +175,22 @@ namespace Monoproject
                 position = new(0, 0),
                 color = Color.White
             };
-            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(100, 30);
+            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(20, 60);
+            cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
 
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)
             {
                 position = new(WindowWidth / 2, WindowHeight),
                 color = Color.Gray,
             }.AddModule<Collider>();
+            wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
+            wallDown.Mode = ColliderMode.Static;
             
             var wallLeft = new TextObject(ingameDrawer, "", UI.Font)
             {
                 position = new(WindowWidth, WindowHeight / 2 - 11),
                 color = Color.Gray,
             }.AddModule<Collider>();
-            wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
-            wallDown.Mode = ColliderMode.Static;
             wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;
         }
@@ -233,8 +224,6 @@ namespace Monoproject
 
             return instances;
         }
-
-        public static void BreakCycle() => isGameCycled = false;
     }
     public static class Camera
     {

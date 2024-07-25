@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Modules;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace Engine
 {
+    [DebuggerDisplay("{position}")]
     public abstract class GameObject
     {
         public Vector2 position = new(0, 0);
@@ -59,7 +61,7 @@ namespace Engine
             bool res = modules.Remove(module);
             if (res)
             {
-                var method = module.GetType().GetMethod("DestructInvoke", BindingFlags.NonPublic | BindingFlags.Instance);
+                var method = module.GetType().GetMethod("OnRemove", BindingFlags.NonPublic | BindingFlags.Instance);
                 method?.Invoke(module, null);
             }            
 
@@ -76,6 +78,8 @@ namespace Engine
         public bool ContainsModule<T>(T module)
            where T : ObjectModule => Modules.Where(m => m == module).Any();
     }
+    
+    [DebuggerDisplay("{sprite}")]
     public class TextObject : GameObject
     {
         public string sprite;
@@ -95,7 +99,7 @@ namespace Engine
             bool canDraw = position.Y >= 0 && position.Y <= viewport.Y && position.X >= 0 && position.X <= viewport.X;
             
             if (canDraw)
-                spriteBatch.DrawString(font, sprite, IntegerPosition, color, rotation.ToRad(), center, size, SpriteEffects.None, 0);
+                spriteBatch.DrawString(font, sprite, IntegerPosition, color, rotation.AsRadians(), center, size, SpriteEffects.None, 0);
         }
     }
 }

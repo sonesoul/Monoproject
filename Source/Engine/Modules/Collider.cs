@@ -1,10 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Engine.FrameDrawing;
 using Engine.Types;
 using GlobalTypes.Events;
+using System.DirectoryServices.ActiveDirectory;
+using Monoproject;
 
 namespace Engine.Modules
 {
@@ -30,6 +33,7 @@ namespace Engine.Modules
         private readonly Action<GameTime> _drawAction;
         private readonly ShapeDrawer _shapeDrawer;
         private readonly static List<Collider> _allColliders = new();
+        private float accumulatedTime = 0.0f;
 
         public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
         public string Info { get; set; } = "";
@@ -70,6 +74,7 @@ namespace Engine.Modules
 
             Intersects = _intersections.Any();
             drawColor = Intersects ? Color.Red : Color.Green;
+            accumulatedTime -= Rigidbody.FixedDelta;
         }
 
         private void PhysicalCheck()
@@ -85,12 +90,16 @@ namespace Engine.Modules
                 {
                     _intersections.Add(item);
 
-                    PushOut(item, mtv);
-
                     if (!_lastFrameIntersections.Contains(item))
                         OnTouchEnter?.Invoke(item);
                     else
                         OnTouchStay?.Invoke(item);
+
+                    mtv = mtv.ToPoint().ToVector2();
+                    
+                    Main.Instance.player.GetModule<Collider>().Info = mtv.ToString();
+                    if((mtv.X <= -1 || mtv.X >= 1) || (mtv.Y >= 1 || mtv.Y <= -1))
+                        PushOut(item, mtv);
                 }
                 else if (_lastFrameIntersections.Contains(item))
                     OnTouchExit?.Invoke(item);
@@ -105,7 +114,7 @@ namespace Engine.Modules
 
                 TextObject otherObj = item.Owner as TextObject;
 
-                if (polygon.IntersectsWith(item.polygon))
+                if (polygon.IntersectsWith(item.polygon, out var mtv))
                 {
                     _intersections.Add(item);
 
@@ -135,6 +144,8 @@ namespace Engine.Modules
                         OnTriggerExit?.Invoke(item);
                     else
                         OnTriggerExit?.Invoke(item);
+
+                    
                 }
                 else if (_lastFrameIntersections.Contains(item))
                     OnTriggerExit?.Invoke(item);
@@ -148,20 +159,11 @@ namespace Engine.Modules
             if (Vector2.Dot(direction, mtv) < 0)
                 mtv = -mtv;
 
-            Vector2 displacement;
-
-            if (Math.Abs(mtv.X) > Math.Abs(mtv.Y))
-                displacement = new Vector2(mtv.X, 0);
-            else
-                displacement = new Vector2(0, mtv.Y);
-
-
             if (other.Mode == ColliderMode.Physical)
-                other.Owner.position -= displacement;
-            else if (other.Mode == ColliderMode.Static)
-                Owner.position += displacement;
+                other.Owner.position -= mtv;
+            else
+                Owner.position += mtv;
         }
-
         public Rectangle GetShapeBounding()
         {
             List<Vector2> vertices = polygon.Vertices;
