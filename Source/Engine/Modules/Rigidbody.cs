@@ -172,7 +172,7 @@ namespace Engine.Modules
         public static List<(Vector2 touch, LineSegment edge)> GetTouches(Collider edgesColl, Collider verticesColl)
         {
             LineSegment[] edges = edgesColl.polygon.GetEdges().Select(e => new LineSegment(e.Start.Rounded(), e.End.Rounded())).ToArray();
-            Vector2[] vertices = verticesColl.polygon.Vertices.Select(v => (v + verticesColl.polygon.Position).Rounded()).ToArray();
+            Vector2[] vertices = verticesColl.polygon.Vertices.Select(v => (v + verticesColl.polygon.position).Rounded()).ToArray();
 
             return GetVertsOnEdges(edges, vertices).ToList();
         }

@@ -65,7 +65,7 @@ namespace Engine.Modules
         private void Update(GameTime gt)
         {
             _intersections.Clear();
-            polygon.Position = Owner.IntegerPosition;
+            polygon.position = Owner.IntegerPosition;
             polygon.Rotation = Owner.Rotation;
             ShapeBounding = GetShapeBounding();
 

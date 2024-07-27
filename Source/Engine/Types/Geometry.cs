@@ -102,11 +102,11 @@ namespace Engine.Types
     [DebuggerDisplay("{ToString(),nq}")]
     public struct Polygon : IProjectable
     {
+        public Vector2 position;
         private float _rotationAngle = 0;
         private readonly List<Vector2> _originalVertices;
-        
-        public Vector2 Position { get; set; }
-        public readonly Vector2 IntegerPosition => Position.Rounded();
+
+        public readonly Vector2 IntegerPosition => position.Rounded();
         public float Rotation
         {
             readonly get => _rotationAngle;
@@ -129,7 +129,7 @@ namespace Engine.Types
 
         public Polygon(Vector2 position, List<Vector2> vertices)
         {
-            this.Position = position;
+            this.position = position;
             Vertices = vertices;
             _originalVertices = new List<Vector2>(vertices);
             Center = DetectCenter();
@@ -263,7 +263,7 @@ namespace Engine.Types
             return new Vector2(newX, newY) + origin;
         }
 
-        public readonly override string ToString() => $"({Position.X}, {Position.Y}), {_rotationAngle}° [{Vertices.Count}]";
+        public readonly override string ToString() => $"({position.X}, {position.Y}), {_rotationAngle}° [{Vertices.Count}]";
 
         #region ShapeSamples
         public static List<Vector2> RectangleVerts(float width, float height)
