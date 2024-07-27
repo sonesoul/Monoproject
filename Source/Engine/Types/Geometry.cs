@@ -63,9 +63,9 @@ namespace Engine.Types
 
             Vector2 offset = (perpendicular * tolerance).Abs();
 
-            Vector2 p1Low = start - offset;
+            Vector2 p1Low = start;
             Vector2 p1High = start + offset;
-            Vector2 p2Low = end - offset;
+            Vector2 p2Low = end;
             Vector2 p2High = end + offset;
 
             float minX = Math.Min(p1Low.X, p2Low.X);
@@ -73,7 +73,10 @@ namespace Engine.Types
             float minY = Math.Min(p1Low.Y, p2Low.Y);
             float maxY = Math.Max(p1High.Y, p2High.Y);
 
-            return point.X >= minX && point.X <= maxX && point.Y >= minY && point.Y <= maxY;
+            bool betweenX = point.X >= minX && point.X <= maxX;
+            bool betweenY = point.Y >= minY && point.Y <= maxY;
+            
+            return betweenX && betweenY;
         }
         public readonly float DistanceToPoint(Vector2 point)
         {

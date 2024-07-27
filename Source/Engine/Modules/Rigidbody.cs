@@ -96,9 +96,13 @@ namespace Engine.Modules
         private static void HandleOthers(Rigidbody rb, Collider other)
         {
             bool isOtherTouches = false;
-            
-            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouches(rb.collider, other);
 
+            if (Keyboard.GetState().IsKeyDown(Keys.E))
+            {
+
+            }
+
+            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouches(rb.collider, other);
             if (edgeTouches.Count < 1)
             {
                 edgeTouches = GetTouches(other, rb.collider);
@@ -162,7 +166,7 @@ namespace Engine.Modules
             {
                 foreach (var vertex in vertices)
                 {
-                    if (edge.IsPointOn(vertex, 3))
+                    if (edge.IsPointOn(vertex, 1))
                         vertsOnEdges.Add((vertex, edge));
                 }
             }
@@ -174,7 +178,7 @@ namespace Engine.Modules
             LineSegment[] edges = edgesColl.polygon.GetEdges().Select(e => new LineSegment(e.Start.Rounded(), e.End.Rounded())).ToArray();
             Vector2[] vertices = verticesColl.polygon.Vertices.Select(v => (v + verticesColl.polygon.position).Rounded()).ToArray();
 
-            return GetVertsOnEdges(edges, vertices).ToList();
+            return GetVertsOnEdges(edges, vertices).Distinct().ToList();
         }
     }
 }
