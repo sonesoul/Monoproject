@@ -52,7 +52,7 @@ namespace Monoproject.GameUI
                 $"FPS: {(int)fps}\n" +
                 $"Frametime: {HTime.DeltaTime}\n" +
                 $"Cursor: [{curPoint.X}:{curPoint.Y}]\n" +
-                $"{coll.Info}",
+                $"{coll.info}",
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
 

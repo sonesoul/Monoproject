@@ -6,71 +6,107 @@ using Microsoft.Xna.Framework;
 
 namespace Engine.Types
 {
-    [DebuggerDisplay("{Start} <----> {End} ({Length})")]
-    public struct LineSegment
-    {
-        public Vector2 Start = Vector2.Zero;
-        public Vector2 End = Vector2.Zero;
-        public Point Center = Point.Zero;
-
-        public readonly float Length => Vector2.Distance(Start, End);
-        public readonly Vector2 Direction => End - Start;
-        public readonly Vector2 Normal => new Vector2(-Direction.Y, Direction.X).Normalized();
-
-        public LineSegment(Vector2 start, Vector2 end)
-        {
-            Start = start;
-            End = end;
-
-            Center = ((Start + End) / 2).ToPoint();
-        }
-
-        public readonly bool IsPointOn(Point point, float epsilon = 1e-6f) => IsPointOn(point.ToVector2(), epsilon);
-        public readonly bool IsPointOn(Vector2 point, float epsilon = 1e-6f)
-        {
-            Vector2 segmentDirection = Direction;
-            Vector2 pointDirection = point - Start;
-
-            float crossProduct = segmentDirection.X * pointDirection.Y - segmentDirection.Y * pointDirection.X;
-            if (Math.Abs(crossProduct) > epsilon)
-                return false;
-
-            float dotProduct = Vector2.Dot(pointDirection, segmentDirection);
-            if (dotProduct < 0 || dotProduct > segmentDirection.LengthSquared())
-                return false;
-
-            return true;
-        }
-    }
+    [DebuggerDisplay("{ToString(),nq}")]
     public struct Projection
     {
         public float Min { get; set; }
         public float Max { get; set; }
-
-        public Projection(float min, float max)
+        public Vector2 Axis { get; set; }
+        public Projection(float min, float max, Vector2 axis)
         {
             Min = min;
             Max = max;
+            Axis = axis;
         }
         public readonly float GetOverlap(Projection other)
         {
             if (Intersects(other))
-            {
                 return Math.Min(Max, other.Max) - Math.Max(Min, other.Min);
-            }
+
             return 0;
         }
         public readonly bool Intersects(Projection other) => !(other.Max < Min || other.Min > Max);
+
+        public static float ProjectPoint(Vector2 point, Vector2 axis) => Vector2.Dot(point, axis);
+
+        public readonly override string ToString() => $"{Axis}: {Min} ---- {Max}";
     }
-    public struct Polygon
+    
+    [DebuggerDisplay("{ToString(),nq}")] 
+    public struct LineSegment : IProjectable
     {
-        public Vector2 position;
+        public Vector2 Start { get; set; } = Vector2.Zero;
+        public Vector2 End { get; set; } = Vector2.Zero;
+
+        public readonly Vector2 Center => (Start + End) / 2;
+        public readonly float Distance => Vector2.Distance(Start, End);
+        public readonly Vector2 Direction => End - Start;
+        public readonly Vector2 Normal => new Vector2(-Direction.Y, Direction.X).Normalized();
+        
+        public LineSegment(Vector2 start, Vector2 end)
+        {
+            Start = start;
+            End = end;
+        }
+
+        public readonly bool IsPointOn(Vector2 point, float tolerance) => IsPointBetween(point, tolerance);
+        public readonly bool IsPointBetween(Vector2 point, float tolerance)
+        {
+            Vector2 start = Start;
+            Vector2 end = End;
+
+            Vector2 dir = Direction;
+            float length = dir.Length();
+            dir /= length;
+
+            Vector2 perpendicular = new(-dir.Y, dir.X);
+
+            Vector2 offset = (perpendicular * tolerance).Abs();
+
+            Vector2 p1Low = start - offset;
+            Vector2 p1High = start + offset;
+            Vector2 p2Low = end - offset;
+            Vector2 p2High = end + offset;
+
+            float minX = Math.Min(p1Low.X, p2Low.X);
+            float maxX = Math.Max(p1High.X, p2High.X);
+            float minY = Math.Min(p1Low.Y, p2Low.Y);
+            float maxY = Math.Max(p1High.Y, p2High.Y);
+
+            return point.X >= minX && point.X <= maxX && point.Y >= minY && point.Y <= maxY;
+        }
+        public readonly float DistanceToPoint(Vector2 point)
+        {
+            Vector2 lineDir = Direction;
+            Vector2 pointDir = point - Start;
+
+            float lineLength = lineDir.Length();
+            lineDir /= lineLength;
+
+            float projection = Vector2.Dot(pointDir, lineDir);
+            projection = Math.Clamp(projection, 0, lineLength);
+
+            Vector2 closestPoint = Start + lineDir * projection;
+            return Vector2.Distance(point, closestPoint);
+        }
+
+        public readonly Projection ProjectOn(Vector2 axis)
+        {
+            float start = Vector2.Dot(Start, axis);
+            float end = Vector2.Dot(End, axis);
+            return new(Math.Min(start, end), Math.Max(start, end), axis);
+        }
+        public readonly override string ToString() => $"{Start} ---- {End} ({Distance})";
+    }
+
+    [DebuggerDisplay("{ToString(),nq}")]
+    public struct Polygon : IProjectable
+    {
         private float _rotationAngle = 0;
         private readonly List<Vector2> _originalVertices;
-        public Vector2 _center = Vector2.Zero;
         
-        public readonly Vector2 FlooredPosition => new((int)Math.Floor(position.X), (int)Math.Floor(position.Y));
-        public List<Vector2> Vertices { get; private set; }
+        public Vector2 Position { get; set; }
+        public readonly Vector2 IntegerPosition => Position.Rounded();
         public float Rotation
         {
             readonly get => _rotationAngle;
@@ -88,13 +124,15 @@ namespace Engine.Types
                 UpdateVertices();
             }
         }
+        public Vector2 Center { get; set; } = Vector2.Zero;
+        public List<Vector2> Vertices { get; private set; }
 
         public Polygon(Vector2 position, List<Vector2> vertices)
         {
-            this.position = position;
+            this.Position = position;
             Vertices = vertices;
             _originalVertices = new List<Vector2>(vertices);
-            _center = AutoCenter();
+            Center = DetectCenter();
         }
         public Polygon(List<Vector2> vertices) : this(Vector2.Zero, vertices) { }
 
@@ -103,15 +141,15 @@ namespace Engine.Types
             Vertices.Clear();
 
             foreach (var item in _originalVertices)
-                Vertices.Add(RotatePoint(item, _center, _rotationAngle));
+                Vertices.Add(RotatePoint(item, Center, _rotationAngle));
         }
 
         public readonly bool IntersectsWith(Polygon other)
         {
             foreach (var axis in GetAxes().Concat(other.GetAxes()))
             {
-                Projection proj1 = GetProjection(axis);
-                Projection proj2 = other.GetProjection(axis);
+                Projection proj1 = ProjectOn(axis);
+                Projection proj2 = other.ProjectOn(axis);
 
                 if (!proj1.Intersects(proj2))
                     return false;
@@ -127,8 +165,8 @@ namespace Engine.Types
 
             foreach (var axis in GetAxes().Concat(other.GetAxes()))
             {
-                Projection proj1 = GetProjection(axis);
-                Projection proj2 = other.GetProjection(axis);
+                Projection proj1 = ProjectOn(axis);
+                Projection proj2 = other.ProjectOn(axis);
 
                 if (!proj1.Intersects(proj2))
                     return false;
@@ -145,7 +183,7 @@ namespace Engine.Types
             return true;
         }
 
-        public readonly Vector2 AutoCenter()
+        public readonly Vector2 DetectCenter()
         {
             float x = 0, y = 0;
 
@@ -160,50 +198,59 @@ namespace Engine.Types
 
             return new Vector2(devidedX, devidedY);
         }
-        public readonly Projection GetProjection(Vector2 axis)
+
+        public readonly Projection ProjectOn(Vector2 axis)
         {
-            float min = Vector2.Dot(axis, Vertices[0] + FlooredPosition);
+            float min = Vector2.Dot(axis, Vertices[0] + IntegerPosition);
             float max = min;
 
             foreach (var vertex in Vertices)
             {
-                float projection = Vector2.Dot(axis, vertex + FlooredPosition);
+                float projection = Vector2.Dot(axis, vertex + IntegerPosition);
+                
                 if (projection < min)
                     min = projection;
+                
                 if (projection > max)
                     max = projection;
             }
 
-            return new(min, max);
+            return new(min, max, axis);
         }
-        public readonly List<Vector2> GetAxes()
+        public readonly List<Vector2> GetAxes() => ForEachEdge((p1, p2) =>
         {
-            List<Vector2> axes = new();
-            for (int i = 0; i < Vertices.Count; i++)
-            {
-                Vector2 p1 = Vertices[i];
-                Vector2 p2 = Vertices[(i + 1) % Vertices.Count];
-                Vector2 edge = p2 - p1;
-
-                axes.Add(Vector2.Normalize(new Vector2(-edge.Y, edge.X)));
-            }
-            return axes;
-        }
+            Vector2 edge = p2 - p1;
+            return new Vector2(-edge.Y, edge.X).Normalized();
+        }, Vertices);
         public readonly List<LineSegment> GetEdges()
         {
-            List<LineSegment> axes = new();
-            for (int i = 0; i < Vertices.Count; i++)
+            Vector2 pos = IntegerPosition; 
+            return ForEachEdge((p1, p2) => new LineSegment(p1 + pos, p2 + pos), Vertices);
+        }
+        
+        public static List<T> ForEachEdge<T>(Func<Vector2, Vector2, T> action, List<Vector2> vertices)
+        {
+            List<T> edges = new();
+            for (int i = 0; i < vertices.Count; i++)
             {
-                Vector2 p1 = Vertices[i];
-                Vector2 p2 = Vertices[(i + 1) % Vertices.Count];
-                Vector2 edge = p2 - p1;
-                axes.Add(new(p1 + FlooredPosition, p2 + FlooredPosition));
+                Vector2 p1 = vertices[i];
+                Vector2 p2 = vertices[(i + 1) % vertices.Count];
+
+                edges.Add(action(p1, p2));
             }
-            return axes;
+            return edges;
+        }
+        public static List<T> ForEachVertex<T>(Func<Vector2, T> action, List<Vector2> vertices)
+        {
+            List<T> edges = new();
+            for (int i = 0; i < vertices.Count; i++)
+                edges.Add(action(vertices[i]));
+            
+            return edges;
         }
         public static Vector2 RotatePoint(Vector2 point, Vector2 origin, float rotation)
         {
-            rotation = rotation.AsRadians();
+            rotation = rotation.AsRad();
 
             float cos = (float)Math.Cos(rotation);
             float sin = (float)Math.Sin(rotation);
@@ -216,19 +263,21 @@ namespace Engine.Types
             return new Vector2(newX, newY) + origin;
         }
 
+        public readonly override string ToString() => $"({Position.X}, {Position.Y}), {_rotationAngle}° [{Vertices.Count}]";
 
+        #region ShapeSamples
         public static List<Vector2> RectangleVerts(float width, float height)
         {
             width /= 2;
             height /= 2;
 
             return new()
-                {
-                    new(-width, -height), //top left
-                    new(width, -height), //top right
-                    new(width, height), //bottom right
-                    new(-width, height) //bottom left
-                };
+            {
+                new(-width, -height), //top left
+                new(width, -height), //top right
+                new(width, height), //bottom right
+                new(-width, height) //bottom left
+            };
         }
         public static List<Vector2> RightTriangleVerts(float width, float height)
         {
@@ -239,5 +288,11 @@ namespace Engine.Types
 
         public static Polygon Rectangle(float width, float height) => new(RectangleVerts(width, height));
         public static Polygon RightTriangle(float width, float height) => new(RightTriangleVerts(width, height));
+        #endregion
+    }
+
+    public interface IProjectable
+    {
+        public Projection ProjectOn(Vector2 axis);
     }
 }

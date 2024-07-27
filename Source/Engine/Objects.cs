@@ -14,8 +14,10 @@ namespace Engine
     public abstract class GameObject
     {
         public Vector2 position = new(0, 0);
-        public float rotation = 0;
-        public Color color = Color.White;
+        public Vector2 IntegerPosition => position.Rounded();
+        
+        public float Rotation { get; set; } = 0;
+        public Color Color { get; set; } = Color.White;
 
         public IDrawer drawer;
         public SpriteBatch spriteBatch;
@@ -25,7 +27,6 @@ namespace Engine
 
         protected readonly Action<GameTime> drawAction;
 
-        public Vector2 IntegerPosition => new((int)Math.Round(position.X), (int)Math.Round(position.Y));
         public IReadOnlyList<ObjectModule> Modules => modules.ToArray();
 
         public GameObject(IDrawer drawer)
@@ -99,7 +100,7 @@ namespace Engine
             bool canDraw = position.Y >= 0 && position.Y <= viewport.Y && position.X >= 0 && position.X <= viewport.X;
             
             if (canDraw)
-                spriteBatch.DrawString(font, sprite, IntegerPosition, color, rotation.AsRadians(), center, size, SpriteEffects.None, 0);
+                spriteBatch.DrawString(font, sprite, IntegerPosition, Color, Rotation.AsRad(), center, size, SpriteEffects.None, 0);
         }
     }
 }

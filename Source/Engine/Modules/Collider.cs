@@ -15,7 +15,9 @@ namespace Engine.Modules
     {
         public Polygon polygon;
         public Color drawColor = Color.Green;
+        public string info = "";
 
+        #region Events
         public event Action<Collider> OnTouchEnter;
         public event Action<Collider> OnTouchStay;
         public event Action<Collider> OnTouchExit;
@@ -24,6 +26,7 @@ namespace Engine.Modules
         public event Action<Collider> OnTriggerStay;
         public event Action<Collider> OnTriggerExit;
         public event Action<GameTime> OnCheckFinish;
+        #endregion
 
         private readonly List<Collider> _intersections = new();
         private List<Collider> _lastFrameIntersections = new();
@@ -33,20 +36,19 @@ namespace Engine.Modules
         private readonly Action<GameTime> _drawAction;
         private readonly ShapeDrawer _shapeDrawer;
         private readonly static List<Collider> _allColliders = new();
-        private float accumulatedTime = 0.0f;
-
+       
         public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
-        public string Info { get; set; } = "";
         public Rectangle ShapeBounding { get; private set; }
         public bool Intersects { get; private set; }
         public static IReadOnlyList<Collider> AllColliders => _allColliders;
         public IReadOnlyList<Collider> Intersections => _intersections;
+        
         public Collider(GameObject owner) : base(owner)
         {
             Owner = owner;
             _drawAction = Draw;
 
-            polygon = new(owner.position, Polygon.RectangleVerts(50, 50));
+            polygon = new(owner.IntegerPosition, Polygon.RectangleVerts(50, 50));
             _shapeDrawer = new(IngameDrawer.Instance.GraphicsDevice, IngameDrawer.Instance.SpriteBatch);
 
             IngameDrawer.Instance.AddDrawAction(_drawAction);
@@ -63,8 +65,8 @@ namespace Engine.Modules
         private void Update(GameTime gt)
         {
             _intersections.Clear();
-            polygon.position = Owner.position;
-            polygon.Rotation = Owner.rotation;
+            polygon.Position = Owner.IntegerPosition;
+            polygon.Rotation = Owner.Rotation;
             ShapeBounding = GetShapeBounding();
 
             _intersectionUpdater();
@@ -74,7 +76,6 @@ namespace Engine.Modules
 
             Intersects = _intersections.Any();
             drawColor = Intersects ? Color.Red : Color.Green;
-            accumulatedTime -= Rigidbody.FixedDelta;
         }
 
         private void PhysicalCheck()
@@ -84,22 +85,19 @@ namespace Engine.Modules
                 if (item == this)
                     continue;
 
-                TextObject otherObj = item.Owner as TextObject;
-
                 if (polygon.IntersectsWith(item.polygon, out var mtv))
                 {
                     _intersections.Add(item);
+
+                    mtv = mtv.ToPoint().ToVector2();
+                    //if((mtv.X <= -1 || mtv.X >= 1) || (mtv.Y >= 1 || mtv.Y <= -1))
+                    PushOut(item, mtv);
 
                     if (!_lastFrameIntersections.Contains(item))
                         OnTouchEnter?.Invoke(item);
                     else
                         OnTouchStay?.Invoke(item);
 
-                    mtv = mtv.ToPoint().ToVector2();
-                    
-                    Main.Instance.player.GetModule<Collider>().Info = mtv.ToString();
-                    if((mtv.X <= -1 || mtv.X >= 1) || (mtv.Y >= 1 || mtv.Y <= -1))
-                        PushOut(item, mtv);
                 }
                 else if (_lastFrameIntersections.Contains(item))
                     OnTouchExit?.Invoke(item);
@@ -158,6 +156,7 @@ namespace Engine.Modules
 
             if (Vector2.Dot(direction, mtv) < 0)
                 mtv = -mtv;
+            mtv.Round();
 
             if (other.Mode == ColliderMode.Physical)
                 other.Owner.position -= mtv;
@@ -194,25 +193,25 @@ namespace Engine.Modules
                     break;
             }
         }
+        private void Draw(GameTime gt)
+        {
+            List<Vector2> vertices = polygon.Vertices;
+            Vector2 current = vertices[0] + Owner.IntegerPosition;
+
+            for (int i = 1; i < vertices.Count; i++)
+            {
+                Vector2 next = vertices[i] + Owner.IntegerPosition;
+                _shapeDrawer.DrawLine(current, next, drawColor);
+                current = next;
+            }
+
+            _shapeDrawer.DrawLine(current, vertices[0] + Owner.IntegerPosition, drawColor);
+        }
         protected override void Destruct()
         {
             _allColliders.Remove(this);
             GameEvents.OnUpdate.RemoveListener(new(Update, 0));
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
-        }
-        public void Draw(GameTime gt)
-        {
-            List<Vector2> vertices = polygon.Vertices;
-            Vector2 current = vertices[0] + Owner.position;
-
-            for (int i = 1; i < vertices.Count; i++)
-            {
-                Vector2 next = vertices[i] + Owner.position;
-                _shapeDrawer.DrawLine(current, next, drawColor);
-                current = next;
-            }
-
-            _shapeDrawer.DrawLine(current, vertices[0] + Owner.position, drawColor);
         }
     }
 }

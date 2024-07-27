@@ -1,19 +1,21 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
-using System.Reflection;
+using Monoproject;
 
 namespace Engine.Modules
 {
     public class Rigidbody : ObjectModule
     {
+        #region Fields
         public float mass = 1;
         public float gravityScale = 1;
         public float bounciness = 0.2f;
         public float friction = 0.3f;
-        public float airFriction = 0.3f;
+        public float windage = 0.3f;
 
         public float angle = 0;
         public float torque = 0;
@@ -26,8 +28,11 @@ namespace Engine.Modules
         public Collider collider;
 
         public const float Gravity = 9.81f;
-        public const float FixedDelta = 1.0f / 180.0f;
-        private float accumulatedTime = 0.0f;
+        public const float FixedDelta = 1.0f / 120.0f;
+        public const float ZeroTheshold = 0.02f;
+
+        private float updateTimeBuffer = 0.0f;
+        #endregion
 
         public Rigidbody(GameObject owner) : base(owner)
         {
@@ -40,17 +45,13 @@ namespace Engine.Modules
             collider.OnCheckFinish += Update;
         }
 
-        private void OnColliderDestruct() => Owner.RemoveModule(this);
-        protected override void Destruct() => collider.OnCheckFinish -= Update;
-
         public void AddForce(Vector2 force) => forces += force;
-
-
+        
         private void Update(GameTime gameTime)
         {
-            accumulatedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            updateTimeBuffer += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            while (accumulatedTime >= FixedDelta)
+            while (updateTimeBuffer >= FixedDelta)
             {
                 //ApplyGravity();
 
@@ -62,19 +63,19 @@ namespace Engine.Modules
                     if (item.Owner.TryGetModule(out Rigidbody otherRb))
                         HandlePhysical(this, otherRb);
                     else
-                        HandleOthers(item);
+                        HandleOthers(this, item);
                 }
 
-                ApplyFriction(airFriction);
+                ApplyFriction(windage);
 
                 Owner.position += velocity;
-                accumulatedTime -= FixedDelta;
+                updateTimeBuffer -= FixedDelta;
             }
         }
-
-        private static void HandlePhysical(Rigidbody first, Rigidbody second)
+        public static void HandlePhysical(Rigidbody first, Rigidbody second)
         {
-            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouchPointsWithEdgesFor(second.collider, first.collider);
+            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouches(second.collider, first.collider);
+
             if (edgeTouches.Count < 1)
                 return;
 
@@ -92,15 +93,15 @@ namespace Engine.Modules
                 second.velocity += impulse / second.mass;
             }
         }
-        private void HandleOthers(Collider other)
+        private static void HandleOthers(Rigidbody rb, Collider other)
         {
             bool isOtherTouches = false;
-
-            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouchPointsWithEdgesFor(collider, other);
             
-            if(edgeTouches.Count < 1)
+            List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouches(rb.collider, other);
+
+            if (edgeTouches.Count < 1)
             {
-                edgeTouches = GetTouchPointsWithEdgesFor(other, collider);
+                edgeTouches = GetTouches(other, rb.collider);
                 isOtherTouches = true;
 
                 if (edgeTouches.Count < 1)
@@ -111,16 +112,17 @@ namespace Engine.Modules
             {
                 Vector2 touchNormal = !isOtherTouches ? edge.Normal : -edge.Normal;
 
-                float velocityAlongNormal = Vector2.Dot(velocity, touchNormal);
-                if (velocityAlongNormal > 0)
+                float velocityAlongNormal = Vector2.Dot(rb.velocity, touchNormal);
+                if (velocityAlongNormal > 1)
                     continue;
 
-                float e = bounciness;
+                float e = rb.bounciness;
                 float j = -(1 + e) * velocityAlongNormal;
-                j /= 1 / mass;
+                j /= 1 / rb.mass;
 
                 Vector2 impulse = j * touchNormal;
-                velocity += impulse / mass;
+                
+                rb.velocity += impulse / rb.mass;
             }
         }
 
@@ -132,77 +134,47 @@ namespace Engine.Modules
 
             return j * touchNormal;
         }
-        private void ApplyGravity() => AddForce(new(0, (Gravity * mass) * (FixedDelta * 200)));
+        private void ApplyGravity() => AddForce(new(0, (Gravity * mass * gravityScale) * (FixedDelta * 200)));
         private void ApplyFriction(float frictValue)
         {
-            float deltaFrict = (frictValue / mass) * FixedDelta;
+            float deltaFrict = (frictValue / mass) * FixedDelta * 4;
 
-            if (Math.Abs(velocity.X) > 0)
+            if (velocity.AbsX() > ZeroTheshold)
                 velocity.X += velocity.X < 0 ? deltaFrict : -deltaFrict;
+            else velocity.X = 0;
 
-            if (Math.Abs(velocity.Y) > 0)
+            if (velocity.AbsY() > ZeroTheshold)
                 velocity.Y += velocity.Y < 0 ? deltaFrict : -deltaFrict;
+            else velocity.Y = 0;
+
+            velocity.X = (float)Math.Round(velocity.X, 3);
+            velocity.Y = (float)Math.Round(velocity.Y, 3);
         }
 
-
-        public static List<Point> GetTouchPoints(Collider coll1, Collider coll2)
+        private void OnColliderDestruct() => Owner.RemoveModule(this);
+        protected override void Destruct() => collider.OnCheckFinish -= Update;
+        
+        public static List<(Vector2 touch, LineSegment edge)> GetVertsOnEdges(LineSegment[] edges, Vector2[] vertices)
         {
-            LineSegment[] e1 = coll1.polygon.GetEdges().ToArray();
-            LineSegment[] e2 = coll2.polygon.GetEdges().ToArray();
+            List<(Vector2 touch, LineSegment edge)> vertsOnEdges = new();
 
-            Vector2[] v1 = coll1.polygon.Vertices.Select(v => v + coll1.polygon.FlooredPosition).ToArray();
-            Vector2[] v2 = coll2.polygon.Vertices.Select(v => v + coll2.polygon.FlooredPosition).ToArray();
-
-
-            List<Point> touchPoints = new();
-
-            touchPoints = touchPoints.Concat(GetVertsOnSegments(e1, v2)).ToList();
-            touchPoints = touchPoints.Concat(GetVertsOnSegments(e2, v1)).ToList();
-
-            return touchPoints.Distinct().ToList();
-        }
-        public static List<Point> GetVertsOnSegments(LineSegment[] edges, Vector2[] vertices)
-        {
-            List<Point> points = new();
-
-            foreach (var e in edges)
+            foreach (var edge in edges)
             {
-                foreach (var v in vertices)
+                foreach (var vertex in vertices)
                 {
-                    Point p = v.ToPoint();
-
-                    if (e.IsPointOn(p))
-                    {
-                        points.Add(p);
-                    }
+                    if (edge.IsPointOn(vertex, 3))
+                        vertsOnEdges.Add((vertex, edge));
                 }
             }
-            return points;
+
+            return vertsOnEdges;
         }
-
-        public static List<(Vector2 touch, LineSegment edge)> GetVertsOnSegmentsWithEdges(LineSegment[] edges, Vector2[] vertices)
+        public static List<(Vector2 touch, LineSegment edge)> GetTouches(Collider edgesColl, Collider verticesColl)
         {
-            List<(Vector2 touch, LineSegment edge)> points = new();
+            LineSegment[] edges = edgesColl.polygon.GetEdges().Select(e => new LineSegment(e.Start.Rounded(), e.End.Rounded())).ToArray();
+            Vector2[] vertices = verticesColl.polygon.Vertices.Select(v => (v + verticesColl.polygon.Position).Rounded()).ToArray();
 
-            foreach (var e in edges)
-            {
-                foreach (var v in vertices)
-                {
-                    if (e.IsPointOn(v, 100))
-                    {
-                        points.Add((v, e));
-                    }
-                }
-            }
-            return points;
-        }
-
-        public static List<(Vector2 touch, LineSegment edge)> GetTouchPointsWithEdgesFor(Collider edges, Collider vertices)
-        {
-            LineSegment[] e1 = edges.polygon.GetEdges().ToArray();
-            Vector2[] v2 = vertices.polygon.Vertices.Select(v => v + vertices.polygon.position).ToArray();
-
-            return GetVertsOnSegmentsWithEdges(e1, v2).ToList();
+            return GetVertsOnEdges(edges, vertices).ToList();
         }
     }
 }
