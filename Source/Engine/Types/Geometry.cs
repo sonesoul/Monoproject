@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.Xna.Framework;
+using Monoproject;
 
 namespace Engine.Types
 {
@@ -49,7 +50,6 @@ namespace Engine.Types
             End = end;
         }
 
-        public readonly bool IsPointOn(Vector2 point, float tolerance) => IsPointBetween(point, tolerance);
         public readonly bool IsPointBetween(Vector2 point, float tolerance)
         {
             Vector2 start = Start;
@@ -63,19 +63,20 @@ namespace Engine.Types
 
             Vector2 offset = (perpendicular * tolerance).Abs();
 
-            Vector2 p1Low = start;
-            Vector2 p1High = start + offset;
-            Vector2 p2Low = end;
-            Vector2 p2High = end + offset;
+            Vector2 startAdjusted = start + dir;
+            Vector2 endAdjusted = end - dir;
 
-            float minX = Math.Min(p1Low.X, p2Low.X);
-            float maxX = Math.Max(p1High.X, p2High.X);
-            float minY = Math.Min(p1Low.Y, p2Low.Y);
-            float maxY = Math.Max(p1High.Y, p2High.Y);
+            Vector2 startRect = startAdjusted - offset;
+            Vector2 endRect = endAdjusted + offset;
+
+            float minX = Math.Min(startRect.X, endRect.X);
+            float maxX = Math.Max(startRect.X, endRect.X);
+            float minY = Math.Min(startRect.Y, endRect.Y);
+            float maxY = Math.Max(startRect.Y, endRect.Y);
 
             bool betweenX = point.X >= minX && point.X <= maxX;
             bool betweenY = point.Y >= minY && point.Y <= maxY;
-            
+
             return betweenX && betweenY;
         }
         public readonly float DistanceToPoint(Vector2 point)

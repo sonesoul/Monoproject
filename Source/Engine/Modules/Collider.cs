@@ -8,6 +8,7 @@ using Engine.Types;
 using GlobalTypes.Events;
 using System.DirectoryServices.ActiveDirectory;
 using Monoproject;
+using System.Windows.Forms;
 
 namespace Engine.Modules
 {
@@ -89,8 +90,10 @@ namespace Engine.Modules
                 {
                     _intersections.Add(item);
 
+                    //bruh idk why the fuck it works better than Round or Floor methods
+                    //upd: ok its just an int casting, but I won't remove it
                     mtv = mtv.ToPoint().ToVector2();
-                    //if((mtv.X <= -1 || mtv.X >= 1) || (mtv.Y >= 1 || mtv.Y <= -1))
+
                     PushOut(item, mtv);
 
                     if (!_lastFrameIntersections.Contains(item))

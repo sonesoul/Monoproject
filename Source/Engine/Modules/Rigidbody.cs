@@ -1,10 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
-using Monoproject;
 
 namespace Engine.Modules
 {
@@ -29,7 +27,7 @@ namespace Engine.Modules
 
         public const float Gravity = 9.81f;
         public const float FixedDelta = 1.0f / 120.0f;
-        public const float ZeroTheshold = 0.02f;
+        public const float ZeroThreshold = 0.005f;
 
         private float updateTimeBuffer = 0.0f;
         #endregion
@@ -53,7 +51,7 @@ namespace Engine.Modules
 
             while (updateTimeBuffer >= FixedDelta)
             {
-                //ApplyGravity();
+                ApplyGravity();
 
                 velocity += forces / mass * FixedDelta;
                 forces = Vector2.Zero;
@@ -97,11 +95,6 @@ namespace Engine.Modules
         {
             bool isOtherTouches = false;
 
-            if (Keyboard.GetState().IsKeyDown(Keys.E))
-            {
-
-            }
-
             List<(Vector2 point, LineSegment edge)> edgeTouches = GetTouches(rb.collider, other);
             if (edgeTouches.Count < 1)
             {
@@ -120,12 +113,8 @@ namespace Engine.Modules
                 if (velocityAlongNormal > 1)
                     continue;
 
-                float e = rb.bounciness;
-                float j = -(1 + e) * velocityAlongNormal;
-                j /= 1 / rb.mass;
+                Vector2 impulse = GetSingleImpulse(touchNormal, velocityAlongNormal, rb);
 
-                Vector2 impulse = j * touchNormal;
-                
                 rb.velocity += impulse / rb.mass;
             }
         }
@@ -133,8 +122,17 @@ namespace Engine.Modules
         private static Vector2 GetImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody first, Rigidbody second)
         {
             float e = Math.Min(second.bounciness, first.bounciness);
+            
             float j = -(1 + e) * velocityAlongNormal;
             j /= 1 / first.mass + 1 / second.mass;
+
+            return j * touchNormal;
+        }
+        private static Vector2 GetSingleImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody rb)
+        {
+            float e = rb.bounciness;
+            float j = -(1 + e) * velocityAlongNormal;
+            j /= 1 / rb.mass;
 
             return j * touchNormal;
         }
@@ -143,11 +141,11 @@ namespace Engine.Modules
         {
             float deltaFrict = (frictValue / mass) * FixedDelta * 4;
 
-            if (velocity.AbsX() > ZeroTheshold)
+            if (velocity.AbsX() > ZeroThreshold)
                 velocity.X += velocity.X < 0 ? deltaFrict : -deltaFrict;
             else velocity.X = 0;
 
-            if (velocity.AbsY() > ZeroTheshold)
+            if (velocity.AbsY() > ZeroThreshold)
                 velocity.Y += velocity.Y < 0 ? deltaFrict : -deltaFrict;
             else velocity.Y = 0;
 
@@ -166,7 +164,7 @@ namespace Engine.Modules
             {
                 foreach (var vertex in vertices)
                 {
-                    if (edge.IsPointOn(vertex, 1))
+                    if (edge.IsPointBetween(vertex, 2))
                         vertsOnEdges.Add((vertex, edge));
                 }
             }
@@ -178,7 +176,7 @@ namespace Engine.Modules
             LineSegment[] edges = edgesColl.polygon.GetEdges().Select(e => new LineSegment(e.Start.Rounded(), e.End.Rounded())).ToArray();
             Vector2[] vertices = verticesColl.polygon.Vertices.Select(v => (v + verticesColl.polygon.position).Rounded()).ToArray();
 
-            return GetVertsOnEdges(edges, vertices).Distinct().ToList();
+            return GetVertsOnEdges(edges, vertices).DistinctBy(t => t.touch).ToList();
         }
     }
 }
