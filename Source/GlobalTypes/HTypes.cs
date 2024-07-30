@@ -2,6 +2,7 @@
 using System;
 using Monoproject;
 using GlobalTypes.Events;
+using GlobalTypes.Interfaces;
 
 namespace GlobalTypes
 {
@@ -19,9 +20,7 @@ namespace GlobalTypes
             DeltaTimeMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             DeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
-        public static float UnitsPerSec(float speed) => HCoords.ToPixels(speed) * DeltaTime;
 
-        public const float FixedDelta = 0.0005f;
         public static float DeltaTimeMs { get; private set; }
         public static float DeltaTime { get; private set; }
     }
@@ -47,5 +46,6 @@ namespace GlobalTypes
                 Y = ToPixels(unitPos.Y),
             };
         }
+        public static float UnitsPerSec(float speed) => HCoords.ToPixels(speed) * HTime.DeltaTime;
     }
 }

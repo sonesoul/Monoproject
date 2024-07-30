@@ -42,7 +42,7 @@ namespace Engine.Modules
         public static IReadOnlyList<Collider> AllColliders => _allColliders;
         public IReadOnlyList<Collider> Intersections => _intersections;
         
-        public Collider(GameObject owner) : base(owner)
+        public Collider(ModularObject owner) : base(owner)
         {
             Owner = owner;
             _drawAction = Draw;

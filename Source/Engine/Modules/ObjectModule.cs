@@ -2,11 +2,11 @@
 {
     public abstract class ObjectModule
     {
-        private GameObject _owner;
-        public ObjectModule(GameObject owner) => Owner = owner;
+        private ModularObject _owner;
+        public ObjectModule(ModularObject owner) => Owner = owner;
         public event System.Action OnRemoved;
 
-        public GameObject Owner { get => _owner; set => _owner = value ?? _owner; }
+        public ModularObject Owner { get => _owner; set => _owner = value ?? _owner; }
         
         protected virtual void OnRemove()
         {

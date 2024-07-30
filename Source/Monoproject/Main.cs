@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using Monoproject.GameUI;
 using GlobalTypes;
 using GlobalTypes.Events;
+using GlobalTypes.Interfaces;
 using Engine;
 using Engine.FrameDrawing;
 using Engine.Modules;
@@ -108,7 +109,7 @@ namespace Monoproject
             {
                 X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
                 Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
-            } * HTime.UnitsPerSec(1f);
+            } * HCoords.UnitsPerSec(1f);
 
 
             if (Keyboard.GetState().IsKeyDown(Keys.Space) && canJump)
@@ -156,9 +157,9 @@ namespace Monoproject
                         WindowWidth / 2,
                         WindowHeight / 2), 300)
                 };
-                objects[i].AddModule<Rigidbody>().bounciness = 1f;
+                objects[i].AddModule<Rigidbody>().Bounciness = 0.2f;
                 objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-                objects[i].GetModule<Rigidbody>().gravityScale = 0;
+                objects[i].GetModule<Rigidbody>().GravityScale = 0;
             }
 
 
@@ -168,7 +169,7 @@ namespace Monoproject
                 Color = Color.Green
             };
             player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-            player.AddModule<Rigidbody>().bounciness = 0.5f;
+            player.AddModule<Rigidbody>().Bounciness = 0.5f;
 
             cursorObj = new(ingameDrawer, "", UI.Font)
             {
@@ -198,16 +199,12 @@ namespace Monoproject
         private void SetLoadables()
         {
             loadables = CreateInstances<ILoadable>();
-
-            foreach (var item in loadables)
-                item.Load();
+            loadables.ForEach(l => l.Load());
         }
         private void SetInitables()
         {
             initables = CreateInstances<IInitable>();
-
-            foreach (var item in initables)
-                item.Init();
+            initables.ForEach(i => i.Init());
         }
         public static List<T> CreateInstances<T>() where T : class
         {
@@ -255,14 +252,5 @@ namespace Monoproject
             get => _position;
             set => _position = value;
         }
-    }
-
-    public interface ILoadable
-    {
-        void Load();
-    }
-    public interface IInitable
-    {
-        void Init();
     }
 }

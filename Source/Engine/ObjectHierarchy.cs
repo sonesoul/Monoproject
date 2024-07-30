@@ -10,8 +10,8 @@ using System.Diagnostics;
 
 namespace Engine
 {
-    [DebuggerDisplay("{commonVertex}")]
-    public abstract class GameObject
+    [DebuggerDisplay("{position}")]
+    public abstract class ModularObject
     {
         public Vector2 position = new(0, 0);
         public Vector2 IntegerPosition => position.Rounded();
@@ -23,13 +23,13 @@ namespace Engine
         public SpriteBatch spriteBatch;
         public Vector2 viewport;
 
-        protected List<ObjectModule> modules = new();
+        private readonly List<ObjectModule> modules = new();
 
         protected readonly Action<GameTime> drawAction;
 
-        public IReadOnlyList<ObjectModule> Modules => modules.ToArray();
+        public IReadOnlyList<ObjectModule> Modules => modules;
 
-        public GameObject(IDrawer drawer)
+        public ModularObject(IDrawer drawer)
         {
             this.drawer = drawer;
             spriteBatch = drawer.SpriteBatch;
@@ -38,7 +38,11 @@ namespace Engine
             drawer.AddDrawAction(drawAction);
             viewport = new(spriteBatch.GraphicsDevice.Viewport.Width, spriteBatch.GraphicsDevice.Viewport.Height);
         }
-        public virtual void Destroy() => drawer.RemoveDrawAction(drawAction);
+        public virtual void Destroy()
+        {
+            drawer.RemoveDrawAction(drawAction);
+            modules.ForEach(m => RemoveModule(m));
+        }
 
         protected abstract void Draw(GameTime gameTime);
 
@@ -46,15 +50,18 @@ namespace Engine
         {
             var module = (T)Activator.CreateInstance(typeof(T), args: this);
 
-            if (!ContainsModule<T>())
-                modules.Add(module);
-            else
-                modules[modules.IndexOf(module)] = module;
+            AddModule(module);
 
             return module;
         }
         public void AddModule<T>(T module)
-            where T : ObjectModule => modules.Add(module);
+            where T : ObjectModule
+        {
+            if (ContainsModule<T>())
+                throw new ArgumentException($"Module already exists ({module.GetType().Name}).");
+
+            modules.Add(module);
+        }
         public bool RemoveModule<T>() 
             where T : ObjectModule => RemoveModule(modules.OfType<T>().FirstOrDefault());
         public bool RemoveModule<T>(T module) where T : ObjectModule 
@@ -68,20 +75,45 @@ namespace Engine
 
             return res;
         }
-        public T GetModule<T>() 
-            where T : ObjectModule => Modules.OfType<T>().FirstOrDefault();
+        public T ReplaceModule<T>() where T : ObjectModule
+        {
+            if (TryGetModule(out T oldModule))
+                RemoveModule(oldModule);
+
+            return AddModule<T>();
+        }
+        public T ReplaceModule<T>(T module) where T : ObjectModule
+        {
+            if (ContainsModule<T>())
+                RemoveModule<T>();
+
+            AddModule(module);
+
+            return module;
+        }
+        public T GetModule<T>()
+            where T : ObjectModule
+        {
+            T module = null;
+            var oftype = Modules.OfType<T>();
+
+            if(oftype.Any())
+                module = oftype.First();
+
+            return module;
+        }
         public ObjectModule[] GetModulesOf<T>() 
             where T : ObjectModule => Modules.OfType<T>().ToArray();
         public bool TryGetModule<T>(out T module)
-            where T : ObjectModule => (module = Modules.OfType<T>().FirstOrDefault()) != null;
+            where T : ObjectModule => (module = GetModule<T>()) != null;
         public bool ContainsModule<T>()
             where T : ObjectModule => Modules.OfType<T>().Any();
         public bool ContainsModule<T>(T module)
-           where T : ObjectModule => Modules.Where(m => m == module).Any();
+           where T : ObjectModule => Modules.Contains(module);
     }
     
     [DebuggerDisplay("{sprite}")]
-    public class TextObject : GameObject
+    public class TextObject : ModularObject
     {
         public string sprite;
         public SpriteFont font;

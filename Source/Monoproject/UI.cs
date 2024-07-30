@@ -6,6 +6,7 @@ using Engine.FrameDrawing;
 using Engine.Modules;
 using GlobalTypes.Events;
 using GlobalTypes;
+using GlobalTypes.Interfaces;
 
 namespace Monoproject.GameUI
 {
