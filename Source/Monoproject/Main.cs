@@ -158,7 +158,6 @@ namespace Monoproject
                 };
                 objects[i].AddModule<Rigidbody>().bounciness = 1f;
                 objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-                //objects[i].Rotation = 45;
                 objects[i].GetModule<Rigidbody>().gravityScale = 0;
             }
 
@@ -176,7 +175,7 @@ namespace Monoproject
                 position = new(0, 0),
                 Color = Color.White
             };
-            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(20, 60);
+            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
             cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
 
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)

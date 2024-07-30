@@ -9,6 +9,7 @@ namespace GlobalTypes.Extensions
         public static Vector2 Perpendicular(this Vector2 v) => new(v.Y, -v.X);
         public static Vector2 UnitNormal(this Vector2 v) => new Vector2(-v.Y, v.X).Normalized();
         public static Vector2 Normalized(this Vector2 v) => Vector2.Normalize(v);
+        public static float DistanceTo(this Vector2 v, Vector2 other) => Vector2.Distance(v, other);
 
         public static Vector2 Floored(this Vector2 v) => Vector2.Floor(v);
         public static Vector2 Ceiled(this Vector2 v) => Vector2.Ceiling(v);

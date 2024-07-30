@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 namespace Engine
 {
-    [DebuggerDisplay("{position}")]
+    [DebuggerDisplay("{commonVertex}")]
     public abstract class GameObject
     {
         public Vector2 position = new(0, 0);

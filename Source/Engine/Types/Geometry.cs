@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.Xna.Framework;
-using Monoproject;
 
 namespace Engine.Types
 {
@@ -59,26 +58,27 @@ namespace Engine.Types
             float length = dir.Length();
             dir /= length;
 
-            Vector2 perpendicular = new(-dir.Y, dir.X);
+            Vector2 perpendicular = dir.Perpendicular();
 
             Vector2 offset = (perpendicular * tolerance).Abs();
 
-            Vector2 startAdjusted = start + dir;
-            Vector2 endAdjusted = end - dir;
+            Vector2 rectStart = start - offset - (dir * tolerance);
+            Vector2 rectEnd = end + offset + (dir * tolerance);
+            
+            Vector2 min = new(
+                Math.Min(rectStart.X, rectEnd.X),
+                Math.Min(rectStart.Y, rectEnd.Y));
+            Vector2 max = new(
+                Math.Max(rectStart.X, rectEnd.X),            
+                Math.Max(rectStart.Y, rectEnd.Y));
 
-            Vector2 startRect = startAdjusted - offset;
-            Vector2 endRect = endAdjusted + offset;
-
-            float minX = Math.Min(startRect.X, endRect.X);
-            float maxX = Math.Max(startRect.X, endRect.X);
-            float minY = Math.Min(startRect.Y, endRect.Y);
-            float maxY = Math.Max(startRect.Y, endRect.Y);
-
-            bool betweenX = point.X >= minX && point.X <= maxX;
-            bool betweenY = point.Y >= minY && point.Y <= maxY;
+            bool betweenX = point.X >= min.X && point.X <= max.X;
+            bool betweenY = point.Y >= min.Y && point.Y <= max.Y;
 
             return betweenX && betweenY;
         }
+        public readonly bool IsSegmentBetween(LineSegment other, float tolerance) => IsPointBetween(other.Start, tolerance) && IsPointBetween(other.End, tolerance);
+        
         public readonly float DistanceToPoint(Vector2 point)
         {
             Vector2 lineDir = Direction;
@@ -93,6 +93,11 @@ namespace Engine.Types
             Vector2 closestPoint = Start + lineDir * projection;
             return Vector2.Distance(point, closestPoint);
         }
+        public readonly void Deconstruct(out Vector2 start, out Vector2 end)
+        {
+            start = Start;
+            end = End;
+        }
 
         public readonly Projection ProjectOn(Vector2 axis)
         {
@@ -100,7 +105,24 @@ namespace Engine.Types
             float end = Vector2.Dot(End, axis);
             return new(Math.Min(start, end), Math.Max(start, end), axis);
         }
+
+
+        #region ObjectOverrides
+        private static bool Equals(LineSegment left, LineSegment right) => left.Start == right.Start && left.End == right.End;
+        
+        public readonly override bool Equals(object obj)
+        {
+            if(obj is LineSegment other)
+                return Equals(this, other);
+            else 
+                return false;
+        }
+        public readonly override int GetHashCode() => HashCode.Combine(Start, End);
         public readonly override string ToString() => $"{Start} ---- {End} ({Distance})";
+
+        public static bool operator ==(LineSegment left, LineSegment right) => Equals(left, right);
+        public static bool operator !=(LineSegment left, LineSegment right) => !(left == right);
+        #endregion
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
