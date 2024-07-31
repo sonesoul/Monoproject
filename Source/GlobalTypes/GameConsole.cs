@@ -1,39 +1,99 @@
-﻿using Microsoft.Xna.Framework.Input;
+﻿using Microsoft.Win32.SafeHandles;
+using Microsoft.Xna.Framework.Input;
+using Monoproject;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+
 namespace GlobalTypes
 {
     static class GameConsole
     {
         [DllImport("kernel32.dll")]
-        private static extern bool AllocConsole();
+        static extern bool AllocConsole();
+        [DllImport("kernel32.dll")]
+        static extern bool FreeConsole();
 
         [DllImport("kernel32.dll")]
-        private static extern bool FreeConsole();
+        static extern IntPtr GetStdHandle(uint nStdHandle);
+
+        [DllImport("user32.dll")]
+        static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private const uint STD_INPUT_HANDLE = 0xFFFFFFF6;
+        private const uint STD_OUTPUT_HANDLE = 0xFFFFFFF5;
+        private const uint STD_ERROR_HANDLE = 0xFFFFFFF4;
+
+        private readonly static TextReader _originalIn = Console.In;
+        private readonly static TextWriter _originalOut = Console.Out;
+        private readonly static TextWriter _originalErr = Console.Error;
 
         public static Keys OpenCloseKey => Keys.OemTilde;
         public static bool IsOpened { get; private set; } = false;
-
         public static bool Open()
         {
-            IsOpened = true;
+            if (!IsOpened)
+            {
+                IsOpened = true;
+                bool result = AllocConsole();
 
-            bool result = AllocConsole();
-            Console.WriteLine("Succesfully created");
-            return result;
+                if (result)
+                {
+                    SetHandles();
+
+                    Console.Title = "Monoproject console";
+                    Console.WriteLine($"Opened ({GetKey(8)})");
+                    SetForegroundWindow(Main.Instance.Window.Handle);
+                }
+
+                return result;
+            }
+            return false;
         }
+
         public static bool Close()
         {
-            IsOpened = false;
-            return FreeConsole();
+            if (IsOpened)
+            {
+                IsOpened = false;
+                FreeConsole();
+
+                Reset();
+                return true;
+            }
+            return false;
         }
 
-        public static void SwitchState()
+        private static void Reset()
         {
-            if (IsOpened)
-                Close();
-            else 
-                Open();
+            Console.SetOut(_originalOut);
+            Console.SetError(_originalErr);
+            Console.SetIn(_originalIn);
+        }
+        private static void SetHandles()
+        {
+            SafeFileHandle sfhIn = new(GetStdHandle(STD_INPUT_HANDLE), false);
+            SafeFileHandle sfhOut = new(GetStdHandle(STD_OUTPUT_HANDLE), false);
+            SafeFileHandle sfhErr = new(GetStdHandle(STD_ERROR_HANDLE), false);
+
+            Console.SetIn(new StreamReader(new FileStream(sfhIn, FileAccess.Read)));
+            Console.SetOut(new StreamWriter(new FileStream(sfhOut, FileAccess.Write)) { AutoFlush = true });
+            Console.SetError(new StreamWriter(new FileStream(sfhErr, FileAccess.Write)) { AutoFlush = true });
+        }
+
+        public static bool SwitchState() => !IsOpened ? Open() : Close();
+
+        private static string GetKey(int length)
+        {
+            string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            List<char> result = new();
+            Random rnd = new();
+            for (int i = 0; i < length; i++) 
+                result.Add(chars[rnd.Next(chars.Length)]);
+
+            return string.Join("", result);
         }
     }
 }
