@@ -16,6 +16,7 @@ using Engine;
 using Engine.FrameDrawing;
 using Engine.Modules;
 using Engine.Types;
+using System.Runtime.InteropServices;
 
 namespace Monoproject
 {
@@ -39,6 +40,8 @@ namespace Monoproject
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
         public static Main Instance { get; private set; }
+
+        private static bool ConsoleKeyPressed { get; set; } = true;
 
         public Main()
         {
@@ -66,7 +69,7 @@ namespace Monoproject
         protected override void Initialize()
         {
             base.Initialize();
-            
+
             SetInitables();
             CreateObjects();
         }
@@ -74,10 +77,10 @@ namespace Monoproject
         {
             GameEvents.OnUpdate.Trigger(gameTime);
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
-                Exit();
+                Exit();    
 
             UpdateControls();
-
+            
             base.Update(gameTime);
         }
         protected override void Draw(GameTime gameTime)
@@ -105,36 +108,45 @@ namespace Monoproject
 
         private void UpdateControls()
         {
+            KeyboardState state = Keyboard.GetState();
+
+            if (state.IsKeyDown(GameConsole.OpenCloseKey) && ConsoleKeyPressed)
+            {
+                GameConsole.SwitchState();
+                ConsoleKeyPressed = false;
+            }
+            if (state.IsKeyUp(GameConsole.OpenCloseKey) && !ConsoleKeyPressed)
+                ConsoleKeyPressed = true;
+
+
             player.position += new Vector2
             {
                 X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
                 Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
             } * HCoords.UnitsPerSec(1f);
 
-
-            if (Keyboard.GetState().IsKeyDown(Keys.Space) && canJump)
+            if (state.IsKeyDown(Keys.Space) && canJump)
             {
                 player.GetModule<Rigidbody>().velocity = Vector2.Zero;
                 player.GetModule<Rigidbody>().AddForce(new(0, HCoords.ToPixels(-3)));
                 canJump = false;
             }
-            if (Keyboard.GetState().IsKeyDown(Keys.F))
+            if (state.IsKeyDown(Keys.F))
             {
                 player.GetModule<Rigidbody>().AddForce(new(1, 0));
             }
 
-            if (Keyboard.GetState().IsKeyUp(Keys.Space))
+            if (state.IsKeyUp(Keys.Space))
             {
                 canJump = true;
             }
-            if (Keyboard.GetState().IsKeyDown(Keys.Q))
+            if (state.IsKeyDown(Keys.Q))
             {
-                //objects[0].GetModule<Collider>().polygon = Polygon.RightTriangle(50, 50);
+                objects[0].GetModule<Collider>().polygon = Polygon.RightTriangle(50, 50);
                 objects[0].Rotation += 180 * HTime.DeltaTime;
             }
             cursorObj.position = Mouse.GetState().Position.ToVector2();
         }
-
         private void CreateObjects()
         {
             for (int i = 0; i < objects.Length; i++)
@@ -195,6 +207,7 @@ namespace Monoproject
             wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;
         }
+
 
         private void SetLoadables()
         {

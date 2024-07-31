@@ -191,6 +191,9 @@ namespace Engine.Modules
                 velocity += forces / Mass * FixedDelta;
                 forces = Vector2.Zero;
 
+                AngularVelocity += Torque / MomentOfInertia * FixedDelta;
+                Torque = 0;
+
                 foreach (var item in CollModule.Intersections)
                 {
                     if (item.Owner.TryGetModule(out Rigidbody otherRb))
@@ -199,12 +202,16 @@ namespace Engine.Modules
                         HandleOthers(this, item);
                 }
 
-                ApplyGravity();
+                //ApplyGravity();
                 ApplyFriction(Windage);
-
+                AngularVelocity *= 0.9955f;
+                
                 Main.Instance.player.GetModule<Collider>().info = velocity.ToString();
 
+                Angle = AngularVelocity * FixedDelta;
                 Owner.position += velocity;
+                Owner.Rotation -= Angle;
+
                 updateTimeBuffer -= FixedDelta;
             }
         }
@@ -222,6 +229,9 @@ namespace Engine.Modules
                 return;
 
             Vector2 impulse = Vector2.Zero;
+            float torqueFirst = 0;
+            float torqueSecond = 0;
+
             int touchCount = 0;
             foreach (var item in touches)
             {
@@ -232,10 +242,17 @@ namespace Engine.Modules
                     continue;
 
                 Vector2 tempImpulse = GetImpulse(touchNormal, velocityAlongNormal, first, second);
+
+                Vector2 r1 = item.vertex - first.Owner.position;
+                Vector2 r2 = item.vertex - second.Owner.position;
+
                 if (tempImpulse.LengthSquared() > ZeroThreshold)
                 {
                     impulse += tempImpulse;
                     touchCount++;
+
+                    torqueFirst += r1.Cross(tempImpulse);
+                    torqueSecond += r2.Cross(tempImpulse);
                 }
             }
 
@@ -244,6 +261,9 @@ namespace Engine.Modules
 
             first.velocity -= impulse / touchCount / first.Mass;
             second.velocity += impulse / touchCount / second.Mass;
+
+            first.AngularVelocity += torqueFirst /  first.MomentOfInertia;
+            second.AngularVelocity -= torqueSecond  /second.MomentOfInertia;
         }
         private static void HandleOthers(Rigidbody rb, Collider other)
         {
@@ -333,8 +353,6 @@ namespace Engine.Modules
             velocity.X = (float)Math.Round(velocity.X, 3);
             velocity.Y = (float)Math.Round(velocity.Y, 3);
         }
-
-
 
         private void OnColliderDestruct() => Owner.RemoveModule(this);
         protected override void Destruct() => CollModule.OnCheckFinish -= Update;
