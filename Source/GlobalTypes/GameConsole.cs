@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace GlobalTypes
 {
@@ -32,6 +34,8 @@ namespace GlobalTypes
 
         public static Keys OpenCloseKey => Keys.OemTilde;
         public static bool IsOpened { get; private set; } = false;
+
+        private static CancellationTokenSource _cancellationTokenSource;
         public static bool Open()
         {
             if (!IsOpened)
@@ -42,17 +46,22 @@ namespace GlobalTypes
                 if (result)
                 {
                     SetHandles();
-
-                    Console.Title = "Monoproject console";
+                    Console.Title = "monoconsole";
                     Console.WriteLine($"Opened ({GetKey(8)})");
+
                     SetForegroundWindow(Main.Instance.Window.Handle);
+
+                    _cancellationTokenSource = new CancellationTokenSource();
+                    new Thread(() => ConsoleThread(_cancellationTokenSource.Token))
+                    {
+                        IsBackground = true
+                    }.Start();
                 }
 
                 return result;
             }
             return false;
         }
-
         public static bool Close()
         {
             if (IsOpened)
@@ -60,10 +69,22 @@ namespace GlobalTypes
                 IsOpened = false;
                 FreeConsole();
 
+                _cancellationTokenSource?.Cancel();
                 Reset();
                 return true;
             }
             return false;
+        }
+        public static bool SwitchState() => !IsOpened ? Open() : Close();
+        public static void New()
+        {
+            if(!IsOpened)
+                Open();
+            else
+            {
+                Close();
+                Open();
+            }
         }
 
         private static void Reset()
@@ -83,7 +104,27 @@ namespace GlobalTypes
             Console.SetError(new StreamWriter(new FileStream(sfhErr, FileAccess.Write)) { AutoFlush = true });
         }
 
-        public static bool SwitchState() => !IsOpened ? Open() : Close();
+        private static void ConsoleThread(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable)
+                {
+                    string input = Console.ReadLine();
+
+                    if (input == "close")
+                        Close();
+                    else if (input == "new")
+                        New();
+                    else if (input == "clear")
+                        Console.Clear();
+                    else if (input == "exit")
+                        Main.Instance.Exit();
+                }
+
+                Thread.Sleep(100);
+            }
+        }
 
         private static string GetKey(int length)
         {

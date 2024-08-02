@@ -16,7 +16,6 @@ using Engine;
 using Engine.FrameDrawing;
 using Engine.Modules;
 using Engine.Types;
-using System.Runtime.InteropServices;
 
 namespace Monoproject
 {
@@ -142,8 +141,7 @@ namespace Monoproject
             }
             if (state.IsKeyDown(Keys.Q))
             {
-                objects[0].GetModule<Collider>().polygon = Polygon.RightTriangle(50, 50);
-                objects[0].Rotation += 180 * HTime.DeltaTime;
+                player.GetModule<Rigidbody>().AngularVelocity -= 380f.AsRad() * HTime.DeltaTime;
             }
             cursorObj.position = Mouse.GetState().Position.ToVector2();
         }
@@ -169,7 +167,7 @@ namespace Monoproject
                         WindowWidth / 2,
                         WindowHeight / 2), 300)
                 };
-                objects[i].AddModule<Rigidbody>().Bounciness = 0.2f;
+                objects[i].AddModule<Rigidbody>().Bounciness = 0.5f;
                 objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
                 objects[i].GetModule<Rigidbody>().GravityScale = 0;
             }
@@ -178,15 +176,14 @@ namespace Monoproject
             player = new(ingameDrawer, "#", UI.Font)
             {
                 position = new(400, 400),
-                Color = Color.Green
+                color = Color.Green
             };
             player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             player.AddModule<Rigidbody>().Bounciness = 0.5f;
-
+            
             cursorObj = new(ingameDrawer, "", UI.Font)
             {
                 position = new(0, 0),
-                Color = Color.White
             };
             cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
             cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
@@ -194,7 +191,6 @@ namespace Monoproject
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)
             {
                 position = new(WindowWidth / 2, WindowHeight),
-                Color = Color.Gray,
             }.AddModule<Collider>();
             wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
             wallDown.Mode = ColliderMode.Static;
@@ -202,7 +198,6 @@ namespace Monoproject
             var wallLeft = new TextObject(ingameDrawer, "", UI.Font)
             {
                 position = new(WindowWidth, WindowHeight / 2 - 11),
-                Color = Color.Gray,
             }.AddModule<Collider>();
             wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;

@@ -41,7 +41,7 @@ namespace Engine.Types
         public readonly Vector2 Center => (Start + End) / 2;
         public readonly float Distance => Vector2.Distance(Start, End);
         public readonly Vector2 Direction => End - Start;
-        public readonly Vector2 Normal => new Vector2(-Direction.Y, Direction.X).Normalized();
+        public readonly Vector2 Normal => Direction.UnitNormal();
         
         public LineSegment(Vector2 start, Vector2 end)
         {

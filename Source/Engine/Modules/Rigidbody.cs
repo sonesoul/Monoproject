@@ -12,7 +12,7 @@ namespace Engine.Modules
         #region Fields
         public float Mass { get; set; } = 1;
         public float GravityScale { get; set; } = 1;
-        public float Bounciness { get; set; } = 0.2f;
+        public float Bounciness { get; set; } = 0.5f;
         public float Friction { get; set; } = 0.3f;
         public float Windage { get; set; } = 0.3f;
 
@@ -31,7 +31,6 @@ namespace Engine.Modules
         public const float FixedDelta = 1.0f / 240.0f;
         public const float ZeroThreshold = 0.005f;
         public const float Tolerance = 1;
-
         private float updateTimeBuffer = 0.0f;
         #endregion
 
@@ -170,15 +169,16 @@ namespace Engine.Modules
             else
                 CollModule = owner.AddModule<Collider>();
 
-            CollModule.OnRemoved += OnColliderDestruct;
+            CollModule.OnDispose += OnColliderDestruct;
             CollModule.OnCheckFinish += Update;
         }
 
         public void AddForce(Vector2 force) => forces += force;
         public void SetCollider(Collider newCollider)
         {
-            CollModule = Owner.ReplaceModule(newCollider);
-            CollModule.OnRemoved += OnColliderDestruct;
+            CollModule = newCollider;
+            Owner.ReplaceModule(CollModule);
+            CollModule.OnDispose += OnColliderDestruct;
             CollModule.OnCheckFinish += Update;
         }
 
@@ -191,7 +191,7 @@ namespace Engine.Modules
                 velocity += forces / Mass * FixedDelta;
                 forces = Vector2.Zero;
 
-                AngularVelocity += Torque / MomentOfInertia * FixedDelta;
+                AngularVelocity += Torque * FixedDelta;
                 Torque = 0;
 
                 foreach (var item in CollModule.Intersections)
@@ -206,11 +206,11 @@ namespace Engine.Modules
                 ApplyFriction(Windage);
                 AngularVelocity *= 0.9955f;
                 
-                Main.Instance.player.GetModule<Collider>().info = velocity.ToString();
+                CollModule.info = velocity.ToString();
 
-                Angle = AngularVelocity * FixedDelta;
+                Angle = AngularVelocity;
                 Owner.position += velocity;
-                Owner.Rotation -= Angle;
+                Owner.Rotation += Angle;
 
                 updateTimeBuffer -= FixedDelta;
             }
@@ -229,9 +229,6 @@ namespace Engine.Modules
                 return;
 
             Vector2 impulse = Vector2.Zero;
-            float torqueFirst = 0;
-            float torqueSecond = 0;
-
             int touchCount = 0;
             foreach (var item in touches)
             {
@@ -242,17 +239,10 @@ namespace Engine.Modules
                     continue;
 
                 Vector2 tempImpulse = GetImpulse(touchNormal, velocityAlongNormal, first, second);
-
-                Vector2 r1 = item.vertex - first.Owner.position;
-                Vector2 r2 = item.vertex - second.Owner.position;
-
                 if (tempImpulse.LengthSquared() > ZeroThreshold)
                 {
                     impulse += tempImpulse;
                     touchCount++;
-
-                    torqueFirst += r1.Cross(tempImpulse);
-                    torqueSecond += r2.Cross(tempImpulse);
                 }
             }
 
@@ -261,9 +251,6 @@ namespace Engine.Modules
 
             first.velocity -= impulse / touchCount / first.Mass;
             second.velocity += impulse / touchCount / second.Mass;
-
-            first.AngularVelocity += torqueFirst /  first.MomentOfInertia;
-            second.AngularVelocity -= torqueSecond  /second.MomentOfInertia;
         }
         private static void HandleOthers(Rigidbody rb, Collider other)
         {
@@ -301,17 +288,38 @@ namespace Engine.Modules
                 if (velocityAlongNormal > ZeroThreshold)
                     continue;
 
-                Vector2 tempImpulse = GetSingleImpulse(touchNormal, velocityAlongNormal, rb);
+                Vector2 linearImpulse = GetSingleImpulse(touchNormal, velocityAlongNormal, rb);
 
-                if (tempImpulse.LengthSquared() > ZeroThreshold)
+                if (linearImpulse.LengthSquared() > ZeroThreshold)
                 {
-                    impulse += tempImpulse;
+                    impulse += linearImpulse;
                     touchCount++;
                 }
 
                 if (velocityAlongNormal.Abs() < 0.1)
                     impulse += velocityAlongNormal * touchNormal;
             }
+
+            Console.WriteLine(string.Join("\n", allTouches.Select(t => $"1v: {t.vertex} e: {t.edge}")));
+
+            foreach (var item in otherTouches)
+            {
+                Vector2 r = item.vertex - rb.Owner.IntegerPosition;
+                Vector2 vertexVelocity = r.ScalarProduct(rb.AngularVelocity);
+                Vector2 normal = -item.edge.Normal;
+
+
+                float velocityAlongNormal = Vector2.Dot(vertexVelocity + rb.velocity, normal);
+                if (velocityAlongNormal > ZeroThreshold)
+                    continue;
+
+                Console.WriteLine($"2v: {rb.velocity} vrtx: {item.vertex}");
+                rb.AngularVelocity += (vertexVelocity.Cross(r) / r.LengthSquared() * (1.0f + rb.Bounciness));
+                //impulse += GetSingleImpulse(normal, velocityAlongNormal, rb);
+
+
+            }
+            Console.WriteLine();
 
             if (impulse.Length() < ZeroThreshold || touchCount == 0)
                 return;
@@ -321,7 +329,7 @@ namespace Engine.Modules
 
         private static Vector2 GetImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody first, Rigidbody second)
         {
-            float e = Math.Min(second.Bounciness, first.Bounciness);
+            float e = Math.Max(second.Bounciness, first.Bounciness);
 
             float j = -(1 + e) * velocityAlongNormal;
             j /= 1 / first.Mass + 1 / second.Mass;
@@ -354,7 +362,7 @@ namespace Engine.Modules
             velocity.Y = (float)Math.Round(velocity.Y, 3);
         }
 
-        private void OnColliderDestruct() => Owner.RemoveModule(this);
+        private void OnColliderDestruct() => Dispose();
         protected override void Destruct() => CollModule.OnCheckFinish -= Update;
         
         private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) =>
