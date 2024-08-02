@@ -27,8 +27,8 @@ namespace Engine
         public ModularObject(IDrawer drawer)
         {
             this.drawer = drawer;
-            drawer.AddDrawAction(drawAction);
             drawAction = Draw;
+            drawer.AddDrawAction(drawAction);
 
             var spriteBatch = drawer.SpriteBatch;
             viewport = new(spriteBatch.GraphicsDevice.Viewport.Width, spriteBatch.GraphicsDevice.Viewport.Height);

@@ -16,6 +16,7 @@ using Engine;
 using Engine.FrameDrawing;
 using Engine.Modules;
 using Engine.Types;
+using System.Diagnostics;
 
 namespace Monoproject
 {
@@ -39,11 +40,14 @@ namespace Monoproject
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
         public static Main Instance { get; private set; }
+        public StackTrace Stack => new(true);
 
         private static bool ConsoleKeyPressed { get; set; } = true;
-
+        long memBefore;
         public Main()
         {
+            memBefore = GC.GetTotalMemory(true);
+
             Instance = this;
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
@@ -55,6 +59,9 @@ namespace Monoproject
             graphics.SynchronizeWithVerticalRetrace = false;
             IsFixedTimeStep = false;
             Window.AllowUserResizing = true;
+
+            GameConsole.New();
+            Console.WriteLine($"ctor: {memBefore.SizeString()}");
         }
 
         protected override void LoadContent()
@@ -71,12 +78,14 @@ namespace Monoproject
 
             SetInitables();
             CreateObjects();
+
+            Console.WriteLine("initend: " + (GC.GetTotalMemory(true) - memBefore).SizeString());
         }
         protected override void Update(GameTime gameTime)
         {
             GameEvents.OnUpdate.Trigger(gameTime);
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
-                Exit();    
+                Exit();
 
             UpdateControls();
             
@@ -123,7 +132,7 @@ namespace Monoproject
                 X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
                 Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
             } * HCoords.UnitsPerSec(1f);
-
+            
             if (state.IsKeyDown(Keys.Space) && canJump)
             {
                 player.GetModule<Rigidbody>().velocity = Vector2.Zero;
@@ -172,12 +181,14 @@ namespace Monoproject
                 objects[i].GetModule<Rigidbody>().GravityScale = 0;
             }
 
-
+            
             player = new(ingameDrawer, "#", UI.Font)
             {
                 position = new(400, 400),
                 color = Color.Green
             };
+
+
             player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             player.AddModule<Rigidbody>().Bounciness = 0.5f;
             

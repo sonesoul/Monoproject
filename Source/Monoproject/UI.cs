@@ -6,7 +6,9 @@ using Engine.FrameDrawing;
 using Engine.Modules;
 using GlobalTypes.Events;
 using GlobalTypes;
+using GlobalTypes.Extensions;
 using GlobalTypes.Interfaces;
+using System;
 
 namespace Monoproject.GameUI
 {
@@ -47,7 +49,7 @@ namespace Monoproject.GameUI
             frameCounter++;
             Point curPoint = Mouse.GetState().Position;
 
-            Collider coll = Main.Instance.player.GetModule<Collider>();
+            Collider coll = Main.Instance?.player?.GetModule<Collider>();
 
             spriteBatch.DrawString(font,
                 $"FPS: {(int)fps}\n" +

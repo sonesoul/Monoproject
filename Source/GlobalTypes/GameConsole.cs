@@ -120,6 +120,13 @@ namespace GlobalTypes
                         Console.Clear();
                     else if (input == "exit")
                         Main.Instance.Exit();
+                    else if (input == "mem")
+                        Console.WriteLine(
+                            $"collcount 0: [{GC.CollectionCount(0)}]\n" +
+                            $"collcount 1: [{GC.CollectionCount(1)}]\n" +
+                            $"collcount 2: [{GC.CollectionCount(2)}]\n" +
+                            $"current used: [{GC.GetTotalMemory(false).SizeString()}]\n" +
+                            $"cleared: [{GC.GetTotalMemory(true).SizeString()}]");
                 }
 
                 Thread.Sleep(100);
