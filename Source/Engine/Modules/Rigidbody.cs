@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
 using Monoproject;
+using System.ComponentModel;
+using System.Windows.Forms.VisualStyles;
 
 namespace Engine.Modules
 {
@@ -78,6 +80,140 @@ namespace Engine.Modules
 
                 return result;
             }
+            public static void Refine(List<EdgeTouch> edgeTouches, List<LineSegment> edges)
+            {
+                HashSet<EdgeTouch> toAdd = new();
+
+                for (int i = 0; i < edgeTouches.Count; i++)
+                {
+                    for (int j = 0; j < edgeTouches.Count; j++)
+                    {
+                        EdgeTouch e1 = edgeTouches[i];
+                        EdgeTouch e2 = edgeTouches[j];
+
+                        if (e1.edge == e2.edge)
+                            continue;
+
+                        if (TryGetCommonVertex(e1.edge, e2.edge, out var commonEnd))
+                        {
+                            foreach (var edge in edges)
+                            {
+                                if (edge.IsPointBetween(commonEnd, Tolerance))
+                                {
+                                    toAdd.Add(new(commonEnd, edge));
+
+                                    edgeTouches.Remove(e1);
+                                    edgeTouches.Remove(e2);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                edgeTouches.AddRange(toAdd);
+            }
+            public static void Adjust(List<EdgeTouch> edgeTouches1, List<EdgeTouch> edgeTouches2, Polygon polygon1, Polygon polygon2)
+            {
+                List<LineSegment> edges1 = polygon1.GetEdges();
+                List<LineSegment> edges2 = polygon2.GetEdges();
+
+                EdgeTouch? vertexTouch1 = null;
+                EdgeTouch? vertexTouch2 = null;
+
+                foreach (var et1 in edgeTouches1)
+                {
+                    foreach (var et2 in edgeTouches2)
+                    {
+                        var e = et2.edge;
+
+                        if(et1.vertex == e.Start.Rounded() || et1.vertex == e.End.Rounded())
+                            vertexTouch1 = new(et1.vertex, et1.edge);
+                    }
+                }
+                foreach (var et1 in edgeTouches2)
+                {
+                    foreach (var et2 in edgeTouches1)
+                    {
+                        var e = et2.edge;
+
+                        if (et1.vertex == e.Start.Rounded() || et1.vertex == e.End.Rounded())
+                            vertexTouch2 = new(et1.vertex, et1.edge);
+                    }
+                }
+
+                if(vertexTouch1 != null && vertexTouch2 != null)
+                {
+                    var vt1 = vertexTouch1.Value;
+                    var vt2 = vertexTouch2.Value;
+                    foreach (var e1 in edges1)
+                    {
+                        if (e1.Rounded() == vt1.edge)
+                        {
+                            vt1.edge = e1;
+
+                            foreach (var e2 in edges2)
+                            {
+                                if (vt1.vertex == e2.Start.Rounded())
+                                    vt1.vertex = e2.Start;
+                                else if (vt1.vertex == e2.End.Rounded())
+                                    vt1.vertex = e2.End;
+                                break;
+                            }
+
+                            break;
+                        }
+                    }
+                    foreach (var e2 in edges2)
+                    {
+                        if(e2.Rounded() == vt2.edge)
+                        {
+                            vt2.edge = e2;
+
+                            foreach (var e1 in edges1)
+                            {
+                                if (vt2.vertex == e1.Start.Rounded())
+                                    vt2.vertex = e1.Start;
+                                else if (vt2.vertex == e1.End.Rounded())
+                                    vt2.vertex = e1.End;
+                                break;
+                            }
+
+                            break;
+                        }
+                    }
+
+                    var distance1 = vt1.edge.DistanceToPoint(vt1.vertex);
+                    var distance2 = vt2.edge.DistanceToPoint(vt2.vertex);
+
+                    Console.WriteLine(distance1);
+                    Console.WriteLine(distance2);
+
+                    if (distance1 > distance2)
+                        edgeTouches1.Remove(vertexTouch1.Value);
+                    else if (distance2 > distance1)
+                        edgeTouches2.Remove(vertexTouch2.Value);
+                }
+            }
+            public static bool TryGetCommonVertex(LineSegment segment1, LineSegment segment2, out Vector2 commonEnd)
+            {
+                commonEnd = Vector2.Zero;
+                Vector2[] ends1 = { segment1.Start, segment1.End };
+                Vector2[] ends2 = { segment2.Start, segment2.End };
+
+                foreach (var end1 in ends1)
+                {
+                    foreach (var end2 in ends2)
+                    {
+                        if (end1 == end2)
+                        {
+                            commonEnd = end1;
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
         }
         private struct CornerTouch
         {
@@ -93,9 +229,11 @@ namespace Engine.Modules
 
             public static List<CornerTouch> ExtractFrom(List<EdgeTouch> items)
             {
-                var resultPairs = new List<CornerTouch>();
-
+                List<CornerTouch> resultPairs = new();
                 var groups = items.GroupBy(item => item.vertex);
+
+                HashSet<EdgeTouch> toRemove = new();
+
                 foreach (var group in groups)
                 {
                     var edges = group.ToList();
@@ -114,12 +252,14 @@ namespace Engine.Modules
                             {
                                 resultPairs.Add(new(edges[i].vertex, e1, e2));
 
-                                items.Remove(edges[i]);
-                                items.Remove(edges[j]);
+                                toRemove.Remove(edges[i]);
+                                toRemove.Remove(edges[j]);
                             }
                         }
                     }
                 }
+
+                items.RemoveAll(i => toRemove.Contains(i));
 
                 return resultPairs;
             }
@@ -227,7 +367,7 @@ namespace Engine.Modules
 
             if (touches.Count < 1)
                 return;
-
+            
             Vector2 impulse = Vector2.Zero;
             int touchCount = 0;
             foreach (var item in touches)
@@ -256,7 +396,7 @@ namespace Engine.Modules
         {
             List<EdgeTouch> touches = GetTouches(rb.CollModule, other);
             List<EdgeTouch> otherTouches = GetTouches(other, rb.CollModule);
-
+            
             List<CornerTouch> corners = CornerTouch.ExtractFrom(touches);
             List<CornerTouch> otherCorners = CornerTouch.ExtractFrom(otherTouches);
 
@@ -270,11 +410,14 @@ namespace Engine.Modules
                     touches = touches.Concat(EdgeTouch.FromSingleCorner(otherCorners, corners)).ToList();
             }
 
-
+            EdgeTouch.Refine(touches, other.polygon.GetEdges());
+            EdgeTouch.Refine(otherTouches, rb.CollModule.polygon.GetEdges());
+            EdgeTouch.Adjust(touches, otherTouches, rb.CollModule.polygon, other.polygon);
+           
             List<EdgeTouch> allTouches = touches.Concat(otherTouches
                 .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
                 .ToList()).ToList();
-            
+
             if (allTouches.Count < 1)
                 return;
 
@@ -300,7 +443,7 @@ namespace Engine.Modules
                     impulse += velocityAlongNormal * touchNormal;
             }
 
-            Console.WriteLine(string.Join("\n", allTouches.Select(t => $"1v: {t.vertex} e: {t.edge}")));
+            Console.WriteLine(string.Join("\n", allTouches.Select(t => $"1v: {t.vertex} e: {t.edge} n: {t.edge.Normal}")));
 
             foreach (var item in otherTouches)
             {
@@ -313,11 +456,8 @@ namespace Engine.Modules
                 if (velocityAlongNormal > ZeroThreshold)
                     continue;
 
-                Console.WriteLine($"2v: {rb.velocity} vrtx: {item.vertex}");
-                rb.AngularVelocity += (vertexVelocity.Cross(r) / r.LengthSquared() * (1.0f + rb.Bounciness));
-                //impulse += GetSingleImpulse(normal, velocityAlongNormal, rb);
-
-
+                Console.WriteLine($"velocity: {rb.velocity} vertex: {item.vertex}");
+                rb.AngularVelocity += vertexVelocity.Cross(r) / r.LengthSquared() * (1.0f + rb.Bounciness);
             }
             Console.WriteLine();
 
@@ -365,11 +505,11 @@ namespace Engine.Modules
         private void OnColliderDestruct() => Dispose();
         protected override void Destruct() => CollModule.OnCheckFinish -= Update;
         
-        private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) =>
-            (from e in edges
-             from v in vertices
-             where e.IsPointBetween(v, Tolerance)
-             select new EdgeTouch(v, e)).ToList();
+        private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
+            (from e in edges 
+            from v in vertices
+            where e.IsPointBetween(v, Tolerance)
+            select new EdgeTouch(v, e)).ToList();
         private static List<EdgeTouch> GetTouches(Collider edgesColl, Collider verticesColl)
         {
             List<LineSegment> edges = edgesColl.polygon.GetEdges()

@@ -79,6 +79,7 @@ namespace Engine.Types
         }
         public readonly bool IsSegmentBetween(LineSegment other, float tolerance) => IsPointBetween(other.Start, tolerance) && IsPointBetween(other.End, tolerance);
         
+        public readonly bool HasCommonVertex(LineSegment other) => Start == other.Start || End == other.End || Start == other.End || End == other.Start;
         public readonly float DistanceToPoint(Vector2 point)
         {
             Vector2 lineDir = Direction;
@@ -105,11 +106,13 @@ namespace Engine.Types
             float end = Vector2.Dot(End, axis);
             return new(Math.Min(start, end), Math.Max(start, end), axis);
         }
-
+        public readonly LineSegment Rounded() => new(Start.Rounded(), End.Rounded());
 
         #region ObjectOverrides
-        private static bool Equals(LineSegment left, LineSegment right) => left.Start == right.Start && left.End == right.End;
-        
+        private static bool Equals(LineSegment left, LineSegment right) =>
+            (left.Start == right.Start && left.End == right.End) ||
+            (left.Start == right.End && left.End == right.Start);
+
         public readonly override bool Equals(object obj)
         {
             if(obj is LineSegment other)
