@@ -1,12 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Engine.FrameDrawing;
+using Engine.Drawing;
 using Engine.Types;
 using GlobalTypes.Events;
-
 
 namespace Engine.Modules
 {

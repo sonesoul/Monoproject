@@ -6,6 +6,7 @@ using Engine.Types;
 using Monoproject;
 using System.ComponentModel;
 using System.Windows.Forms.VisualStyles;
+using GlobalTypes;
 
 namespace Engine.Modules
 {
@@ -185,9 +186,6 @@ namespace Engine.Modules
                     var distance1 = vt1.edge.DistanceToPoint(vt1.vertex);
                     var distance2 = vt2.edge.DistanceToPoint(vt2.vertex);
 
-                    Console.WriteLine(distance1);
-                    Console.WriteLine(distance2);
-
                     if (distance1 > distance2)
                         edgeTouches1.Remove(vertexTouch1.Value);
                     else if (distance2 > distance1)
@@ -360,7 +358,6 @@ namespace Engine.Modules
             List<EdgeTouch> touches = GetTouches(second.CollModule, first.CollModule);
             List<EdgeTouch> otherTouches = GetTouches(first.CollModule, second.CollModule);
 
-
             List<CornerTouch> cornerTouches = CornerTouch.ExtractFrom(touches);
 
             if (cornerTouches.Count > 1)
@@ -454,24 +451,19 @@ namespace Engine.Modules
                     impulse += velocityAlongNormal * touchNormal;
             }
 
-            Console.WriteLine(string.Join("\n", allTouches.Select(t => $"1v: {t.vertex} e: {t.edge} n: {t.edge.Normal}")));
-
             foreach (var item in otherTouches)
             {
                 Vector2 r = item.vertex - rb.Owner.IntegerPosition;
                 Vector2 vertexVelocity = r.ScalarProduct(rb.AngularVelocity);
                 Vector2 normal = -item.edge.Normal;
 
-
                 float velocityAlongNormal = Vector2.Dot(vertexVelocity + rb.velocity, normal);
                 if (velocityAlongNormal > ZeroThreshold)
                     continue;
 
-                Console.WriteLine($"velocity: {rb.velocity} vertex: {item.vertex}");
+                GameConsole.WriteLine($"velocity: {rb.velocity} vertex: {item.vertex}");
                 rb.AngularVelocity += vertexVelocity.Cross(r) / r.LengthSquared() * (1.0f + rb.Bounciness);
             }
-            Console.WriteLine();
-
             if (impulse.Length() < ZeroThreshold || touchCount == 0)
                 return;
 

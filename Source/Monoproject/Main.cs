@@ -1,22 +1,23 @@
 ﻿global using GlobalTypes.Extensions;
 
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using System;
 using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Threading;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 using Monoproject.GameUI;
 using GlobalTypes;
 using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
 using Engine;
-using Engine.FrameDrawing;
+using Engine.Drawing;
 using Engine.Modules;
 using Engine.Types;
-using System.Diagnostics;
 
 namespace Monoproject
 {
@@ -40,13 +41,15 @@ namespace Monoproject
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
         public static Main Instance { get; private set; }
-        public StackTrace Stack => new(true);
 
         private static bool ConsoleKeyPressed { get; set; } = true;
         long memBefore;
         public Main()
         {
             memBefore = GC.GetTotalMemory(true);
+
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+            Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
 
             Instance = this;
             graphics = new GraphicsDeviceManager(this);
@@ -118,12 +121,12 @@ namespace Monoproject
         {
             KeyboardState state = Keyboard.GetState();
 
-            if (state.IsKeyDown(GameConsole.OpenCloseKey) && ConsoleKeyPressed)
+            if (state.IsKeyDown(GameConsole.ToggleKey) && ConsoleKeyPressed)
             {
-                GameConsole.SwitchState();
+                GameConsole.ToggleState();
                 ConsoleKeyPressed = false;
             }
-            if (state.IsKeyUp(GameConsole.OpenCloseKey) && !ConsoleKeyPressed)
+            if (state.IsKeyUp(GameConsole.ToggleKey) && !ConsoleKeyPressed)
                 ConsoleKeyPressed = true;
 
 

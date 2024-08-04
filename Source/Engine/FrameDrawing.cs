@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
-namespace Engine.FrameDrawing
+namespace Engine.Drawing
 {
     public interface IDrawer
     {
@@ -40,7 +40,7 @@ namespace Engine.FrameDrawing
             if (drawAction != null)
                 _drawActions.Add(drawAction);
         }
-        public void AddDrawAction(params Action<GameTime>[] drawActions)
+        public virtual void AddDrawAction(params Action<GameTime>[] drawActions)
         {
             foreach (var item in drawActions)
             {
@@ -58,8 +58,9 @@ namespace Engine.FrameDrawing
         public SpriteBatch SpriteBatch => _spriteBatch;
         public GraphicsDevice GraphicsDevice => _graphicsDevice;
 
-        public virtual int Layer => -1;
+        public abstract int Layer { get; }
     }
+
     public class InterfaceDrawer : Drawer
     {
         private static InterfaceDrawer _instance;
@@ -69,10 +70,11 @@ namespace Engine.FrameDrawing
         {
             if (_instance == null)
             {
-                if (batch == null || device == null)
-                {
-                    throw new InvalidOperationException("Cannot create instance without SpriteBatch and GraphicsDevice.");
-                }
+                if (batch == null)
+                    throw new ArgumentNullException(batch.ToString());
+                else if (device == null)
+                    throw new ArgumentNullException(device.ToString());
+                
                 _instance = new(batch, device);
             }
             return _instance;
@@ -88,10 +90,11 @@ namespace Engine.FrameDrawing
         {
             if (_instance == null)
             {
-                if (batch == null || device == null)
-                {
-                    throw new InvalidOperationException("Cannot create instance without SpriteBatch and GraphicsDevice.");
-                }
+                if (batch == null)
+                    throw new ArgumentNullException(batch.ToString());
+                else if (device == null)
+                    throw new ArgumentNullException(device.ToString());
+
                 _instance = new(batch, device);
             }
             return _instance;

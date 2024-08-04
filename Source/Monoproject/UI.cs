@@ -2,13 +2,11 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using static GlobalTypes.HMath;
-using Engine.FrameDrawing;
+using Engine.Drawing;
 using Engine.Modules;
 using GlobalTypes.Events;
 using GlobalTypes;
-using GlobalTypes.Extensions;
 using GlobalTypes.Interfaces;
-using System;
 
 namespace Monoproject.GameUI
 {

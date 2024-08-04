@@ -4,38 +4,67 @@ using Monoproject;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static GlobalTypes.NativeInterop.NativeMethods;
+using static GlobalTypes.NativeInterop.Constants;
 
 namespace GlobalTypes
 {
-    static class GameConsole
+    public static class GameConsole
     {
-        [DllImport("kernel32.dll")]
-        static extern bool AllocConsole();
-        [DllImport("kernel32.dll")]
-        static extern bool FreeConsole();
+        private static class CommandManager
+        {
+            private static class Commands
+            {
+                public static void Mem(string arg)
+                {
+                    Console.WriteLine(
+                            $"GC0: [{GC.CollectionCount(0)}]\n" +
+                            $"GC1: [{GC.CollectionCount(1)}]\n" +
+                            $"GC2: [{GC.CollectionCount(2)}]\n" +
+                            $"usg: [{GC.GetTotalMemory(false).SizeString()}]\n" +
+                            $"avg: [{GC.GetTotalMemory(true).SizeString()}]");
+                }
+            }
 
-        [DllImport("kernel32.dll")]
-        static extern IntPtr GetStdHandle(uint nStdHandle);
+            private readonly static Dictionary<string, Action<string>> commands = new() 
+            {
+                { "new", (arg) => New() },
+                { "exit", (arg) => Close() },
+                { "clear", (arg) => { Console.Clear(); Console.WriteLine(openString); } },
+                { "trmt", (arg) => Main.Instance.Exit() },
+                { "mem", Commands.Mem },
+            };
 
-        [DllImport("user32.dll")]
-        static extern bool SetForegroundWindow(IntPtr hWnd);
+            public static void Handle(string input)
+            {
+                input = input.ToLower().Trim();
+                if (string.IsNullOrEmpty(input))
+                    return;
 
-        private const uint STD_INPUT_HANDLE = 0xFFFFFFF6;
-        private const uint STD_OUTPUT_HANDLE = 0xFFFFFFF5;
-        private const uint STD_ERROR_HANDLE = 0xFFFFFFF4;
+                if (!commands.TryGetValue(input, out var action))
+                {
+                    Console.WriteLine($"Unexpected command: \"{input}\"");
+                    return;
+                }
+
+
+                int index = input.IndexOf(" "); 
+                action?.Invoke(index != -1 ? input[index..] : "");
+            }            
+        }
 
         private readonly static TextReader _originalIn = Console.In;
         private readonly static TextWriter _originalOut = Console.Out;
         private readonly static TextWriter _originalErr = Console.Error;
 
-        public static Keys OpenCloseKey => Keys.OemTilde;
+        public static Keys ToggleKey => Keys.OemTilde;
         public static bool IsOpened { get; private set; } = false;
-
+        private static string openString = "";
         private static CancellationTokenSource _cancellationTokenSource;
+
         public static bool Open()
         {
             if (!IsOpened)
@@ -47,10 +76,12 @@ namespace GlobalTypes
                 {
                     SetHandles();
                     Console.Title = "monoconsole";
-                    Console.WriteLine($"Opened ({GetKey(8)})");
-
-                    SetForegroundWindow(Main.Instance.Window.Handle);
-
+                    openString = $"Opened ({GenerateKey(8)})";
+                    Console.WriteLine(openString);
+                    
+                    RemoveSystemMenu();
+                    
+                    Console.OutputEncoding = Encoding.UTF8;
                     _cancellationTokenSource = new CancellationTokenSource();
                     new Thread(() => ConsoleThread(_cancellationTokenSource.Token))
                     {
@@ -66,16 +97,17 @@ namespace GlobalTypes
         {
             if (IsOpened)
             {
-                IsOpened = false;
                 FreeConsole();
 
                 _cancellationTokenSource?.Cancel();
                 Reset();
+
+                IsOpened = false;
                 return true;
             }
             return false;
         }
-        public static bool SwitchState() => !IsOpened ? Open() : Close();
+        public static bool ToggleState() => !IsOpened ? Open() : Close();
         public static void New()
         {
             if(!IsOpened)
@@ -87,6 +119,30 @@ namespace GlobalTypes
             }
         }
 
+        private static void ConsoleThread(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    if (Console.KeyAvailable)
+                        CommandManager.Handle(Console.ReadLine());
+                    else
+                        Thread.Sleep(500);
+                }
+                catch
+                {
+                    return;
+                }
+            }
+        }
+
+        private static void RemoveSystemMenu()
+        {
+            IntPtr hWnd = GetConsoleWindow();
+            int style = GetWindowLong(hWnd, GWL_STYLE);
+            _ = SetWindowLong(hWnd, GWL_STYLE, style & ~WS_SYSMENU);
+        }
         private static void Reset()
         {
             Console.SetOut(_originalOut);
@@ -103,37 +159,7 @@ namespace GlobalTypes
             Console.SetOut(new StreamWriter(new FileStream(sfhOut, FileAccess.Write)) { AutoFlush = true });
             Console.SetError(new StreamWriter(new FileStream(sfhErr, FileAccess.Write)) { AutoFlush = true });
         }
-
-        private static void ConsoleThread(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                if (Console.KeyAvailable)
-                {
-                    string input = Console.ReadLine().ToLower().Trim();
-
-                    if (input == "close")
-                        Close();
-                    else if (input == "new")
-                        New();
-                    else if (input == "clear")
-                        Console.Clear();
-                    else if (input == "exit")
-                        Main.Instance.Exit();
-                    else if (input == "mem")
-                        Console.WriteLine(
-                            $"GC0: [{GC.CollectionCount(0)}]\n" +
-                            $"GC1: [{GC.CollectionCount(1)}]\n" +
-                            $"GC2: [{GC.CollectionCount(2)}]\n" +
-                            $"ctused: [{GC.GetTotalMemory(false).SizeString()}]\n" +
-                            $"avg: [{GC.GetTotalMemory(true).SizeString()}]");
-                }
-
-                Thread.Sleep(100);
-            }
-        }
-
-        private static string GetKey(int length)
+        private static string GenerateKey(int length)
         {
             string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             List<char> result = new();
@@ -143,5 +169,41 @@ namespace GlobalTypes
 
             return string.Join("", result);
         }
+        
+        #region ConsoleOutputOverrides
+        private static async Task WriteAsync(Action writeAction)
+        {
+            if (IsOpened) 
+                await Task.Run(writeAction);
+        }
+
+        public static Task WriteLine() => WriteAsync(() => Console.WriteLine());
+        public static Task WriteLine(bool value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(char value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(char[] buffer) => WriteAsync(() => Console.WriteLine(buffer));
+        public static Task WriteLine(decimal value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(double value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(float value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(int value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(long value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(object value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(string value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(uint value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(ulong value) => WriteAsync(() => Console.WriteLine(value));
+
+        public static Task Write(bool value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(char value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(char[] buffer) => WriteAsync(() => Console.Write(buffer));
+        public static Task Write(decimal value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(double value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(float value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(int value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(long value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(object value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(string value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(uint value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(ulong value) => WriteAsync(() => Console.Write(value));
+
+        #endregion
     }
 }

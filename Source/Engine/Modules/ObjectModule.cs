@@ -31,14 +31,14 @@ namespace Engine.Modules
             GC.SuppressFinalize(this);
         }
 
-        private void Dispose(bool isDisposing)
+        private void Dispose(bool disposing)
         {
             if(Disposed) 
                 return;
 
             Disposed = true;
 
-            if (isDisposing)
+            if (disposing)
             {
                 OnDispose?.Invoke();
                 Owner = null;
