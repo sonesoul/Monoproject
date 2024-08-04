@@ -252,8 +252,8 @@ namespace Engine.Modules
                             {
                                 resultPairs.Add(new(edges[i].vertex, e1, e2));
 
-                                toRemove.Remove(edges[i]);
-                                toRemove.Remove(edges[j]);
+                                toRemove.Add(edges[i]);
+                                toRemove.Add(edges[j]);
                             }
                         }
                     }
@@ -358,12 +358,23 @@ namespace Engine.Modules
         public static void HandlePhysical(Rigidbody first, Rigidbody second)
         {
             List<EdgeTouch> touches = GetTouches(second.CollModule, first.CollModule);
+            List<EdgeTouch> otherTouches = GetTouches(first.CollModule, second.CollModule);
+
+
             List<CornerTouch> cornerTouches = CornerTouch.ExtractFrom(touches);
 
             if (cornerTouches.Count > 1)
                 touches = touches.Concat(CornerTouch.FindCommonEdges(cornerTouches)).ToList();
             else if(cornerTouches.Count == 1)
                 touches = touches.Concat(EdgeTouch.FromSingleCorner(cornerTouches, CornerTouch.ExtractFrom(GetTouches(first.CollModule, second.CollModule)))).ToList();
+
+            EdgeTouch.Refine(touches, second.CollModule.polygon.GetEdges());
+            EdgeTouch.Refine(otherTouches, first.CollModule.polygon.GetEdges());
+            EdgeTouch.Adjust(touches, otherTouches, first.CollModule.polygon, second.CollModule.polygon);
+
+            touches = touches.Concat(otherTouches
+                .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
+                .ToList()).ToList();
 
             if (touches.Count < 1)
                 return;
