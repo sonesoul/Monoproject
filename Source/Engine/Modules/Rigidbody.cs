@@ -3,10 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
-using Monoproject;
-using System.ComponentModel;
-using System.Windows.Forms.VisualStyles;
 using GlobalTypes;
+using GlobalTypes.Events;
+using static GlobalTypes.HTime;
 
 namespace Engine.Modules
 {
@@ -15,26 +14,22 @@ namespace Engine.Modules
         #region Fields
         public float Mass { get; set; } = 1;
         public float GravityScale { get; set; } = 1;
-        public float Bounciness { get; set; } = 0.5f;
-        public float Friction { get; set; } = 0.3f;
+        public float Bounciness { get; set; } = 0.0f;
         public float Windage { get; set; } = 0.3f;
 
         public float Angle { get; set; } = 0;
-        public float Torque { get; set; } = 0;
         public float AngularVelocity { get; set; } = 0;
-        public float AngularAcceleration { get; set; } = 0;
-        public float MomentOfInertia { get; set; } = 1;
-
+       
         public Collider CollModule { get; private set; }
 
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
+        private readonly EventListener fixedUpdateListener;
 
-        public const float Gravity = 9.81f;
-        public const float FixedDelta = 1.0f / 240.0f;
+        public static Vector2 Gravity { get; set; } = new(0, 9.81f);
+
         public const float ZeroThreshold = 0.005f;
         public const float Tolerance = 1;
-        private float updateTimeBuffer = 0.0f;
         #endregion
 
         private struct EdgeTouch
@@ -307,51 +302,32 @@ namespace Engine.Modules
             else
                 CollModule = owner.AddModule<Collider>();
 
+            fixedUpdateListener = GameEvents.OnFixedUpdate.AddListener(FixedUpdate);
             CollModule.OnDispose += OnColliderDestruct;
-            CollModule.OnCheckFinish += Update;
+            CollModule.OnTouchEnter += (c) => GameConsole.Write(".");
         }
 
         public void AddForce(Vector2 force) => forces += force;
-        public void SetCollider(Collider newCollider)
-        {
-            CollModule = newCollider;
-            Owner.ReplaceModule(CollModule);
-            CollModule.OnDispose += OnColliderDestruct;
-            CollModule.OnCheckFinish += Update;
-        }
 
-        private void Update(GameTime gameTime)
+        private void FixedUpdate(GameTime gameTime)
         {
-            updateTimeBuffer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            velocity += forces / Mass * FixedDelta;
+            forces = Vector2.Zero;
 
-            while (updateTimeBuffer >= FixedDelta)
+            foreach (var item in CollModule.Intersections)
             {
-                velocity += forces / Mass * FixedDelta;
-                forces = Vector2.Zero;
-
-                AngularVelocity += Torque * FixedDelta;
-                Torque = 0;
-
-                foreach (var item in CollModule.Intersections)
-                {
-                    if (item.Owner.TryGetModule(out Rigidbody otherRb))
-                        HandlePhysical(this, otherRb);
-                    else
-                        HandleOthers(this, item);
-                }
-
-                //ApplyGravity();
-                ApplyFriction(Windage);
-                AngularVelocity *= 0.9955f;
-                
-                CollModule.info = velocity.ToString();
-
-                Angle = AngularVelocity;
-                Owner.position += velocity;
-                Owner.Rotation += Angle;
-
-                updateTimeBuffer -= FixedDelta;
+                if (item.Owner.TryGetModule(out Rigidbody otherRb))
+                    HandlePhysical(this, otherRb);
+                else
+                    HandleOthers(this, item);
             }
+
+            ApplyGravity();
+            ApplyWindage();
+
+            Angle = AngularVelocity;
+            Owner.position += velocity;
+            Owner.Rotation += Angle;
         }
         public static void HandlePhysical(Rigidbody first, Rigidbody second)
         {
@@ -451,19 +427,6 @@ namespace Engine.Modules
                     impulse += velocityAlongNormal * touchNormal;
             }
 
-            foreach (var item in otherTouches)
-            {
-                Vector2 r = item.vertex - rb.Owner.IntegerPosition;
-                Vector2 vertexVelocity = r.ScalarProduct(rb.AngularVelocity);
-                Vector2 normal = -item.edge.Normal;
-
-                float velocityAlongNormal = Vector2.Dot(vertexVelocity + rb.velocity, normal);
-                if (velocityAlongNormal > ZeroThreshold)
-                    continue;
-
-                GameConsole.WriteLine($"velocity: {rb.velocity} vertex: {item.vertex}");
-                rb.AngularVelocity += vertexVelocity.Cross(r) / r.LengthSquared() * (1.0f + rb.Bounciness);
-            }
             if (impulse.Length() < ZeroThreshold || touchCount == 0)
                 return;
 
@@ -487,10 +450,11 @@ namespace Engine.Modules
 
             return j * touchNormal;
         }
-        private void ApplyGravity() => AddForce(new(0, (Gravity * Mass * GravityScale) * (FixedDelta * 200)));
-        private void ApplyFriction(float frictValue)
+        
+        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * (FixedDelta * 200));
+        private void ApplyWindage()
         {
-            float deltaFrict = (frictValue / Mass) * FixedDelta * 4;
+            float deltaFrict = (Windage / Mass) * FixedDelta * 4;
             float frictionThreshold = 0.001f;
 
             if (velocity.AbsX() > frictionThreshold)
@@ -506,7 +470,7 @@ namespace Engine.Modules
         }
 
         private void OnColliderDestruct() => Dispose();
-        protected override void Destruct() => CollModule.OnCheckFinish -= Update;
+        protected override void Destruct() => GameEvents.OnFixedUpdate.RemoveListener(fixedUpdateListener);
         
         private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
             (from e in edges 

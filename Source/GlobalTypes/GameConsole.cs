@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static GlobalTypes.NativeInterop.NativeMethods;
 using static GlobalTypes.NativeInterop.Constants;
+using System.Diagnostics;
 
 namespace GlobalTypes
 {
@@ -24,8 +25,8 @@ namespace GlobalTypes
                             $"GC0: [{GC.CollectionCount(0)}]\n" +
                             $"GC1: [{GC.CollectionCount(1)}]\n" +
                             $"GC2: [{GC.CollectionCount(2)}]\n" +
-                            $"usg: [{GC.GetTotalMemory(false).SizeString()}]\n" +
-                            $"avg: [{GC.GetTotalMemory(true).SizeString()}]");
+                            $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
+                            $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]");
                 }
             }
 
@@ -34,7 +35,7 @@ namespace GlobalTypes
                 { "new", (arg) => New() },
                 { "exit", (arg) => Close() },
                 { "clear", (arg) => { Console.Clear(); Console.WriteLine(openString); } },
-                { "trmt", (arg) => Main.Instance.Exit() },
+                { "f1", (arg) => Main.Instance.Exit() },
                 { "mem", Commands.Mem },
             };
 
@@ -127,11 +128,10 @@ namespace GlobalTypes
                 {
                     if (Console.KeyAvailable)
                         CommandManager.Handle(Console.ReadLine());
-                    else
-                        Thread.Sleep(500);
                 }
                 catch
                 {
+                    Close();
                     return;
                 }
             }

@@ -1,14 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GlobalTypes.Extensions
 {
-    public static class LongExtensions
+    public static class NumericExtensions
     {
-        public static string SizeString(this long sizeInBytes)
+        #region Clamp
+        public static int Clamp(this int value, int min, int max) => value < min ? min : value > max ? max : value;
+        public static float Clamp(this float value, float min, float max) => value < min ? min : value > max ? max : value;
+        #endregion
+
+        #region Abs
+        public static int Abs(this int value) => Math.Abs(value);
+        public static float Abs(this float value) => Math.Abs(value);
+        #endregion
+
+        #region ToSizeString
+        public static string ToSizeString(this long sizeInBytes)
         {
             ulong sizeBytes = (ulong)sizeInBytes;
             double sizeKb = sizeBytes / 1024.0;
@@ -26,5 +33,6 @@ namespace GlobalTypes.Extensions
                 finalSize = $"{sizeBytes} b";
             return finalSize.ToString();
         }
+        #endregion
     }
 }

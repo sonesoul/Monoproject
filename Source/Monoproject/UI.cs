@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using static GlobalTypes.HMath;
 using Engine.Drawing;
 using Engine.Modules;
 using GlobalTypes.Events;
@@ -12,9 +11,9 @@ namespace Monoproject.GameUI
 {
     public class UI : ILoadable
     {
-        public static float fps = 0;
-        public static float frameCounter = 0;
-        public static double elapsedTime = 0;
+        public static float Fps { get; private set; } = 0;
+        private static float frameCounter = 0;
+        private static double elapsedTime = 0;
 
         private static SpriteFont font;
         private static InterfaceDrawer interfaceDrawer;
@@ -37,7 +36,7 @@ namespace Monoproject.GameUI
 
             if (elapsedTime >= 100)
             {
-                fps = (int)(frameCounter / (elapsedTime / 1000.0));
+                Fps = (int)(frameCounter / (elapsedTime / 1000.0));
                 frameCounter = 0;
                 elapsedTime = 0;
             }
@@ -50,7 +49,7 @@ namespace Monoproject.GameUI
             Collider coll = Main.Instance?.player?.GetModule<Collider>();
 
             spriteBatch.DrawString(font,
-                $"FPS: {(int)fps}\n" +
+                $"FPS: {(int)Fps}\n" +
                 $"Frametime: {HTime.DeltaTime}\n" +
                 $"Cursor: [{curPoint.X}:{curPoint.Y}]\n" +
                 $"{coll?.info}",
@@ -63,7 +62,7 @@ namespace Monoproject.GameUI
               
             Vector2 curPosition = new(curPoint.X + 6f, curPoint.Y - 6f);
 
-            spriteBatch.DrawString(font, $"<- ", curPosition, Color.White, DegToRad(50), new(0, 0), 1.3f, SpriteEffects.None, 0);
+            spriteBatch.DrawString(font, $"<- ", curPosition, Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
         }
         public static SpriteFont Font => font;
     }

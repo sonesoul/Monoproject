@@ -155,7 +155,6 @@ namespace Engine.Modules
 
             if (Vector2.Dot(direction, mtv) < 0)
                 mtv = -mtv;
-            mtv.Round();
 
             if (other.Mode == ColliderMode.Physical)
                 other.Owner.position -= mtv;

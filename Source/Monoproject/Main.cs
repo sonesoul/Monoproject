@@ -31,22 +31,21 @@ namespace Monoproject
         private TextObject[] objects = new TextObject[1];
         public TextObject player;
         private TextObject cursorObj;
+        private static bool isConsoleTogglePressed = true;
+        private bool canJump = false;
 
         private List<IInitable> initables = new();
         private List<ILoadable> loadables = new();
         
-        private bool canJump = false;
-
         public SpriteBatch SpriteBatch => spriteBatch;
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
         public static Main Instance { get; private set; }
 
-        private static bool ConsoleKeyPressed { get; set; } = true;
-        long memBefore;
+        
         public Main()
         {
-            memBefore = GC.GetTotalMemory(true);
+            long memBefore = GC.GetTotalMemory(true);
 
             Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
             Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
@@ -64,7 +63,7 @@ namespace Monoproject
             Window.AllowUserResizing = true;
 
             GameConsole.New();
-            Console.WriteLine($"ctor: {memBefore.SizeString()}");
+            Console.WriteLine($"ctor: {memBefore.ToSizeString()}");
         }
 
         protected override void LoadContent()
@@ -82,7 +81,7 @@ namespace Monoproject
             SetInitables();
             CreateObjects();
 
-            Console.WriteLine("initend: " + (GC.GetTotalMemory(true) - memBefore).SizeString());
+            Console.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
         }
         protected override void Update(GameTime gameTime)
         {
@@ -105,7 +104,7 @@ namespace Monoproject
             base.Draw(gameTime);
         }
         
-        public void DrawFrame(GameTime gameTime)
+        private void DrawFrame(GameTime gameTime)
         {
             spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
             ingameDrawer.DrawAll(gameTime);
@@ -121,25 +120,25 @@ namespace Monoproject
         {
             KeyboardState state = Keyboard.GetState();
 
-            if (state.IsKeyDown(GameConsole.ToggleKey) && ConsoleKeyPressed)
+            if (state.IsKeyDown(GameConsole.ToggleKey) && isConsoleTogglePressed)
             {
                 GameConsole.ToggleState();
-                ConsoleKeyPressed = false;
+                isConsoleTogglePressed = false;
             }
-            if (state.IsKeyUp(GameConsole.ToggleKey) && !ConsoleKeyPressed)
-                ConsoleKeyPressed = true;
+            if (state.IsKeyUp(GameConsole.ToggleKey) && !isConsoleTogglePressed)
+                isConsoleTogglePressed = true;
 
 
             player.position += new Vector2
             {
                 X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
                 Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
-            } * HCoords.UnitsPerSec(1f);
+            } * 100 * HTime.DeltaTime;
             
             if (state.IsKeyDown(Keys.Space) && canJump)
             {
                 player.GetModule<Rigidbody>().velocity = Vector2.Zero;
-                player.GetModule<Rigidbody>().AddForce(new(0, HCoords.ToPixels(-3)));
+                player.GetModule<Rigidbody>().AddForce(new(0, -600));
                 canJump = false;
             }
             if (state.IsKeyDown(Keys.F))
@@ -193,12 +192,10 @@ namespace Monoproject
 
 
             player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-            player.AddModule<Rigidbody>().Bounciness = 0.5f;
+            player.AddModule<Rigidbody>();
             
-            cursorObj = new(ingameDrawer, "", UI.Font)
-            {
-                position = new(0, 0),
-            };
+            cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
+
             cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
             cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
 
@@ -249,21 +246,10 @@ namespace Monoproject
         private static Vector2 _position = Vector2.Zero;
         private static float _zoom = 1f;
 
-        public static Matrix GetViewMatrix()
-        {
-            return 
-                Matrix.CreateTranslation(new(-_position, 0)) *
-                Matrix.CreateScale(_zoom, _zoom, 1);
-        }
-        public static void Move(Vector2 direction, float speed)
-        {
-            _position += HCoords.ToPixels(direction) * speed * HTime.DeltaTime;
-        }
-        public static void ZoomIn(float amount, float speed)
-        {
-            _zoom += HCoords.ToPixels(amount) * speed * HTime.DeltaTime;
-        }
-        
+        public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
+        public static void Move(Vector2 direction, float speed) => _position += direction * speed * HTime.DeltaTime;
+        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * HTime.DeltaTime;
+
         public static float Zoom 
         {
             get => _zoom; 
