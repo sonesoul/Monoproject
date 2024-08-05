@@ -75,13 +75,25 @@ namespace Engine.Modules
             drawColor = Intersects ? Color.Red : Color.Green;
         }
 
+        private bool IsWithinDistance(Collider other, float distance)
+        {
+            Rectangle myBounding = ShapeBounding;
+            Rectangle otherBounding = other.ShapeBounding;
+
+            float dx = Math.Max(myBounding.Left, otherBounding.Left) - Math.Min(myBounding.Right, otherBounding.Right);
+            float dy = Math.Max(myBounding.Top, otherBounding.Top) - Math.Min(myBounding.Bottom, otherBounding.Bottom);
+
+            return new Vector2(Math.Max(0, dx), Math.Max(0, dy)).LengthSquared() <= distance * distance;
+        }
+
+
         private void PhysicalCheck()
         {
-            foreach (var item in AllColliders.Where(c => c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static))
+            foreach (var item in AllColliders.Where(c => (c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static) && IsWithinDistance(c, 1)))
             {
                 if (item == this)
                     continue;
-
+               
                 if (polygon.IntersectsWith(item.polygon, out var mtv))
                 {
                     _intersections.Add(item);
@@ -104,7 +116,7 @@ namespace Engine.Modules
         }
         private void StatiCheck()
         {
-            foreach (var item in AllColliders.Where(c => c.Mode == ColliderMode.Physical))
+            foreach (var item in AllColliders.Where(c => (c.Mode == ColliderMode.Physical) && IsWithinDistance(c, 1)))
             {
                 if (item == this)
                     continue;

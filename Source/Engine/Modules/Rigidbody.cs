@@ -335,6 +335,7 @@ namespace Engine.Modules
             List<EdgeTouch> otherTouches = GetTouches(first.CollModule, second.CollModule);
 
             List<CornerTouch> cornerTouches = CornerTouch.ExtractFrom(touches);
+            List<CornerTouch> otherCornerTouches = CornerTouch.ExtractFrom(otherTouches);
 
             if (cornerTouches.Count > 1)
                 touches = touches.Concat(CornerTouch.FindCommonEdges(cornerTouches)).ToList();

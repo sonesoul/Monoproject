@@ -28,7 +28,7 @@ namespace Monoproject
         private InterfaceDrawer interfaceDrawer;
         private IngameDrawer ingameDrawer;
         
-        private TextObject[] objects = new TextObject[1];
+        private TextObject[] objects = new TextObject[100];
         public TextObject player;
         private TextObject cursorObj;
         private static bool isConsoleTogglePressed = true;
@@ -176,11 +176,18 @@ namespace Monoproject
                 {
                     position = RandomPos(new(
                         WindowWidth / 2,
-                        WindowHeight / 2), 300)
+                        WindowHeight / 2), 1300)
                 };
-                objects[i].AddModule<Rigidbody>().Bounciness = 0.5f;
+                var c = objects[i].AddModule<Collider>();
+                c.polygon = Polygon.Rectangle(10, 10);
+                objects[i].size = new(0.1f, 0.1f);
+
+                //var rb = objects[i].AddModule<Rigidbody>();
+                //rb.Bounciness = 0;
+
+                /*objects[i].AddModule<Rigidbody>().Bounciness = 0.5f;
                 objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-                objects[i].GetModule<Rigidbody>().GravityScale = 0;
+                objects[i].GetModule<Rigidbody>().GravityScale = 0;*/
             }
 
             
@@ -191,9 +198,9 @@ namespace Monoproject
             };
 
 
-            player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
+            player.AddModule<Collider>().polygon = Polygon.Rectangle(10, 10);
             player.AddModule<Rigidbody>();
-            
+            player.size = new(0.1f, 0.1f);
             cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
 
             cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
