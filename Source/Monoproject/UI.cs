@@ -19,7 +19,7 @@ namespace Monoproject.GameUI
         private static InterfaceDrawer interfaceDrawer;
         private static SpriteBatch spriteBatch;
         
-        public void Load()
+        void ILoadable.Load()
         {
             GameEvents.OnUpdate.AddListener(GetFps);
 
@@ -49,10 +49,8 @@ namespace Monoproject.GameUI
             Collider coll = Main.Instance?.player?.GetModule<Collider>();
 
             spriteBatch.DrawString(font,
-                $"FPS: {(int)Fps}\n" +
-                $"Frametime: {HTime.DeltaTime}\n" +
-                $"Cursor: [{curPoint.X}:{curPoint.Y}]\n" +
-                $"{coll?.info}",
+                $"{(int)Fps} / {HTime.DeltaTime} \n" +
+                $"Cur: [{curPoint.X}:{curPoint.Y}]\n",
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
 

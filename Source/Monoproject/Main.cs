@@ -33,9 +33,6 @@ namespace Monoproject
         private TextObject cursorObj;
         private static bool isConsoleTogglePressed = true;
         private bool canJump = false;
-
-        private List<IInitable> initables = new();
-        private List<ILoadable> loadables = new();
         
         public SpriteBatch SpriteBatch => spriteBatch;
         public int WindowWidth => graphics.PreferredBackBufferWidth;
@@ -47,14 +44,15 @@ namespace Monoproject
         {
             long memBefore = GC.GetTotalMemory(true);
 
-            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
-            Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
-
             Instance = this;
+            
+            Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
-            IsMouseVisible = false;
 
+            IsMouseVisible = false;
             graphics.PreferredBackBufferWidth = 1280;
             graphics.PreferredBackBufferHeight = 720;
 
@@ -133,7 +131,7 @@ namespace Monoproject
             {
                 X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
                 Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
-            } * 100 * HTime.DeltaTime;
+            } * (100 * HTime.DeltaTime);
             
             if (state.IsKeyDown(Keys.Space) && canJump)
             {
@@ -142,18 +140,14 @@ namespace Monoproject
                 canJump = false;
             }
             if (state.IsKeyDown(Keys.F))
-            {
                 player.GetModule<Rigidbody>().AddForce(new(1, 0));
-            }
 
             if (state.IsKeyUp(Keys.Space))
-            {
                 canJump = true;
-            }
+            
             if (state.IsKeyDown(Keys.Q))
-            {
                 player.GetModule<Rigidbody>().AngularVelocity -= 380f.AsRad() * HTime.DeltaTime;
-            }
+
             cursorObj.position = Mouse.GetState().Position.ToVector2();
         }
         private void CreateObjects()
@@ -176,12 +170,12 @@ namespace Monoproject
                 {
                     position = RandomPos(new(
                         WindowWidth / 2,
-                        WindowHeight / 2), 1300)
+                        WindowHeight / 2), 300)
                 };
                 var c = objects[i].AddModule<Collider>();
-                c.polygon = Polygon.Rectangle(10, 10);
-                objects[i].size = new(0.1f, 0.1f);
-
+                c.polygon = Polygon.Rectangle(50, 50);
+                c.Mode = ColliderMode.Physical;
+                
                 //var rb = objects[i].AddModule<Rigidbody>();
                 //rb.Bounciness = 0;
 
@@ -198,9 +192,8 @@ namespace Monoproject
             };
 
 
-            player.AddModule<Collider>().polygon = Polygon.Rectangle(10, 10);
+            player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             player.AddModule<Rigidbody>();
-            player.size = new(0.1f, 0.1f);
             cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
 
             cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
@@ -222,16 +215,8 @@ namespace Monoproject
         }
 
 
-        private void SetLoadables()
-        {
-            loadables = CreateInstances<ILoadable>();
-            loadables.ForEach(l => l.Load());
-        }
-        private void SetInitables()
-        {
-            initables = CreateInstances<IInitable>();
-            initables.ForEach(i => i.Init());
-        }
+        private static void SetLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivateMethod(l, ILoadable.MethodName));
+        private static void SetInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivateMethod(i, IInitable.MethodName));
         public static List<T> CreateInstances<T>() where T : class
         {
             var instances = new List<T>();
@@ -246,6 +231,13 @@ namespace Monoproject
             }
 
             return instances;
+        }
+        public static void CallPrivateMethod<T>(T instance, string methodName)
+        {
+            var method = 
+                typeof(T).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance) 
+                ?? throw new InvalidOperationException($"Method [{methodName}] not found.");
+            method.Invoke(instance, null);
         }
     }
     public static class Camera

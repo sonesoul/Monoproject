@@ -5,14 +5,51 @@ using System.Linq;
 using Engine.Drawing;
 using Engine.Types;
 using GlobalTypes.Events;
+using System.Threading.Tasks;
+using GlobalTypes.Interfaces;
 
 namespace Engine.Modules
 {
     public class Collider : ObjectModule
     {
+        public class ColliderManager : IInitable
+        {
+            private static readonly List<Collider> _colliders = new();
+            private static readonly object _lock = new();
+            void IInitable.Init() => GameEvents.OnUpdate.AddListener((gt) => Update(), 1);
+
+            public static void Register(Collider collider)
+            {
+                lock (_lock)
+                {
+                    _colliders.Add(collider);
+                }
+            }
+            public static void Unregister(Collider collider)
+            {
+                lock (_lock)
+                {
+                    _colliders.Remove(collider);
+                }
+            }
+
+            private static void Update()
+            {
+                List<Collider> collidersToCheck;
+
+                lock (_lock) collidersToCheck = new List<Collider>(_colliders);
+
+                Parallel.ForEach(collidersToCheck, c =>
+                {
+                    c?._intersectionUpdater();
+                    c?.AfterChecking();
+                });
+            }
+        }
+
+
         public Polygon polygon;
         public Color drawColor = Color.Green;
-        public string info = "";
 
         #region Events
         public event Action<Collider> OnTouchEnter;
@@ -22,7 +59,6 @@ namespace Engine.Modules
         public event Action<Collider> OnTriggerEnter;
         public event Action<Collider> OnTriggerStay;
         public event Action<Collider> OnTriggerExit;
-        public event Action<GameTime> OnCheckFinish;
         #endregion
 
         private readonly List<Collider> _intersections = new();
@@ -49,12 +85,11 @@ namespace Engine.Modules
             _shapeDrawer = new(IngameDrawer.Instance.GraphicsDevice, IngameDrawer.Instance.SpriteBatch);
 
             IngameDrawer.Instance.AddDrawAction(_drawAction);
-
-            ShapeBounding = GetShapeBounding();
+            GameEvents.OnUpdate.AddListener(Update, 0);
+            ColliderManager.Register(this);
 
             _allColliders.Add(this);
-
-            GameEvents.OnUpdate.AddListener(Update);
+            ShapeBounding = GetShapeBounding();
 
             SetUpdater(ColliderMode.Physical);
         }
@@ -65,14 +100,6 @@ namespace Engine.Modules
             polygon.position = Owner.IntegerPosition;
             polygon.Rotation = Owner.Rotation;
             ShapeBounding = GetShapeBounding();
-
-            _intersectionUpdater();
-            OnCheckFinish?.Invoke(gt);
-
-            _lastFrameIntersections = new List<Collider>(_intersections);
-
-            Intersects = _intersections.Any();
-            drawColor = Intersects ? Color.Red : Color.Green;
         }
 
         private bool IsWithinDistance(Collider other, float distance)
@@ -121,8 +148,6 @@ namespace Engine.Modules
                 if (item == this)
                     continue;
 
-                TextObject otherObj = item.Owner as TextObject;
-
                 if (polygon.IntersectsWith(item.polygon, out var mtv))
                 {
                     _intersections.Add(item);
@@ -135,15 +160,14 @@ namespace Engine.Modules
                 else if (_lastFrameIntersections.Contains(item))
                     OnTouchExit?.Invoke(item);
             }
+            AfterChecking();
         }
         private void TriggerCheck()
         {
-            foreach (var item in AllColliders)
+            foreach (var item in AllColliders.Where(c => IsWithinDistance(c, 1)))
             {
                 if (item == this)
                     continue;
-
-                TextObject otherObj = item.Owner as TextObject;
 
                 if (polygon.IntersectsWith(item.polygon))
                 {
@@ -153,12 +177,17 @@ namespace Engine.Modules
                         OnTriggerExit?.Invoke(item);
                     else
                         OnTriggerExit?.Invoke(item);
-
-                    
                 }
                 else if (_lastFrameIntersections.Contains(item))
                     OnTriggerExit?.Invoke(item);
             }
+        }
+
+        private void AfterChecking()
+        {
+            _lastFrameIntersections = new List<Collider>(_intersections);
+            Intersects = _intersections.Any();
+            drawColor = Intersects ? Color.Red : Color.Green;
         }
 
         public void PushOut(Collider other, Vector2 mtv)
@@ -167,9 +196,11 @@ namespace Engine.Modules
 
             if (Vector2.Dot(direction, mtv) < 0)
                 mtv = -mtv;
-
+            
             if (other.Mode == ColliderMode.Physical)
-                other.Owner.position -= mtv;
+            {
+                other.Owner.position -= mtv / 4;
+            }
             else
                 Owner.position += mtv;
         }
@@ -222,6 +253,7 @@ namespace Engine.Modules
             _allColliders.Remove(this);
             GameEvents.OnUpdate.RemoveListener(new(Update, 0));
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
+            ColliderManager.Unregister(this);
         }
     }
 }
