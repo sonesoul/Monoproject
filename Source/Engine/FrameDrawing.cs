@@ -71,9 +71,9 @@ namespace Engine.Drawing
             if (_instance == null)
             {
                 if (batch == null)
-                    throw new ArgumentNullException(batch.ToString());
+                    throw new ArgumentNullException(nameof(batch));
                 else if (device == null)
-                    throw new ArgumentNullException(device.ToString());
+                    throw new ArgumentNullException(nameof(device));
                 
                 _instance = new(batch, device);
             }
@@ -91,9 +91,9 @@ namespace Engine.Drawing
             if (_instance == null)
             {
                 if (batch == null)
-                    throw new ArgumentNullException(batch.ToString());
+                    throw new ArgumentNullException(nameof(batch));
                 else if (device == null)
-                    throw new ArgumentNullException(device.ToString());
+                    throw new ArgumentNullException(nameof(device));
 
                 _instance = new(batch, device);
             }

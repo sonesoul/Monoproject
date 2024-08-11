@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Modules;
 using System.Diagnostics;
+using Engine.Types;
+using Microsoft.Xna.Framework.Input;
 
 namespace Engine
 {
@@ -35,7 +37,9 @@ namespace Engine
         public virtual void Destroy()
         {
             drawer.RemoveDrawAction(drawAction);
-            modules.ForEach(m => RemoveModule(m));
+
+            for (int i = 0; i < modules.Count; i++)
+                RemoveModule(modules[i]);
         }
         protected abstract void Draw(GameTime gameTime);
 
@@ -85,7 +89,7 @@ namespace Engine
             {
                 OnModuleRemove?.Invoke(module);
 
-                if(!module.Disposed)
+                if(!module.IsDisposed)
                     module.Dispose();
             }
 
@@ -126,18 +130,18 @@ namespace Engine
     [DebuggerDisplay("{ToString(),nq}")]
     public class TextObject : ModularObject
     {
-        public string sprite;
+        public string text;
         public SpriteFont font;
         public Vector2 size = Vector2.One;
         public Vector2 center;
         private SpriteBatch spriteBatch;
 
-        public TextObject(IDrawer drawer, string sprite, SpriteFont font) : base(drawer)
+        public TextObject(IDrawer drawer, string text, SpriteFont font) : base(drawer)
         {
-            center = font.MeasureString(sprite) / 2;
+            center = font.MeasureString(text) / 2;
             spriteBatch = drawer.SpriteBatch;
 
-            this.sprite = sprite;
+            this.text = text;
             this.font = font;
         }
         protected override void Draw(GameTime gameTime)
@@ -148,7 +152,7 @@ namespace Engine
             {
                 spriteBatch.DrawString(
                     font,
-                    sprite,
+                    text,
                     IntegerPosition,
                     color,
                     Rotation.AsRad(),
@@ -159,6 +163,57 @@ namespace Engine
             }
         }
 
-        public override string ToString() => sprite;
+        public override string ToString() => text;
+    }
+
+    public class InputZone : TextObject
+    {
+        private Queue<char> wordQ = new();
+        public InputZone(IDrawer drawer, string text, SpriteFont font) : base(drawer, text, font)
+        {
+            Collider collider = new(this)
+            {
+                Mode = ColliderMode.Trigger,
+                polygon = Polygon.Rectangle(center.X * 2, 30)
+            };
+            collider.OnTriggerStay += ObjectStay;   
+
+            AddModule(collider);
+
+            foreach (var item in text)
+            {
+                wordQ.Enqueue(item);
+            }
+        }
+
+        private void ObjectStay(Collider obj)
+        {
+            if(obj.Owner is TextObject textobj && textobj.text == "#")
+            {
+                Keys[] keys = Keyboard.GetState().GetPressedKeys();
+
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    string keyString = keys[i].ToString();
+
+                    if (keyString.Length > 1)
+                        continue;
+
+                    if (keyString[0] == wordQ.Peek())
+                    {
+                        wordQ.Dequeue();
+                        if (text.Length > 1)
+                        {
+                            text = text[1..];
+                            center = font.MeasureString(text) / 2;
+                        }
+                        else if (text.Length == 1)
+                            Destroy();
+
+                        break;
+                    }
+                }
+            }            
+        }
     }
 }

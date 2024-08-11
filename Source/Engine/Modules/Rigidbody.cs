@@ -6,6 +6,7 @@ using Engine.Types;
 using GlobalTypes;
 using GlobalTypes.Events;
 using static GlobalTypes.HTime;
+using Microsoft.Xna.Framework.Input;
 
 namespace Engine.Modules
 {
@@ -24,7 +25,10 @@ namespace Engine.Modules
 
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
-        private readonly EventListener fixedUpdateListener;
+        private readonly EventListener updateListener;
+
+        public static int UpdateOrder => -2;
+        private static float Delta => 1.0f / 60.0f;
 
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
@@ -302,16 +306,18 @@ namespace Engine.Modules
             else
                 CollModule = owner.AddModule<Collider>();
 
-            fixedUpdateListener = GameEvents.OnFixedUpdate.AddListener(FixedUpdate);
-            CollModule.OnDispose += OnColliderDestruct;
-            CollModule.OnTouchEnter += (c) => GameConsole.Write(".");
+            updateListener = GameEvents.PostUpdate.AddListener(Update, UpdateOrder);
+            CollModule.PreDispose += OnColliderDispose;
         }
 
         public void AddForce(Vector2 force) => forces += force;
 
-        private void FixedUpdate(GameTime gameTime)
+        private void Update(GameTime gameTime)
         {
-            velocity += forces / Mass * FixedDelta;
+            Collider.CollisionManager.Update(gameTime);
+
+            ApplyGravity();
+            velocity += forces / Mass * Delta;
             forces = Vector2.Zero;
 
             foreach (var item in CollModule.Intersections)
@@ -322,12 +328,10 @@ namespace Engine.Modules
                     HandleOthers(this, item);
             }
 
-            ApplyGravity();
             ApplyWindage();
 
-            Angle = AngularVelocity;
             Owner.position += velocity;
-            Owner.Rotation += Angle;
+            Owner.Rotation += Angle = AngularVelocity;
         }
         public static void HandlePhysical(Rigidbody first, Rigidbody second)
         {
@@ -363,12 +367,8 @@ namespace Engine.Modules
                 if (velocityAlongNormal > 0)
                     continue;
 
-                Vector2 tempImpulse = GetImpulse(touchNormal, velocityAlongNormal, first, second);
-                if (tempImpulse.LengthSquared() > ZeroThreshold)
-                {
-                    impulse += tempImpulse;
-                    touchCount++;
-                }
+                impulse += GetImpulse(touchNormal, velocityAlongNormal, first, second);
+                touchCount++;
             }
 
             if (impulse == Vector2.Zero || touchCount == 0)
@@ -416,16 +416,8 @@ namespace Engine.Modules
                 if (velocityAlongNormal > ZeroThreshold)
                     continue;
 
-                Vector2 linearImpulse = GetSingleImpulse(touchNormal, velocityAlongNormal, rb);
-
-                if (linearImpulse.LengthSquared() > ZeroThreshold)
-                {
-                    impulse += linearImpulse;
-                    touchCount++;
-                }
-
-                if (velocityAlongNormal.Abs() < 0.1)
-                    impulse += velocityAlongNormal * touchNormal;
+                impulse += GetSingleImpulse(touchNormal, velocityAlongNormal, rb); ;
+                touchCount++;
             }
 
             if (impulse.Length() < ZeroThreshold || touchCount == 0)
@@ -452,10 +444,10 @@ namespace Engine.Modules
             return j * touchNormal;
         }
         
-        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * (FixedDelta * 200));
+        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * (Delta * 200));
         private void ApplyWindage()
         {
-            float deltaFrict = (Windage / Mass) * FixedDelta * 4;
+            float deltaFrict = (Windage / Mass) * Delta * 4;
             float frictionThreshold = 0.001f;
 
             if (velocity.AbsX() > frictionThreshold)
@@ -470,8 +462,8 @@ namespace Engine.Modules
             velocity.Y = (float)Math.Round(velocity.Y, 3);
         }
 
-        private void OnColliderDestruct() => Dispose();
-        protected override void Destruct() => GameEvents.OnFixedUpdate.RemoveListener(fixedUpdateListener);
+        private void OnColliderDispose() => Dispose();
+        protected override void Destruct() => GameEvents.FixedUpdate.RemoveListener(updateListener);
         
         private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
             (from e in edges 

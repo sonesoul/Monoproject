@@ -5,12 +5,13 @@ namespace Engine.Modules
     public abstract class ObjectModule : IDisposable
     {
         private ModularObject _owner;
-        public ObjectModule(ModularObject owner) => _owner = owner;
-        public event Action OnDispose;
-        public bool Disposed { get; private set; }  
+        public event Action PreDispose;
+
+        public bool IsDisposed { get; private set; }  
         public ModularObject Owner 
         {
-            get => _owner; set 
+            get => _owner;
+            set 
             {
                 if (value == _owner) 
                     return;
@@ -25,29 +26,31 @@ namespace Engine.Modules
             }
         }
         
+        public ObjectModule(ModularObject owner) => _owner = owner;
+        ~ObjectModule() => Dispose(false);
+        
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-
         private void Dispose(bool disposing)
         {
-            if(Disposed) 
+            if(IsDisposed) 
                 return;
 
-            Disposed = true;
+            IsDisposed = true;
 
             if (disposing)
             {
-                OnDispose?.Invoke();
+                PreDispose?.Invoke();
                 Owner = null;
-                OnDispose = null;
+                PreDispose = null;
             }
 
             Destruct();
         }
-        ~ObjectModule() => Dispose(false);
+
         protected abstract void Destruct();
     }
 }

@@ -12,6 +12,7 @@ namespace GlobalTypes.Extensions
         public static float DistanceTo(this Vector2 a, Vector2 b) => Vector2.Distance(a, b);
         public static Vector2 ScalarProduct(this Vector2 a, float scalar) => new(a.Y * -scalar, a.X * scalar);
         public static Vector2 VectorProduct(this Vector2 a, Vector2 b) => new(a.Y * b.X, a.X * b.Y);
+        public static float Dot(this Vector2 a, Vector2 b) => Vector2.Dot(a, b);
 
         public static Vector2 Floored(this Vector2 v) => Vector2.Floor(v);
         public static Vector2 Ceiled(this Vector2 v) => Vector2.Ceiling(v);

@@ -21,7 +21,7 @@ namespace GlobalTypes
             {
                 public static void Mem(string arg)
                 {
-                    Console.WriteLine(
+                    WriteLine(
                             $"GC0: [{GC.CollectionCount(0)}]\n" +
                             $"GC1: [{GC.CollectionCount(1)}]\n" +
                             $"GC2: [{GC.CollectionCount(2)}]\n" +
@@ -34,7 +34,7 @@ namespace GlobalTypes
             {
                 { "new", (arg) => New() },
                 { "exit", (arg) => Close() },
-                { "clear", (arg) => { Console.Clear(); Console.WriteLine(openString); } },
+                { "clear", (arg) => { Console.Clear(); WriteLine(openString); } },
                 { "f1", (arg) => Main.Instance.Exit() },
                 { "mem", Commands.Mem },
             };
@@ -47,7 +47,7 @@ namespace GlobalTypes
 
                 if (!commands.TryGetValue(input, out var action))
                 {
-                    Console.WriteLine($"Unexpected command: \"{input}\"");
+                    WriteLine($"Unexpected command: \"{input}\"");
                     return;
                 }
 
@@ -119,6 +119,13 @@ namespace GlobalTypes
                 Open();
             }
         }
+        public static void Execute(string command)
+        {
+            if (!IsOpened)
+                return;
+            WriteLine("-> " + command);
+            CommandManager.Handle(command);
+        }
 
         private static void ConsoleThread(CancellationToken token)
         {
@@ -126,8 +133,7 @@ namespace GlobalTypes
             {
                 try
                 {
-                    if (Console.KeyAvailable)
-                        CommandManager.Handle(Console.ReadLine());
+                    CommandManager.Handle(Console.ReadLine());   
                 }
                 catch
                 {
@@ -173,7 +179,7 @@ namespace GlobalTypes
         #region ConsoleOutputOverrides
         private static async Task WriteAsync(Action writeAction)
         {
-            if (IsOpened) 
+            if (IsOpened)
                 await Task.Run(writeAction);
         }
 

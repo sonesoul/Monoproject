@@ -6,6 +6,7 @@ using Engine.Modules;
 using GlobalTypes.Events;
 using GlobalTypes;
 using GlobalTypes.Interfaces;
+using System;
 
 namespace Monoproject.GameUI
 {
@@ -21,7 +22,7 @@ namespace Monoproject.GameUI
         
         void ILoadable.Load()
         {
-            GameEvents.OnUpdate.AddListener(GetFps);
+            GameEvents.Update.AddListener(GetFps, -3);
 
             interfaceDrawer = InterfaceDrawer.Instance;
             spriteBatch = interfaceDrawer.SpriteBatch;
@@ -44,23 +45,17 @@ namespace Monoproject.GameUI
         public static void DrawInfo(GameTime gameTime)
         {
             frameCounter++;
-            Point curPoint = Mouse.GetState().Position;
-
-            Collider coll = Main.Instance?.player?.GetModule<Collider>();
 
             spriteBatch.DrawString(font,
                 $"{(int)Fps} / {HTime.DeltaTime} \n" +
-                $"Cur: [{curPoint.X}:{curPoint.Y}]\n",
+                $"{GC.GetTotalMemory(false).ToSizeString()}",
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
 
         public static void DrawMouse(GameTime gameTime)
         {
             Point curPoint = Mouse.GetState().Position;
-              
-            Vector2 curPosition = new(curPoint.X + 6f, curPoint.Y - 6f);
-
-            spriteBatch.DrawString(font, $"<- ", curPosition, Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
+            spriteBatch.DrawString(font, $"<- ", new(curPoint.X + 6f, curPoint.Y - 6f), Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
         }
         public static SpriteFont Font => font;
     }

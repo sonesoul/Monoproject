@@ -28,7 +28,7 @@ namespace Monoproject
         private InterfaceDrawer interfaceDrawer;
         private IngameDrawer ingameDrawer;
         
-        private TextObject[] objects = new TextObject[100];
+        private TextObject[] objects = new TextObject[1];
         public TextObject player;
         private TextObject cursorObj;
         private static bool isConsoleTogglePressed = true;
@@ -38,8 +38,8 @@ namespace Monoproject
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
         public static Main Instance { get; private set; }
+        public static Color BackgroundColor { get; set; } = Color.Black;
 
-        
         public Main()
         {
             long memBefore = GC.GetTotalMemory(true);
@@ -56,7 +56,7 @@ namespace Monoproject
             graphics.PreferredBackBufferWidth = 1280;
             graphics.PreferredBackBufferHeight = 720;
 
-            graphics.SynchronizeWithVerticalRetrace = false;
+            graphics.SynchronizeWithVerticalRetrace = true;
             IsFixedTimeStep = false;
             Window.AllowUserResizing = true;
 
@@ -80,24 +80,37 @@ namespace Monoproject
             CreateObjects();
 
             Console.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
+            GameConsole.Execute("mem");
         }
+        
+       
         protected override void Update(GameTime gameTime)
         {
-            GameEvents.OnUpdate.Trigger(gameTime);
+            GameEvents.Update.Trigger(gameTime);
+
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
                 Exit();
 
+            if(Mouse.GetState().LeftButton == ButtonState.Pressed)
+            {
+                var obj = new TextObject(IngameDrawer.Instance, "0", UI.Font);
+
+                obj.AddModule<Collider>();
+                obj.position = Mouse.GetState().Position.ToVector2();
+            }
+
             UpdateControls();
-            
+
+            GameEvents.PostUpdate.Trigger(gameTime);
             base.Update(gameTime);
         }
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);
+            GraphicsDevice.Clear(BackgroundColor);
             
-            GameEvents.OnBeforeDraw.Trigger(gameTime);
+            GameEvents.PreDraw.Trigger(gameTime);
             DrawFrame(gameTime);
-            GameEvents.OnAfterDraw.Trigger(gameTime);
+            GameEvents.PostDraw.Trigger(gameTime);
 
             base.Draw(gameTime);
         }
@@ -113,7 +126,6 @@ namespace Monoproject
             spriteBatch.End();
         }
 
-
         private void UpdateControls()
         {
             KeyboardState state = Keyboard.GetState();
@@ -126,27 +138,21 @@ namespace Monoproject
             if (state.IsKeyUp(GameConsole.ToggleKey) && !isConsoleTogglePressed)
                 isConsoleTogglePressed = true;
 
-
             player.position += new Vector2
             {
-                X = (Keyboard.GetState().IsKeyDown(Keys.D) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.A) ? 1 : 0),
-                Y = (Keyboard.GetState().IsKeyDown(Keys.S) ? 1 : 0) - (Keyboard.GetState().IsKeyDown(Keys.W) ? 1 : 0)
-            } * (100 * HTime.DeltaTime);
-            
+                X = (state.IsKeyDown(Keys.D) ? 400 : 0) - (state.IsKeyDown(Keys.A) ? 400 : 0),
+                Y = 0
+            } * HTime.DeltaTime;
+
             if (state.IsKeyDown(Keys.Space) && canJump)
             {
                 player.GetModule<Rigidbody>().velocity = Vector2.Zero;
-                player.GetModule<Rigidbody>().AddForce(new(0, -600));
+                player.GetModule<Rigidbody>().AddForce(new Vector2(0, -600));
                 canJump = false;
             }
-            if (state.IsKeyDown(Keys.F))
-                player.GetModule<Rigidbody>().AddForce(new(1, 0));
 
             if (state.IsKeyUp(Keys.Space))
                 canJump = true;
-            
-            if (state.IsKeyDown(Keys.Q))
-                player.GetModule<Rigidbody>().AngularVelocity -= 380f.AsRad() * HTime.DeltaTime;
 
             cursorObj.position = Mouse.GetState().Position.ToVector2();
         }
@@ -172,31 +178,24 @@ namespace Monoproject
                         WindowWidth / 2,
                         WindowHeight / 2), 300)
                 };
-                var c = objects[i].AddModule<Collider>();
-                c.polygon = Polygon.Rectangle(50, 50);
-                c.Mode = ColliderMode.Physical;
+                var objColl = objects[i].AddModule<Collider>();
+                objColl.polygon = Polygon.Rectangle(50, 50);
                 
-                //var rb = objects[i].AddModule<Rigidbody>();
-                //rb.Bounciness = 0;
-
-                /*objects[i].AddModule<Rigidbody>().Bounciness = 0.5f;
-                objects[i].GetModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-                objects[i].GetModule<Rigidbody>().GravityScale = 0;*/
+                objects[i].AddModule<Rigidbody>();
             }
 
-            
             player = new(ingameDrawer, "#", UI.Font)
             {
                 position = new(400, 400),
-                color = Color.Green
+                color = Color.Green,
+                size = new(2, 2),
             };
-
-
-            player.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
+            player.center += new Vector2(0, -2.5f);
+            player.AddModule<Collider>().polygon = Polygon.Rectangle(30, 30);
             player.AddModule<Rigidbody>();
-            cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
 
-            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 20);
+            cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
+            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
             cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
 
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)
@@ -205,15 +204,18 @@ namespace Monoproject
             }.AddModule<Collider>();
             wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
             wallDown.Mode = ColliderMode.Static;
-            
+
             var wallLeft = new TextObject(ingameDrawer, "", UI.Font)
             {
                 position = new(WindowWidth, WindowHeight / 2 - 11),
             }.AddModule<Collider>();
             wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;
-        }
 
+            InputZone iz = new(ingameDrawer, "SOMETHING", UI.Font);
+            iz.GetModule<Collider>().OnTouchStay += (gt) => GameConsole.WriteLine(".");
+            iz.position = new(WindowWidth / 2, WindowHeight - 30);
+        }
 
         private static void SetLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivateMethod(l, ILoadable.MethodName));
         private static void SetInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivateMethod(i, IInitable.MethodName));

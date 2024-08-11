@@ -6,13 +6,13 @@ namespace GlobalTypes
 {
     public class HTime : IInitable
     {
-        public const float FixedDelta = 1.0f / 60.0f;
+        public const float FixedDeltaTime = 1.0f / 60.0f;
         public static float DeltaTime { get; private set; }
         public static float DeltaTimeMs { get; private set; }
 
         private static float updateTimeBuffer = 0.0f;
         
-        void IInitable.Init() => GameEvents.OnUpdate.AddListener(UpdateValues, -1);
+        void IInitable.Init() => GameEvents.Update.AddListener(UpdateValues, -4);
 
         private static void UpdateValues(GameTime gameTime)
         {
@@ -20,11 +20,11 @@ namespace GlobalTypes
             DeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             updateTimeBuffer += DeltaTime;
-            while (updateTimeBuffer >= FixedDelta)
+            while (updateTimeBuffer >= FixedDeltaTime)
             {
-                GameEvents.OnFixedUpdate.Trigger(gameTime);
+                GameEvents.FixedUpdate.Trigger(gameTime);
 
-                updateTimeBuffer -= FixedDelta;
+                updateTimeBuffer -= FixedDeltaTime;
             }
         }
     }
