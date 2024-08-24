@@ -13,7 +13,7 @@ using System.Linq;
 
 namespace GlobalTypes
 {
-    public static class GameConsole
+    public static class Monoconsole
     {
         private static class CommandManager
         {
@@ -80,7 +80,7 @@ namespace GlobalTypes
                 { "color", Commands.SetColor},
             };
 
-            public static void Handle(string input)
+            public static void Execute(string input)
             {
                 input = input.ToLower().Trim();
 
@@ -170,7 +170,7 @@ namespace GlobalTypes
             if (!IsOpened)
                 return;
             WriteLine("-> " + command);
-            CommandManager.Handle(command);
+            CommandManager.Execute(command);
         }
         public static void SetOutputColor(ConsoleColor color) => Console.ForegroundColor = color;
 
@@ -180,7 +180,7 @@ namespace GlobalTypes
             {
                 try
                 {
-                    CommandManager.Handle(Console.ReadLine());   
+                    CommandManager.Execute(Console.ReadLine());   
                 }
                 catch (Exception ex)
                 {

@@ -65,8 +65,8 @@ namespace Monoproject
             IsFixedTimeStep = false;
             Window.AllowUserResizing = false;
 
-            GameConsole.New();
-            GameConsole.WriteLine($"ctor: {memBefore.ToSizeString()}");
+            Monoconsole.New();
+            Monoconsole.WriteLine($"ctor: {memBefore.ToSizeString()}");
         }
 
         protected override void LoadContent()
@@ -113,8 +113,8 @@ namespace Monoproject
                 "                    "
              );
 
-            GameConsole.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
-            GameConsole.Execute("mem");
+            Monoconsole.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
+            Monoconsole.Execute("mem");
         }
         
        
@@ -154,12 +154,12 @@ namespace Monoproject
         {
             KeyboardState state = Keyboard.GetState();
 
-            if (state.IsKeyDown(GameConsole.ToggleKey) && isConsoleTogglePressed)
+            if (state.IsKeyDown(Monoconsole.ToggleKey) && isConsoleTogglePressed)
             {
-                GameConsole.ToggleState();
+                Monoconsole.ToggleState();
                 isConsoleTogglePressed = false;
             }
-            if (state.IsKeyUp(GameConsole.ToggleKey) && !isConsoleTogglePressed)
+            if (state.IsKeyUp(Monoconsole.ToggleKey) && !isConsoleTogglePressed)
                 isConsoleTogglePressed = true;
 
             player.position += new Vector2
