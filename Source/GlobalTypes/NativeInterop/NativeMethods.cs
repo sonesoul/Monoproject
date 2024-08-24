@@ -17,6 +17,8 @@ namespace GlobalTypes.NativeInterop
         public static extern IntPtr GetStdHandle(uint nStdHandle);
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetConsoleWindow();
+        [DllImport("kernel32.dll")]
+        public static extern bool SetConsoleTextAttribute(IntPtr hConsoleOutput, uint wAttributes);
         #endregion
 
         #region User32

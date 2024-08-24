@@ -5,10 +5,9 @@ using System.Linq;
 using Engine.Drawing;
 using Engine.Types;
 using GlobalTypes.Events;
-using System.Threading.Tasks;
 using GlobalTypes.Interfaces;
 using GlobalTypes.Collections;
-using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace Engine.Modules
 {
@@ -20,17 +19,16 @@ namespace Engine.Modules
             public static int UpdateOrder => Rigidbody.UpdateOrder + 1;
 
             private static readonly LockList<Collider> _allColliders = new();
-            public static readonly LockList<Collider> pushed = new();
-            void IInitable.Init() => GameEvents.PostUpdate.AddListener(Update, UpdateOrder);
+            void IInitable.Init() => GameEvents.EndUpdate.Insert(Update, UpdateOrder);
 
             public static void Register(Collider collider) => _allColliders.Add(collider);
             public static void Unregister(Collider collider) => _allColliders.Remove(collider);
 
             public static void Update(GameTime gt)
             {
-                _allColliders.Lock();
-                Parallel.ForEach(_allColliders, c => c?.CheckIntersections(_allColliders.ToList()));
-                _allColliders.Unlock();
+                _allColliders.LockRun(
+                    () => Parallel.ForEach(_allColliders, 
+                    c => c?.CheckIntersections(_allColliders)));
             }
         }
 
@@ -39,13 +37,13 @@ namespace Engine.Modules
         public Color drawColor = Color.Green;
 
         #region Events
-        public event Action<Collider> OnTouchEnter;
-        public event Action<Collider> OnTouchStay;
-        public event Action<Collider> OnTouchExit;
+        public event Action<Collider> IntersectionEnter;
+        public event Action<Collider> IntersectionStay;
+        public event Action<Collider> IntersectionExit;
 
-        public event Action<Collider> OnTriggerEnter;
-        public event Action<Collider> OnTriggerStay;
-        public event Action<Collider> OnTriggerExit;
+        public event Action<Collider> TriggerEnter;
+        public event Action<Collider> TriggerStay;
+        public event Action<Collider> TriggerExit;
         #endregion
 
         private readonly List<Collider> _intersections = new();
@@ -69,8 +67,8 @@ namespace Engine.Modules
         public Collider(ModularObject owner) : base(owner)
         {
             _drawAction = Draw;
-
-            polygon = new(owner.IntegerPosition, Polygon.RectangleVerts(50, 50));
+            
+            polygon = new(owner?.IntegerPosition ?? Vector2.Zero, Polygon.RectangleVerts(50, 50));
             _shapeDrawer = new(IngameDrawer.Instance.GraphicsDevice, IngameDrawer.Instance.SpriteBatch);
 
             IngameDrawer.Instance.AddDrawAction(_drawAction);
@@ -85,7 +83,7 @@ namespace Engine.Modules
         {
             _intersections.Clear();
 
-            Update();
+            UpdatePolygon();
 
             _intersectionChecker(colliders);
 
@@ -94,7 +92,7 @@ namespace Engine.Modules
 
             AfterCheck();
         }
-        private void Update()
+        private void UpdatePolygon()
         {
             polygon.position = Owner.IntegerPosition;
             polygon.Rotation = Owner.Rotation;
@@ -107,7 +105,7 @@ namespace Engine.Modules
             Intersects = _intersections.Any();
             drawColor = Intersects ? Color.Red : Color.Green;
 
-            Update();
+            UpdatePolygon();
         }
 
         private void PhysicalCheck(IReadOnlyList<Collider> colliders)
@@ -126,15 +124,16 @@ namespace Engine.Modules
                     mtv = mtv.ToPoint().ToVector2();
 
                     PushOut(item, mtv);
-                    
-                    if (!_previousIntersections.Contains(item))
-                        OnTouchEnter?.Invoke(item);
-                    else
-                        OnTouchStay?.Invoke(item);
 
+                    if (!_previousIntersections.Contains(item))
+                        IntersectionEnter?.Invoke(item);
+                    else
+                        IntersectionStay?.Invoke(item);
+
+                    UpdatePolygon();
                 }
                 else if (_previousIntersections.Contains(item))
-                    OnTouchExit?.Invoke(item);
+                    IntersectionExit?.Invoke(item);
             }
         }
         private void StatiCheck(IReadOnlyList<Collider> colliders)
@@ -149,12 +148,12 @@ namespace Engine.Modules
                     _intersections.Add(item);
 
                     if (!_previousIntersections.Contains(item))
-                        OnTouchEnter?.Invoke(item);
+                        IntersectionEnter?.Invoke(item);
                     else
-                        OnTouchStay?.Invoke(item);
+                        IntersectionStay?.Invoke(item);
                 }
                 else if (_previousIntersections.Contains(item))
-                    OnTouchExit?.Invoke(item);
+                    IntersectionExit?.Invoke(item);
             }
         }
         private void TriggerCheck(IReadOnlyList<Collider> colliders)
@@ -169,15 +168,17 @@ namespace Engine.Modules
                     _intersections.Add(item);
 
                     if (!_previousIntersections.Contains(item))
-                        OnTriggerEnter?.Invoke(item);
+                        TriggerEnter?.Invoke(item);
                     else
-                        OnTriggerStay?.Invoke(item);
+                        TriggerStay?.Invoke(item);
                 }
                 else if (_previousIntersections.Contains(item))
-                    OnTriggerExit?.Invoke(item);
+                    TriggerExit?.Invoke(item);
             }
         }
 
+        //physical-physical touches will be fixed later
+        //the problem is that each object tries to push out others. Fix: there should be correct priorites for push orders. Must also handle parallel calls.
         public void PushOut(Collider other, Vector2 mtv)
         {
             Vector2 dir = Owner.IntegerPosition - other.Owner.IntegerPosition;
@@ -185,10 +186,11 @@ namespace Engine.Modules
                 mtv = -mtv;
 
             if (other.Mode == ColliderMode.Physical)
-                other.Owner.position -= mtv / 2;
+                other.Owner.position -= mtv;
             else
                 Owner.position += mtv;
         }
+
         private void UpdateBounding()
         {
             var verts = PolygonVerts;
@@ -250,12 +252,12 @@ namespace Engine.Modules
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
             CollisionManager.Unregister(this);
 
-            OnTouchEnter = null;
-            OnTouchStay = null;
-            OnTouchExit = null;
-            OnTriggerEnter = null;
-            OnTriggerStay = null;
-            OnTriggerExit = null;
+            IntersectionEnter = null;
+            IntersectionStay = null;
+            IntersectionExit = null;
+            TriggerEnter = null;
+            TriggerStay = null;
+            TriggerExit = null;
         }
     }
 }

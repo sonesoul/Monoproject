@@ -22,7 +22,7 @@ namespace Monoproject.GameUI
         
         void ILoadable.Load()
         {
-            GameEvents.Update.AddListener(GetFps, -3);
+            GameEvents.Update.Insert(GetFps, -3);
 
             interfaceDrawer = InterfaceDrawer.Instance;
             spriteBatch = interfaceDrawer.SpriteBatch;
@@ -48,7 +48,8 @@ namespace Monoproject.GameUI
 
             spriteBatch.DrawString(font,
                 $"{(int)Fps} / {HTime.DeltaTime} \n" +
-                $"{GC.GetTotalMemory(false).ToSizeString()}",
+                $"{GC.GetTotalMemory(false).ToSizeString()}\n" +
+                $"{Mouse.GetState().Position}",
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
 

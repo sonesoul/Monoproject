@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static GlobalTypes.NativeInterop.NativeMethods;
 using static GlobalTypes.NativeInterop.Constants;
-using System.Diagnostics;
+using System.Linq;
 
 namespace GlobalTypes
 {
@@ -19,41 +19,82 @@ namespace GlobalTypes
         {
             private static class Commands
             {
-                public static void Mem(string arg)
+                public static void Mem()
                 {
                     WriteLine(
-                            $"GC0: [{GC.CollectionCount(0)}]\n" +
-                            $"GC1: [{GC.CollectionCount(1)}]\n" +
-                            $"GC2: [{GC.CollectionCount(2)}]\n" +
-                            $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
-                            $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]");
+                        $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
+                        $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]",
+                        ConsoleColor.Cyan);
+
+                    WriteLine(
+                        $"GC0: [{GC.CollectionCount(0)}]\n" +
+                        $"GC1: [{GC.CollectionCount(1)}]\n" +
+                        $"GC2: [{GC.CollectionCount(2)}]",
+                        ConsoleColor.DarkCyan);
+
+                }
+                public static void SetColor(string arg)
+                {
+                    switch (arg)
+                    {
+                        case "all":
+                            var values = Enum.GetValues<ConsoleColor>()
+                                 .Cast<ConsoleColor>()
+                                 .Where(v => v != ConsoleColor.Black)
+                                 .OrderBy(color => color.ToString(), StringComparer.OrdinalIgnoreCase).ToList();
+
+                            foreach (var value in values)
+                                WriteLine(value, value).Wait();
+
+                             break;
+                        case "reset":
+                            Console.ResetColor();
+                            WriteLine($"Color set to {CurrentColor}", CurrentColor);
+                            break;
+                        default:
+                            if (!Enum.TryParse<ConsoleColor>(arg, true, out var color))
+                                WriteLine($"Color not found", ConsoleColor.Red);
+                            else
+                            {
+                                if (color == ConsoleColor.Black)
+                                {
+                                    WriteLine("I can't see black text on my black console background. Suffer with me :3");
+                                    return;
+                                }
+
+                                SetOutputColor(color);
+                                WriteLine($"Color set to {color}", CurrentColor);
+                            }
+                            break;
+                    }
                 }
             }
 
-            private readonly static Dictionary<string, Action<string>> commands = new() 
+            private readonly static Dictionary<string, Action<string>> commands = new()
             {
                 { "new", (arg) => New() },
                 { "exit", (arg) => Close() },
                 { "clear", (arg) => { Console.Clear(); WriteLine(openString); } },
                 { "f1", (arg) => Main.Instance.Exit() },
-                { "mem", Commands.Mem },
+                { "mem", (arg) => Commands.Mem() },
+                { "color", Commands.SetColor},
             };
 
             public static void Handle(string input)
             {
                 input = input.ToLower().Trim();
+
                 if (string.IsNullOrEmpty(input))
                     return;
 
-                if (!commands.TryGetValue(input, out var action))
+                string[] commandArgPair = input.Split(" ");
+                if (!commands.TryGetValue(commandArgPair[0], out var action))
                 {
-                    WriteLine($"Unexpected command: \"{input}\"");
+                    WriteLine($"Unexpected command: \"{input}\"", ConsoleColor.Red);
                     return;
                 }
 
-
-                int index = input.IndexOf(" "); 
-                action?.Invoke(index != -1 ? input[index..] : "");
+                action?.Invoke(commandArgPair.Length > 1 ? commandArgPair[1] : "");
             }            
         }
 
@@ -62,9 +103,12 @@ namespace GlobalTypes
         private readonly static TextWriter _originalErr = Console.Error;
 
         public static Keys ToggleKey => Keys.OemTilde;
+        public static ConsoleColor CurrentColor => Console.ForegroundColor;
         public static bool IsOpened { get; private set; } = false;
         private static string openString = "";
         private static CancellationTokenSource _cancellationTokenSource;
+        private readonly static object _lock = new();
+
 
         public static bool Open()
         {
@@ -76,14 +120,16 @@ namespace GlobalTypes
                 if (result)
                 {
                     SetHandles();
+                    SetOutputColor(ConsoleColor.Yellow);
                     Console.Title = "monoconsole";
                     openString = $"Opened ({GenerateKey(8)})";
-                    Console.WriteLine(openString);
-                    
+                    WriteLine(openString);
+
                     RemoveSystemMenu();
                     
                     Console.OutputEncoding = Encoding.UTF8;
                     _cancellationTokenSource = new CancellationTokenSource();
+
                     new Thread(() => ConsoleThread(_cancellationTokenSource.Token))
                     {
                         IsBackground = true
@@ -126,6 +172,7 @@ namespace GlobalTypes
             WriteLine("-> " + command);
             CommandManager.Handle(command);
         }
+        public static void SetOutputColor(ConsoleColor color) => Console.ForegroundColor = color;
 
         private static void ConsoleThread(CancellationToken token)
         {
@@ -135,10 +182,9 @@ namespace GlobalTypes
                 {
                     CommandManager.Handle(Console.ReadLine());   
                 }
-                catch
+                catch (Exception ex)
                 {
-                    Close();
-                    return;
+                    WriteLine($"Unhandled exception: {ex.Message}", ConsoleColor.Red);
                 }
             }
         }
@@ -175,40 +221,53 @@ namespace GlobalTypes
 
             return string.Join("", result);
         }
-        
+
         #region ConsoleOutputOverrides
-        private static async Task WriteAsync(Action writeAction)
+        private static async Task WriteAsync(Action writeAction, ConsoleColor color = ConsoleColor.White)
         {
-            if (IsOpened)
-                await Task.Run(writeAction);
+            await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    if (IsOpened)
+                    {
+                        var temp = Console.ForegroundColor;
+                        SetOutputColor(color);
+
+                        writeAction();
+
+                        SetOutputColor(temp);
+                    }
+                }
+            });
         }
 
-        public static Task WriteLine() => WriteAsync(() => Console.WriteLine());
-        public static Task WriteLine(bool value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(char value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(char[] buffer) => WriteAsync(() => Console.WriteLine(buffer));
-        public static Task WriteLine(decimal value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(double value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(float value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(int value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(long value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(object value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(string value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(uint value) => WriteAsync(() => Console.WriteLine(value));
-        public static Task WriteLine(ulong value) => WriteAsync(() => Console.WriteLine(value));
+        public static Task WriteLine(ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(), color);
+        public static Task WriteLine(bool value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(char value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(char[] buffer, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(buffer), color);
+        public static Task WriteLine(decimal value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(double value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(float value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(int value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(long value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(object value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(string value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(uint value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
+        public static Task WriteLine(ulong value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);
 
-        public static Task Write(bool value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(char value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(char[] buffer) => WriteAsync(() => Console.Write(buffer));
-        public static Task Write(decimal value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(double value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(float value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(int value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(long value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(object value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(string value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(uint value) => WriteAsync(() => Console.Write(value));
-        public static Task Write(ulong value) => WriteAsync(() => Console.Write(value));
+        public static Task Write(bool value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(char value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(char[] buffer, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(buffer), color);
+        public static Task Write(decimal value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(double value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(float value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(int value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(long value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(object value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(string value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(uint value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
+        public static Task Write(ulong value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.Write(value), color);
 
         #endregion
     }

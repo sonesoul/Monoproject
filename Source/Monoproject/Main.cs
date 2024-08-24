@@ -18,6 +18,7 @@ using Engine;
 using Engine.Drawing;
 using Engine.Modules;
 using Engine.Types;
+using Monoproject.Generators;
 
 namespace Monoproject
 {
@@ -28,7 +29,7 @@ namespace Monoproject
         private InterfaceDrawer interfaceDrawer;
         private IngameDrawer ingameDrawer;
         
-        private TextObject[] objects = new TextObject[1];
+        private TextObject[] objects = new TextObject[0];
         public TextObject player;
         private TextObject cursorObj;
         private static bool isConsoleTogglePressed = true;
@@ -37,6 +38,10 @@ namespace Monoproject
         public SpriteBatch SpriteBatch => spriteBatch;
         public int WindowWidth => graphics.PreferredBackBufferWidth;
         public int WindowHeight => graphics.PreferredBackBufferHeight;
+
+        public Vector2 WindowSize => new(WindowWidth, WindowHeight);
+        public Rectangle WindowRect => new(0, 0, WindowWidth, WindowHeight);
+
         public static Main Instance { get; private set; }
         public static Color BackgroundColor { get; set; } = Color.Black;
 
@@ -52,16 +57,16 @@ namespace Monoproject
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
 
-            IsMouseVisible = false;
-            graphics.PreferredBackBufferWidth = 1280;
+            IsMouseVisible = true;
+            graphics.PreferredBackBufferWidth = 720;
             graphics.PreferredBackBufferHeight = 720;
 
             graphics.SynchronizeWithVerticalRetrace = true;
             IsFixedTimeStep = false;
-            Window.AllowUserResizing = true;
+            Window.AllowUserResizing = false;
 
             GameConsole.New();
-            Console.WriteLine($"ctor: {memBefore.ToSizeString()}");
+            GameConsole.WriteLine($"ctor: {memBefore.ToSizeString()}");
         }
 
         protected override void LoadContent()
@@ -79,7 +84,36 @@ namespace Monoproject
             SetInitables();
             CreateObjects();
 
-            Console.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
+            MapGenerator generator = new();
+            
+            Rectangle screenSquare = new(Point.Zero, WindowSize.MinSquare().ToPoint());
+            var grid = MapGenerator.SliceRect(new Point(20, 20), screenSquare, new(0, 0));
+            
+             generator.Generate(
+                grid,
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "                    " +
+                "       ##           " +
+                "                    " +
+                "####                " +
+                "                    "
+             );
+
+            GameConsole.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
             GameConsole.Execute("mem");
         }
         
@@ -91,18 +125,8 @@ namespace Monoproject
             if (Keyboard.GetState().IsKeyDown(Keys.F1))
                 Exit();
 
-            if(Mouse.GetState().LeftButton == ButtonState.Pressed)
-            {
-                var obj = new TextObject(IngameDrawer.Instance, "0", UI.Font);
-
-                obj.AddModule<Collider>();
-                obj.position = Mouse.GetState().Position.ToVector2();
-            }
-
             UpdateControls();
-
-            GameEvents.PostUpdate.Trigger(gameTime);
-            base.Update(gameTime);
+            GameEvents.EndUpdate.Trigger(gameTime);
         }
         protected override void Draw(GameTime gameTime)
         {
@@ -200,25 +224,34 @@ namespace Monoproject
 
             var wallDown = new TextObject(ingameDrawer, "", UI.Font)
             {
-                position = new(WindowWidth / 2, WindowHeight),
+                position = new(WindowWidth / 2, WindowHeight + 9),
             }.AddModule<Collider>();
             wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
             wallDown.Mode = ColliderMode.Static;
 
             var wallLeft = new TextObject(ingameDrawer, "", UI.Font)
             {
-                position = new(WindowWidth, WindowHeight / 2 - 11),
+                position = new(WindowWidth + 9, WindowHeight / 2),
             }.AddModule<Collider>();
             wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
             wallLeft.Mode = ColliderMode.Static;
 
-            InputZone iz = new(ingameDrawer, "SOMETHING", UI.Font);
-            iz.GetModule<Collider>().OnTouchStay += (gt) => GameConsole.WriteLine(".");
-            iz.position = new(WindowWidth / 2, WindowHeight - 30);
+            var wallRight = new TextObject(ingameDrawer, "", UI.Font)
+            {
+                position = new(-9, WindowHeight / 2),
+            }.AddModule<Collider>();
+            wallRight.polygon = Polygon.Rectangle(20, WindowHeight);
+            wallRight.Mode = ColliderMode.Static;
+
+
+            _ = new InputZone(ingameDrawer, "Fire", UI.Font)
+            {
+                position = new(WindowWidth / 2, WindowHeight - 30)
+            };
         }
 
-        private static void SetLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivateMethod(l, ILoadable.MethodName));
-        private static void SetInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivateMethod(i, IInitable.MethodName));
+        private static void SetLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivate(l, ILoadable.MethodName));
+        private static void SetInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivate(i, IInitable.MethodName));
         public static List<T> CreateInstances<T>() where T : class
         {
             var instances = new List<T>();
@@ -234,11 +267,12 @@ namespace Monoproject
 
             return instances;
         }
-        public static void CallPrivateMethod<T>(T instance, string methodName)
+        public static void CallPrivate<T>(T instance, string methodName)
         {
-            var method = 
+            MethodInfo method = 
                 typeof(T).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance) 
                 ?? throw new InvalidOperationException($"Method [{methodName}] not found.");
+
             method.Invoke(instance, null);
         }
     }

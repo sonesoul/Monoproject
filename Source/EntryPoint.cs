@@ -1,15 +1,28 @@
-﻿Monoproject.Main game = null;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+Monoproject.Main game = null;
 try
 {
     game = new Monoproject.Main();
     game.Run();
 }
-catch (System.Exception e)
+catch (Exception e)
 {
-    if(game != null)
+    if (game != null)
         game.IsMouseVisible = true;
-    
-    System.Windows.Forms.MessageBox.Show($"{e.Message}\n\nStack trace:\n{e.StackTrace}", "Critical error!");
+
+    string msg = $"{e.Message}\n\nStack trace:\n{e.StackTrace}";
+
+    if(MessageBox.Show($"{msg}\n\nClick OK if you want to copy this info", "Critical error", MessageBoxButtons.OKCancel) == DialogResult.OK)
+    {
+        Thread thread = new(() => Clipboard.SetText("[Monoproject exception info (Main handle)]\n\n" + msg));
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
 }
 finally
 {

@@ -1,12 +1,15 @@
-﻿namespace GlobalTypes.Events
+﻿using Microsoft.Xna.Framework;
+
+namespace GlobalTypes.Events
 {
     public static class GameEvents
     {
-        public readonly static ListenerCollection Update = new();
-        public readonly static ListenerCollection PostUpdate = new();
-        public readonly static ListenerCollection FixedUpdate = new();
+        public static OrderedEvent<GameTime> Update { get; } = new();
+        public static OrderedEvent<GameTime> EndUpdate { get; } = new();
+        
+        public static OrderedEvent<GameTime> FixedUpdate { get; } = new();
 
-        public readonly static ListenerCollection PreDraw = new();
-        public readonly static ListenerCollection PostDraw = new();
+        public static OrderedEvent<GameTime> PreDraw { get; } = new();
+        public static OrderedEvent<GameTime> PostDraw { get; } = new();
     }
 }

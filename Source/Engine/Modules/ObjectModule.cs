@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace Engine.Modules
 {
@@ -8,27 +9,28 @@ namespace Engine.Modules
         public event Action PreDispose;
 
         public bool IsDisposed { get; private set; }  
-        public ModularObject Owner 
+        public ModularObject Owner => _owner;
+
+        public void SetOwner(ModularObject newOwner)
         {
-            get => _owner;
-            set 
-            {
-                if (value == _owner) 
-                    return;
+            if (newOwner == _owner)
+                return;
 
-                if(_owner != null && _owner.ContainsModule(this))
-                    _owner.RemoveModule(this);
+            if (_owner != null && _owner.ContainsModule(this))
+                _owner.RemoveModule(this);
 
-                if (value != null)
-                    value.AddModule(this);
-                else 
-                    _owner = null;
-            }
+            _owner = newOwner;
+
+            if (_owner != null && !_owner.ContainsModule(this))
+                _owner.AddModule(this);
         }
-        
+
         public ObjectModule(ModularObject owner) => _owner = owner;
         ~ObjectModule() => Dispose(false);
-        
+
+        public static T New<T>(ModularObject owner, params object[] args) where T : ObjectModule
+            => (T)Activator.CreateInstance(typeof(T), new object[] { owner }.Concat(args).ToArray());
+
         public void Dispose()
         {
             Dispose(true);
@@ -44,7 +46,7 @@ namespace Engine.Modules
             if (disposing)
             {
                 PreDispose?.Invoke();
-                Owner = null;
+                SetOwner(null);
                 PreDispose = null;
             }
 

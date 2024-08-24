@@ -12,7 +12,7 @@ namespace GlobalTypes
 
         private static float updateTimeBuffer = 0.0f;
         
-        void IInitable.Init() => GameEvents.Update.AddListener(UpdateValues, -4);
+        void IInitable.Init() => GameEvents.Update.Insert(UpdateValues, -4);
 
         private static void UpdateValues(GameTime gameTime)
         {

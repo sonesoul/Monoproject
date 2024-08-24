@@ -7,7 +7,7 @@ namespace GlobalTypes.Collections
     public interface ILockCollection<T> : ICollection<T>
     {
         public bool IsLocked { get; }
-        public int ChangesCount { get; }
+        public int ChangeCount { get; }
 
         public void Lock();
         public void Unlock();
@@ -16,41 +16,21 @@ namespace GlobalTypes.Collections
 
     public class LockCollection<T> : ILockCollection<T>
     {
-        protected enum ChangeType
-        {
-            Add,
-            Remove,
-            Clear,
-        }
-        protected readonly struct CollectionChange
-        {
-            public readonly T Value { get; init; }
-            public readonly ChangeType Change { get; init; }
-
-            public CollectionChange(T value, ChangeType type)
-            {
-                Value = value;
-                Change = type;
-            }
-
-            public readonly void Deconstruct(out T value, out ChangeType type)
-            {
-                value = Value; 
-                type = Change;
-            }
-        }
-
         protected readonly ICollection<T> _collection;
-        private readonly Queue<CollectionChange> _changeQueue = new();
+      
+        protected readonly Queue<Action> changeQueue = new();
 
         public bool IsLocked { get; private set; } = false;
-        public int ChangesCount => _changeQueue.Count;
+        public int ChangeCount => changeQueue.Count;
 
         public int Count => _collection.Count;
         public bool IsReadOnly => _collection.IsReadOnly;
 
-        public LockCollection(ICollection<T> original) => _collection = original;
+        public LockCollection(ICollection<T> source) => _collection = source;
 
+        /// <summary>
+        /// Locks the collection for a changes. Changes made while locked are applied when the collection is unlocked.
+        /// </summary>
         public void Lock()
         {
             if (IsLocked)
@@ -58,6 +38,9 @@ namespace GlobalTypes.Collections
 
             IsLocked = true;
         }
+        /// <summary>
+        /// Unlocks the collection. Applies changes that made while collection was locked.
+        /// </summary>
         public void Unlock()
         {
             if (!IsLocked)
@@ -66,61 +49,18 @@ namespace GlobalTypes.Collections
             IsLocked = false;
             ApplyChanges();
         }
+        
+        public void SafeUnlock() => IsLocked = false;
+        public void SafeLock() => IsLocked = true;
+        public void SetLock(bool state) => IsLocked = state;
 
-        protected virtual void ApplyChanges()
+        private void ApplyChanges()
         {
-            while (_changeQueue.Count > 0)
-            {
-                _changeQueue.Dequeue().Deconstruct(out var value, out var type);
-
-                switch (type)
-                {
-                    case ChangeType.Add:
-                        Add(value);
-                        break;
-                    case ChangeType.Remove:
-                        Remove(value);
-                        break;
-                    case ChangeType.Clear:
-                        Clear();
-                        break;
-                    default:
-                        break;
-                }
-            }
+            while (changeQueue.Count > 0)
+                changeQueue.Dequeue()();
         }
+        public void ClearChanges() => changeQueue.Clear();
 
-        public void Add(T value)
-        {
-            if (IsLocked)
-            {
-                _changeQueue.Enqueue(new(value, ChangeType.Add));
-                return;
-            }
-
-            _collection.Add(value);
-        }
-        public bool Remove(T value)
-        {
-            if (IsLocked)
-            {
-                _changeQueue.Enqueue(new(value, ChangeType.Remove));
-                return true;
-            }
-
-            return _collection.Remove(value);
-        }
-        public void Clear()
-        {
-            if(IsLocked)
-            {
-                _changeQueue.Enqueue(new(default, ChangeType.Clear));
-                return;
-            }
-
-            _collection.Clear();
-        }
-        public bool Contains(T item) => _collection.Contains(item);
         public void ForEach(Action<T> action)
         {
             if (action == null)
@@ -129,32 +69,52 @@ namespace GlobalTypes.Collections
             foreach (var item in _collection)
                 action(item);
         }
-        public void LockForEach(Action<T> action)
+        public void LockForEach(Action<T> action) => LockRun(() => ForEach(action));
+        public void LockRun(Action action)
         {
-            Lock();
-            ForEach(action);
-            Unlock();
+            if(!IsLocked)
+                Lock();
+
+            action();
+            
+            if(IsLocked)
+                Unlock();
         }
+        
+        public void SafeRun(Action action)
+        {
+            if(IsLocked)
+                changeQueue.Enqueue(action);
+            else 
+                action?.Invoke();
+        }
+
+        public void Add(T value) => SafeRun(() => _collection.Add(value));
+        public bool Remove(T value)
+        {
+            if (!Contains(value))
+                return false;
+            else
+            {
+                if (IsLocked)
+                    changeQueue.Enqueue(() => _collection.Remove(value));
+                else
+                    _collection.Remove(value);
+
+                return true;
+            }
+           
+        }
+        public void Clear() => SafeRun(() => _collection.Clear());
+        public bool Contains(T item) => _collection.Contains(item);
 
         public void CopyTo(T[] array, int arrayIndex) => _collection.CopyTo(array, arrayIndex);
 
         public IEnumerator<T> GetEnumerator() => _collection.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
-    public class LockList<T> : LockCollection<T>, IList<T>
+    public class LockList<T> : LockCollection<T>, IList<T>, IReadOnlyList<T>
     {
-        new protected enum ChangeType
-        {
-            Insert,
-            RemoveAt,
-            Sort
-        }
-        public LockList() : base(new List<T>()) { }
-        public LockList(List<T> source) : base(new List<T>(source)) { }
-
-        private readonly Queue<ListChange> _changeQueue = new();
-        private List<T> InternalList => (List<T>)_collection;
-
         public int Capacity
         {
             get => InternalList.Capacity;
@@ -166,56 +126,19 @@ namespace GlobalTypes.Collections
             }
         }
 
+        public IReadOnlyList<T> Collection => InternalList;
+        private List<T> InternalList => (List<T>)_collection;
+
         public T this[int index] { get => InternalList[index]; set => InternalList[index] = value; }
 
-        protected override void ApplyChanges()
-        {
-            base.ApplyChanges();
-
-            while (_changeQueue.Count > 0)
-            {
-                var change = _changeQueue.Dequeue();
-                switch (change.Change)
-                {
-                    case ChangeType.Insert:
-                        InternalList.Insert(change.Index, change.Value);
-                        break;
-                    
-                    case ChangeType.RemoveAt:
-                        InternalList.RemoveAt(change.Index);
-                        break;
-
-                    case ChangeType.Sort:
-                        if(change.Comparison != null)
-                            InternalList.Sort(change.Comparison);
-                        break;
-                }
-            }
-        }
-
+        public LockList() : this(new List<T>()) { }
+        public LockList(List<T> source) : base(new List<T>(source)) { }
+        
         public int IndexOf(T item) => InternalList.IndexOf(item);
         public int LastIndexOf(T item) => InternalList.LastIndexOf(item);
-        public void Insert(int index, T item)
-        {
-            if (IsLocked)
-            {
-                _changeQueue.Enqueue(new ListChange(item, ChangeType.Insert) { Index = index });
-                return;
-            }
-            
-            InternalList.Insert(index, item);
-        }
-        public void RemoveAt(int index)
-        {
-            if (IsLocked)
-            {
-                T item = InternalList[index];
-                _changeQueue.Enqueue(new ListChange(item, ChangeType.RemoveAt) { Index = index });
-                return;
-            }
-            
-            InternalList.RemoveAt(index);
-        }
+        public void Insert(int index, T item) => SafeRun(() => InternalList.Insert(index, item));
+        public void RemoveAt(int index) => SafeRun(() => InternalList.Remove(InternalList[index]));
+
         public T Find(Predicate<T> match) => InternalList.Find(match);
         public List<T> FindAll(Predicate<T> match) => InternalList.FindAll(match);
         public void Sort(Comparison<T> comparison)
@@ -225,27 +148,11 @@ namespace GlobalTypes.Collections
 
             if (IsLocked)
             {
-                _changeQueue.Enqueue(new(default, ChangeType.Sort) { Comparison = comparison });
+                changeQueue.Enqueue(() => InternalList.Sort(comparison));
                 return;
             }
             
             InternalList.Sort(comparison);
-        }
-
-        private readonly struct ListChange
-        {
-            public readonly T Value { get; init; }
-            public readonly ChangeType Change { get; init; }
-            public int Index { get; init; }
-            public Comparison<T> Comparison { get; init; }
-
-            public ListChange(T value, ChangeType type)
-            {
-                Value = value;
-                Change = type;
-                Index = -1;
-                Comparison = null;
-            }
         }
     }
 }
