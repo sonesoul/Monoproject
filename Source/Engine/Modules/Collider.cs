@@ -8,6 +8,7 @@ using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
 using GlobalTypes.Collections;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace Engine.Modules
 {
@@ -19,21 +20,22 @@ namespace Engine.Modules
             public static int UpdateOrder => Rigidbody.UpdateOrder + 1;
 
             private static readonly LockList<Collider> _allColliders = new();
-            void IInitable.Init() => GameEvents.EndUpdate.Insert(Update, UpdateOrder);
+
+            void IInitable.Init() => FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Collider);
 
             public static void Register(Collider collider) => _allColliders.Add(collider);
             public static void Unregister(Collider collider) => _allColliders.Remove(collider);
 
-            public static void Update(GameTime gt)
+            public static void EndUpdate(GameTime gt)
             {
                 _allColliders.LockRun(
                     () => Parallel.ForEach(_allColliders, 
-                    c => c?.CheckIntersections(_allColliders)));
+                    (c) => c?.CheckIntersections(_allColliders)));
             }
         }
 
 
-        public Polygon polygon;
+        public Polygon polygon = Polygon.Rectangle(50, 50);
         public Color drawColor = Color.Green;
 
         #region Events
@@ -52,32 +54,32 @@ namespace Engine.Modules
         private Rectangle _bounding;
         private List<Vector2> PolygonVerts => polygon.Vertices;
 
-        private ColliderMode _colliderMode;
+        private ColliderMode _colliderMode = ColliderMode.Physical;
         
         private Action<IReadOnlyList<Collider>> _intersectionChecker;
-        private readonly Action<GameTime> _drawAction;
+        private Action<GameTime> _drawAction;
         
-        private readonly ShapeDrawer _shapeDrawer;
+        private ShapeDrawer _shapeDrawer;
         
         public Rectangle ShapeBounding => _bounding;
         public bool Intersects { get; private set; }
         public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
         public IReadOnlyList<Collider> Intersections => _intersections;
 
-        public Collider(ModularObject owner) : base(owner)
+        public Collider(ModularObject owner = null) : base(owner) { }
+       
+        protected override void Initialize()
         {
             _drawAction = Draw;
-            
-            polygon = new(owner?.IntegerPosition ?? Vector2.Zero, Polygon.RectangleVerts(50, 50));
-            _shapeDrawer = new(IngameDrawer.Instance.GraphicsDevice, IngameDrawer.Instance.SpriteBatch);
+
+            _shapeDrawer = new(IngameDrawer.Instance);
 
             IngameDrawer.Instance.AddDrawAction(_drawAction);
             CollisionManager.Register(this);
 
             UpdateBounding();
-            SetUpdater(ColliderMode.Physical);
+            SetUpdater(_colliderMode);
         }
-
 
         public void CheckIntersections(IReadOnlyList<Collider> colliders)
         {
@@ -95,7 +97,7 @@ namespace Engine.Modules
         private void UpdatePolygon()
         {
             polygon.position = Owner.IntegerPosition;
-            polygon.Rotation = Owner.Rotation;
+            polygon.Rotation = Owner.RotationDeg;
             UpdateBounding();
         }
         private void AfterCheck()
@@ -247,8 +249,15 @@ namespace Engine.Modules
 
             _shapeDrawer.DrawLine(current, PolygonVerts[0] + Owner.IntegerPosition, drawColor);
         }
-        protected override void Destruct()
+
+        protected override void Dispose(bool disposing)
         {
+            FrameEvents.EndSingle.Append((gt) => LateDispose(disposing));
+        }
+        private void LateDispose(bool disposing)
+        {
+            base.Dispose(disposing);
+
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
             CollisionManager.Unregister(this);
 

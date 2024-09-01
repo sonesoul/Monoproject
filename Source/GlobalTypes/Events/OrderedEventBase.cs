@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using GlobalTypes.Collections;
 using System.Linq;
+using System.Diagnostics;
 
 namespace GlobalTypes.Events
 {
@@ -42,8 +43,8 @@ namespace GlobalTypes.Events
         where TListener : struct, IHasOrderedAction<TAction> 
         where TAction : Delegate
     {
-        public int LastOrder => Count > 0 ? _listeners[Count - 1].Order : -1;
-        public int FirstOrder => Count > 0 ? _listeners[0].Order : -1;
+        public int LastOrder => Count > 0 ? _listeners[Count - 1].Order : 0;
+        public int FirstOrder => Count > 0 ? _listeners[0].Order : 0;
         protected bool IsLocked => _listeners.IsLocked;
         public int Count => _listeners.Count;
 
@@ -67,7 +68,7 @@ namespace GlobalTypes.Events
                 return;
             }
 
-            int index = FindFirstWithOrder(requiredOrder);
+            int index = GetFirstLargerOrder(requiredOrder);
 
             if (index == -1)
                 throw new InvalidOperationException("Unable to insert listener, no valid insertion point found.");
@@ -108,7 +109,7 @@ namespace GlobalTypes.Events
             return Insert(listener.Action, newOrder);
         }
 
-        public int FindFirstWithOrder(int requiredOrder)
+        public int GetFirstLargerOrder(int requiredOrder)
         {
             TListener item = default;
             item.Order = requiredOrder;
@@ -127,38 +128,5 @@ namespace GlobalTypes.Events
         }
 
         public override string ToString() => $"<{_listeners.Count}>  [{FirstOrder}] ... [{LastOrder}]";
-    }
-
-    public class OrderedEvent<T> : OrderedEventBase<EventListener<T>, Action<T>>
-    {
-        public event Action<T> Triggered 
-        {
-            add => Append(new(value));
-            remove => RemoveFirst(value);
-        }
-
-        public void Trigger(T parameter)
-        {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l => l.Action(parameter));
-        }
-    }
-    public class OrderedEvent : OrderedEventBase<EventListener, Action>
-    {
-        public event Action Triggered
-        {
-            add => Append(new(value));
-            remove => RemoveFirst(value);
-        }
-
-        public void Trigger()
-        {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l => l.Action());
-        }
     }
 }

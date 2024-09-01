@@ -15,16 +15,9 @@ namespace GlobalTypes.Extensions
             public BothAxes(float x, float y) => vector = new(x, y);
             public BothAxes(Vector2 vector) => this.vector = vector;
 
-            public readonly override bool Equals([NotNullWhen(true)] object obj)
-            {
-                if (obj is float axis) 
-                {
-                    return Equals(this, axis);
-                }
-
-                return base.Equals(obj);
-            }
-            private static bool Equals(BothAxes vector, float value) => (vector.X == value && vector.Y == value);
+            public readonly override bool Equals([NotNullWhen(true)] object obj) => (obj is float axis) ? Equals(this, axis) : base.Equals(obj);
+            private static bool Equals(BothAxes vector, float value) => vector.X == value && vector.Y == value;
+            public readonly override int GetHashCode() => HashCode.Combine(vector.X, vector.Y);
 
             public static Vector2 operator +(BothAxes vector, float value) => new(vector.X + value, vector.Y + value);
             public static Vector2 operator -(BothAxes vector, float value) => new(vector.X - value, vector.Y - value);
@@ -36,8 +29,6 @@ namespace GlobalTypes.Extensions
             public static bool operator >=(BothAxes vector, float value) => vector > value || vector == value;
             public static bool operator ==(BothAxes vector, float value) => vector.Equals(value);
             public static bool operator !=(BothAxes vector, float value) => !vector.Equals(value);
-
-            public readonly override int GetHashCode() => HashCode.Combine(vector.X, vector.Y);
         }
         public struct AnyAxis
         {
@@ -48,15 +39,7 @@ namespace GlobalTypes.Extensions
             public AnyAxis(float x, float y) => vector = new(x, y);
             public AnyAxis(Vector2 vector) => this.vector = vector;
 
-            public readonly override bool Equals([NotNullWhen(true)] object obj)
-            {
-                if (obj is float axis)
-                {
-                    return Equals(this, axis);
-                }
-
-                return base.Equals(obj);
-            }
+            public readonly override bool Equals([NotNullWhen(true)] object obj) => (obj is float axis) ? Equals(this, axis) : base.Equals(obj);
             private static bool Equals(AnyAxis left, float value) => (left.X == value || left.Y == value);
 
             public static bool operator >(AnyAxis vector, float value) => (vector.X > value || vector.Y > value);
@@ -85,10 +68,8 @@ namespace GlobalTypes.Extensions
         public static float Max(this Vector2 v) => Math.Max(v.X, v.Y);
         public static float Min(this Vector2 v) => Math.Min(v.X, v.Y);
 
-        public static Vector2 MaxAxis(this Vector2 v) =>
-            v.X > v.Y ? new Vector2(v.X, 0) : v.Y > v.X ? new Vector2(0, v.Y) : v;
-        public static Vector2 MinAxis(this Vector2 v) =>
-            v.X < v.Y ? new Vector2(v.X, 0) : v.Y < v.X ? new Vector2(0, v.Y) : v;
+        public static Vector2 MaxAxis(this Vector2 v) => v.X > v.Y ? new Vector2(v.X, 0) : v.Y > v.X ? new Vector2(0, v.Y) : v;
+        public static Vector2 MinAxis(this Vector2 v) => v.X < v.Y ? new Vector2(v.X, 0) : v.Y < v.X ? new Vector2(0, v.Y) : v;
 
         public static Vector2 MaxSquare(this Vector2 v) => new(v.Max(), v.Max());
         public static Vector2 MinSquare(this Vector2 v) => new(v.Min(), v.Min());

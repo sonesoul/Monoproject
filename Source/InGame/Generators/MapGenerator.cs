@@ -7,10 +7,10 @@ using Microsoft.Xna.Framework;
 using System.Text;
 using System.Threading.Tasks;
 using Engine.Drawing;
-using Monoproject.GameUI;
+using InGame;
 using Engine.Modules;
 
-namespace Monoproject.Generators
+namespace InGame.Generators
 {
     class MapGenerator
     {
@@ -18,17 +18,17 @@ namespace Monoproject.Generators
         
         public static Dictionary<char, Action<Vector2>> DefaultPattern => new() 
         {
-            { '#', (v) => 
+            { '#', (pos) => 
                 {
-                    var obj = ModularObject.New<TextObject>(IngameDrawer.Instance, "", UI.Font);
-                    obj.position = v;
-                    obj.size = new(1, 1);
-                    obj.center -= new Vector2(0, 3.8f);
-                    Collider collider = ObjectModule.New<Collider>(obj);
-                    collider.Mode = ColliderMode.Static;
-                    collider.polygon = Polygon.Rectangle(37, 37);
-
-                    obj.AddModule(collider);
+                    _ =
+                    new TextObject(IngameDrawer.Instance, "", UI.Font, new Collider()
+                    {
+                        Mode = ColliderMode.Static,
+                        polygon = Polygon.Rectangle(37, 37)
+                    })
+                    {
+                        position = pos
+                    };
                 }
             }
         };

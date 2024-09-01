@@ -8,250 +8,117 @@ using System.Globalization;
 using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 
-using Monoproject.GameUI;
 using GlobalTypes;
 using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
-using Engine;
 using Engine.Drawing;
-using Engine.Modules;
-using Engine.Types;
-using Monoproject.Generators;
+using InGame;
+using GlobalTypes.Attributes;
 
 namespace Monoproject
 {
     public class Main : Game
     {
-        private GraphicsDeviceManager graphics;
-        private SpriteBatch spriteBatch;
-        private InterfaceDrawer interfaceDrawer;
-        private IngameDrawer ingameDrawer;
-        
-        private TextObject[] objects = new TextObject[0];
-        public TextObject player;
-        private TextObject cursorObj;
-        private static bool isConsoleTogglePressed = true;
-        private bool canJump = false;
-        
-        public SpriteBatch SpriteBatch => spriteBatch;
-        public int WindowWidth => graphics.PreferredBackBufferWidth;
-        public int WindowHeight => graphics.PreferredBackBufferHeight;
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        private InterfaceDrawer _interfaceDrawer;
+        private IngameDrawer _ingameDrawer;
+        private GameMain _gameInstance;
 
-        public Vector2 WindowSize => new(WindowWidth, WindowHeight);
-        public Rectangle WindowRect => new(0, 0, WindowWidth, WindowHeight);
-
+        public SpriteBatch SpriteBatch => _spriteBatch;
+        public GraphicsDeviceManager GraphicsManager => _graphics;
+        public SynchronizationContext SyncContext { get; private set; }
         public static Main Instance { get; private set; }
         public static Color BackgroundColor { get; set; } = Color.Black;
+        public Thread GameThread { get; init; }
 
         public Main()
         {
-            long memBefore = GC.GetTotalMemory(true);
+            long memCtor = GC.GetTotalMemory(true);
 
             Instance = this;
-            
-            Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
-            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
 
-            graphics = new GraphicsDeviceManager(this);
+            _graphics = new(this)
+            {
+                PreferredBackBufferWidth = 720,
+                PreferredBackBufferHeight = 720,
+                SynchronizeWithVerticalRetrace = true
+            };
+
+            Window.AllowUserResizing = false;
+            IsMouseVisible = false;
+            IsFixedTimeStep = false;
+
             Content.RootDirectory = "Content";
 
-            IsMouseVisible = true;
-            graphics.PreferredBackBufferWidth = 720;
-            graphics.PreferredBackBufferHeight = 720;
+            SyncContext = SynchronizationContext.Current;
+            GameThread = Thread.CurrentThread;
+            GameThread.CurrentUICulture = new CultureInfo("en-US");
+            GameThread.CurrentCulture = new CultureInfo("en-US");
 
-            graphics.SynchronizeWithVerticalRetrace = true;
-            IsFixedTimeStep = false;
-            Window.AllowUserResizing = false;
+            InstanceInfo.UpdateVariables();
 
+            Monoconsole.Handler = input => Executor.FromString(input);
             Monoconsole.New();
-            Monoconsole.WriteLine($"ctor: {memBefore.ToSizeString()}");
+            Monoconsole.WriteLine($"ctor: {memCtor.ToSizeString()}", ConsoleColor.Cyan);
         }
 
         protected override void LoadContent()
         {
-            spriteBatch = new(GraphicsDevice);
-            ingameDrawer = IngameDrawer.CreateInstance(spriteBatch, GraphicsDevice);
-            interfaceDrawer = InterfaceDrawer.CreateInstance(spriteBatch, GraphicsDevice);
-
-            SetLoadables();
+            LoadAttribute.Invoke();
+            CreateLoadables();
         }
         protected override void Initialize()
         {
             base.Initialize();
 
-            SetInitables();
-            CreateObjects();
-
-            MapGenerator generator = new();
+            _spriteBatch = new(GraphicsDevice);
+            _ingameDrawer = IngameDrawer.CreateInstance(_spriteBatch, GraphicsDevice);
+            _interfaceDrawer = InterfaceDrawer.CreateInstance(_spriteBatch, GraphicsDevice);
+            InstanceInfo.UpdateVariables();
             
-            Rectangle screenSquare = new(Point.Zero, WindowSize.MinSquare().ToPoint());
-            var grid = MapGenerator.SliceRect(new Point(20, 20), screenSquare, new(0, 0));
-            
-             generator.Generate(
-                grid,
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "       ##           " +
-                "                    " +
-                "####                " +
-                "                    "
-             );
+            InitAttribute.Invoke();
+            CreateInitables();
 
-            Monoconsole.WriteLine("initend: " + GC.GetTotalMemory(false).ToSizeString());
-            Monoconsole.Execute("mem");
+
+            _gameInstance = new(this);
+
+            Monoconsole.WriteLine("init: " + GC.GetTotalMemory(false).ToSizeString());
+            _ = Monoconsole.ExecuteAsync("mem");
         }
         
        
         protected override void Update(GameTime gameTime)
         {
-            GameEvents.Update.Trigger(gameTime);
-
-            if (Keyboard.GetState().IsKeyDown(Keys.F1))
-                Exit();
-
-            UpdateControls();
-            GameEvents.EndUpdate.Trigger(gameTime);
+            FrameEvents.Update.Trigger(gameTime);
+            FrameEvents.EndUpdate.Trigger(gameTime);
+            FrameEvents.EndSingle.Trigger(gameTime);
         }
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(BackgroundColor);
             
-            GameEvents.PreDraw.Trigger(gameTime);
+            FrameEvents.PreDraw.Trigger(gameTime);
             DrawFrame(gameTime);
-            GameEvents.PostDraw.Trigger(gameTime);
+            FrameEvents.PostDraw.Trigger(gameTime);
 
             base.Draw(gameTime);
         }
         
         private void DrawFrame(GameTime gameTime)
         {
-            spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
-            ingameDrawer.DrawAll(gameTime);
-            spriteBatch.End();
+            _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
+            _ingameDrawer.DrawAll(gameTime);
+            _spriteBatch.End();
 
-            spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp);
-            interfaceDrawer.DrawAll(gameTime);
-            spriteBatch.End();
+            _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp);
+            _interfaceDrawer.DrawAll(gameTime);
+            _spriteBatch.End();
         }
 
-        private void UpdateControls()
-        {
-            KeyboardState state = Keyboard.GetState();
-
-            if (state.IsKeyDown(Monoconsole.ToggleKey) && isConsoleTogglePressed)
-            {
-                Monoconsole.ToggleState();
-                isConsoleTogglePressed = false;
-            }
-            if (state.IsKeyUp(Monoconsole.ToggleKey) && !isConsoleTogglePressed)
-                isConsoleTogglePressed = true;
-
-            player.position += new Vector2
-            {
-                X = (state.IsKeyDown(Keys.D) ? 400 : 0) - (state.IsKeyDown(Keys.A) ? 400 : 0),
-                Y = 0
-            } * HTime.DeltaTime;
-
-            if (state.IsKeyDown(Keys.Space) && canJump)
-            {
-                player.GetModule<Rigidbody>().velocity = Vector2.Zero;
-                player.GetModule<Rigidbody>().AddForce(new Vector2(0, -600));
-                canJump = false;
-            }
-
-            if (state.IsKeyUp(Keys.Space))
-                canJump = true;
-
-            cursorObj.position = Mouse.GetState().Position.ToVector2();
-        }
-        private void CreateObjects()
-        {
-            for (int i = 0; i < objects.Length; i++)
-            {
-                static Vector2 RandomPos(Vector2 center, float radius)
-                {
-                    Random random = new();
-                    double angle = random.NextDouble() * Math.PI * 2;
-                    float distance = (float)(random.NextDouble() * radius);
-
-                    float x = center.X + distance * (float)Math.Cos(angle);
-                    float y = center.Y + distance * (float)Math.Sin(angle);
-
-                    return new Vector2(x, y);
-                }
-
-                objects[i] = new(ingameDrawer, $"{i}", UI.Font)
-                {
-                    position = RandomPos(new(
-                        WindowWidth / 2,
-                        WindowHeight / 2), 300)
-                };
-                var objColl = objects[i].AddModule<Collider>();
-                objColl.polygon = Polygon.Rectangle(50, 50);
-                
-                objects[i].AddModule<Rigidbody>();
-            }
-
-            player = new(ingameDrawer, "#", UI.Font)
-            {
-                position = new(400, 400),
-                color = Color.Green,
-                size = new(2, 2),
-            };
-            player.center += new Vector2(0, -2.5f);
-            player.AddModule<Collider>().polygon = Polygon.Rectangle(30, 30);
-            player.AddModule<Rigidbody>();
-
-            cursorObj = new(ingameDrawer, "", UI.Font) { position = new(0, 0) };
-            cursorObj.AddModule<Collider>().polygon = Polygon.Rectangle(50, 50);
-            cursorObj.GetModule<Collider>().Mode = ColliderMode.Static;
-
-            var wallDown = new TextObject(ingameDrawer, "", UI.Font)
-            {
-                position = new(WindowWidth / 2, WindowHeight + 9),
-            }.AddModule<Collider>();
-            wallDown.polygon = Polygon.Rectangle(WindowWidth, 20);
-            wallDown.Mode = ColliderMode.Static;
-
-            var wallLeft = new TextObject(ingameDrawer, "", UI.Font)
-            {
-                position = new(WindowWidth + 9, WindowHeight / 2),
-            }.AddModule<Collider>();
-            wallLeft.polygon = Polygon.Rectangle(20, WindowHeight);
-            wallLeft.Mode = ColliderMode.Static;
-
-            var wallRight = new TextObject(ingameDrawer, "", UI.Font)
-            {
-                position = new(-9, WindowHeight / 2),
-            }.AddModule<Collider>();
-            wallRight.polygon = Polygon.Rectangle(20, WindowHeight);
-            wallRight.Mode = ColliderMode.Static;
-
-
-            _ = new InputZone(ingameDrawer, "Fire", UI.Font)
-            {
-                position = new(WindowWidth / 2, WindowHeight - 30)
-            };
-        }
-
-        private static void SetLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivate(l, ILoadable.MethodName));
-        private static void SetInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivate(i, IInitable.MethodName));
+        private static void CreateLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivate(l, ILoadable.MethodName));
+        private static void CreateInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivate(i, IInitable.MethodName));
         public static List<T> CreateInstances<T>() where T : class
         {
             var instances = new List<T>();
@@ -276,14 +143,15 @@ namespace Monoproject
             method.Invoke(instance, null);
         }
     }
+
     public static class Camera
     {
         private static Vector2 _position = Vector2.Zero;
         private static float _zoom = 1f;
 
         public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
-        public static void Move(Vector2 direction, float speed) => _position += direction * speed * HTime.DeltaTime;
-        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * HTime.DeltaTime;
+        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameState.DeltaTime;
+        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameState.DeltaTime;
 
         public static float Zoom 
         {

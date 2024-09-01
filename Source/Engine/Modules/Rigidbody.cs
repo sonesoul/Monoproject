@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
 using GlobalTypes.Events;
+using Monoproject;
 
 namespace Engine.Modules
 {
@@ -11,7 +12,7 @@ namespace Engine.Modules
     {
         #region Fields
         public float Mass { get; set; } = 1;
-        public float GravityScale { get; set; } = 1;
+        public float GravityScale { get; set; } = 2;
         public float Bounciness { get; set; } = 0.0f;
         public float Windage { get; set; } = 0.3f;
 
@@ -22,10 +23,11 @@ namespace Engine.Modules
 
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
-        private readonly EventListener<GameTime> updateListener;
+        public Vector2 maxVelocity = new(-1, -1);
+        private EventListener<GameTime> updateListener;
 
         public static int UpdateOrder => -2;
-        private static float Delta => 1.0f / 60.0f;
+        private static float Delta => (1.0f / 60.0f);
 
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
@@ -296,22 +298,22 @@ namespace Engine.Modules
             }
         }
 
-        public Rigidbody(ModularObject owner) : base(owner)
+        public Rigidbody(ModularObject owner = null) : base(owner) { }
+        protected override void Initialize()
         {
-            if (owner.TryGetModule<Collider>(out var module))
+            if (Owner.TryGetModule<Collider>(out var module))
                 CollModule = module;
             else
-                CollModule = owner.AddModule<Collider>();
+                CollModule = Owner.AddModule<Collider>();
 
-            updateListener = GameEvents.EndUpdate.Insert(Update, UpdateOrder);
+            updateListener = FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Rigidbody);
             CollModule.PreDispose += OnColliderDispose;
         }
+        public void AddForce(Vector2 force) => forces += force / Delta;
 
-        public void AddForce(Vector2 force) => forces += force;
-
-        private void Update(GameTime gt)
+        private void EndUpdate(GameTime gt)
         {
-            Collider.CollisionManager.Update(gt);
+            //Collider.CollisionManager.EndUpdate(gt);
             ApplyGravity();
             velocity += forces / Mass * Delta;
             forces = Vector2.Zero;
@@ -327,7 +329,7 @@ namespace Engine.Modules
             ApplyWindage();
 
             Owner.position += velocity;
-            Owner.Rotation += Angle = AngularVelocity;
+            Owner.RotationDeg += Angle = AngularVelocity;
         }
 
         public static void HandlePhysical(Rigidbody first, Rigidbody second)
@@ -441,10 +443,10 @@ namespace Engine.Modules
             return j * touchNormal;
         }
         
-        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * (Delta * 200));
+        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * Delta/*( * 200)*/);
         private void ApplyWindage()
         {
-            float deltaFrict = (Windage / Mass) * Delta * 4;
+            float deltaFrict = (Windage / Mass) * Delta;
             float frictionThreshold = 0.001f;
 
             if (velocity.AbsX() > frictionThreshold)
@@ -457,10 +459,19 @@ namespace Engine.Modules
 
             velocity.X = (float)Math.Round(velocity.X, 3);
             velocity.Y = (float)Math.Round(velocity.Y, 3);
+
+            if(maxVelocity.X > 0 && velocity.X > maxVelocity.X)
+                velocity.X = maxVelocity.X;
+            if (maxVelocity.Y > 0 && velocity.Y > maxVelocity.Y)
+                velocity.Y = maxVelocity.Y;
         }
 
         private void OnColliderDispose() => Dispose();
-        protected override void Destruct() => GameEvents.Update.Remove(updateListener);
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            FrameEvents.EndUpdate.Remove(updateListener);
+        }
         
         private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
             (from e in edges 

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 
 namespace Engine.Modules
 {
@@ -7,9 +6,30 @@ namespace Engine.Modules
     {
         private ModularObject _owner;
         public event Action PreDispose;
-
+        public event Action<ModularObject> OwnerChanged;
         public bool IsDisposed { get; private set; }  
+        public bool IsInited { get; private set; }  
         public ModularObject Owner => _owner;
+
+        public ObjectModule(ModularObject owner = null) 
+        {
+            if (owner == null)
+                return;
+
+            Construct(owner);
+        }
+        public void Construct(ModularObject owner)
+        {
+            if (IsInited)
+                return;
+            IsInited = true;
+
+            _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+
+            Initialize();
+        }
+        protected abstract void Initialize();
+        ~ObjectModule() => Dispose(false);
 
         public void SetOwner(ModularObject newOwner)
         {
@@ -23,20 +43,17 @@ namespace Engine.Modules
 
             if (_owner != null && !_owner.ContainsModule(this))
                 _owner.AddModule(this);
+
+            OwnerChanged?.Invoke(_owner);
         }
-
-        public ObjectModule(ModularObject owner) => _owner = owner;
-        ~ObjectModule() => Dispose(false);
-
-        public static T New<T>(ModularObject owner, params object[] args) where T : ObjectModule
-            => (T)Activator.CreateInstance(typeof(T), new object[] { owner }.Concat(args).ToArray());
+        public void AssignOwner(ModularObject newOwner) => _owner = newOwner;
 
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        private void Dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             if(IsDisposed) 
                 return;
@@ -49,10 +66,6 @@ namespace Engine.Modules
                 SetOwner(null);
                 PreDispose = null;
             }
-
-            Destruct();
         }
-
-        protected abstract void Destruct();
     }
 }

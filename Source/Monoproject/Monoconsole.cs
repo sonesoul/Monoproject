@@ -1,6 +1,5 @@
 ﻿using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework.Input;
-using Monoproject;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,105 +9,25 @@ using System.Threading.Tasks;
 using static GlobalTypes.NativeInterop.NativeMethods;
 using static GlobalTypes.NativeInterop.Constants;
 using System.Linq;
+using Monoproject;
+using GlobalTypes.Events;
 
 namespace GlobalTypes
 {
     public static class Monoconsole
     {
-        private static class CommandManager
-        {
-            private static class Commands
-            {
-                public static void Mem()
-                {
-                    WriteLine(
-                        $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
-                        $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]",
-                        ConsoleColor.Cyan);
-
-                    WriteLine(
-                        $"GC0: [{GC.CollectionCount(0)}]\n" +
-                        $"GC1: [{GC.CollectionCount(1)}]\n" +
-                        $"GC2: [{GC.CollectionCount(2)}]",
-                        ConsoleColor.DarkCyan);
-
-                }
-                public static void SetColor(string arg)
-                {
-                    switch (arg)
-                    {
-                        case "all":
-                            var values = Enum.GetValues<ConsoleColor>()
-                                 .Cast<ConsoleColor>()
-                                 .Where(v => v != ConsoleColor.Black)
-                                 .OrderBy(color => color.ToString(), StringComparer.OrdinalIgnoreCase).ToList();
-
-                            foreach (var value in values)
-                                WriteLine(value, value).Wait();
-
-                             break;
-                        case "reset":
-                            Console.ResetColor();
-                            WriteLine($"Color set to {CurrentColor}", CurrentColor);
-                            break;
-                        default:
-                            if (!Enum.TryParse<ConsoleColor>(arg, true, out var color))
-                                WriteLine($"Color not found", ConsoleColor.Red);
-                            else
-                            {
-                                if (color == ConsoleColor.Black)
-                                {
-                                    WriteLine("I can't see black text on my black console background. Suffer with me :3");
-                                    return;
-                                }
-
-                                SetOutputColor(color);
-                                WriteLine($"Color set to {color}", CurrentColor);
-                            }
-                            break;
-                    }
-                }
-            }
-
-            private readonly static Dictionary<string, Action<string>> commands = new()
-            {
-                { "new", (arg) => New() },
-                { "exit", (arg) => Close() },
-                { "clear", (arg) => { Console.Clear(); WriteLine(openString); } },
-                { "f1", (arg) => Main.Instance.Exit() },
-                { "mem", (arg) => Commands.Mem() },
-                { "color", Commands.SetColor},
-            };
-
-            public static void Execute(string input)
-            {
-                input = input.ToLower().Trim();
-
-                if (string.IsNullOrEmpty(input))
-                    return;
-
-                string[] commandArgPair = input.Split(" ");
-                if (!commands.TryGetValue(commandArgPair[0], out var action))
-                {
-                    WriteLine($"Unexpected command: \"{input}\"", ConsoleColor.Red);
-                    return;
-                }
-
-                action?.Invoke(commandArgPair.Length > 1 ? commandArgPair[1] : "");
-            }            
-        }
-
-        private readonly static TextReader _originalIn = Console.In;
-        private readonly static TextWriter _originalOut = Console.Out;
-        private readonly static TextWriter _originalErr = Console.Error;
-
         public static Keys ToggleKey => Keys.OemTilde;
         public static ConsoleColor CurrentColor => Console.ForegroundColor;
         public static bool IsOpened { get; private set; } = false;
-        private static string openString = "";
-        private static CancellationTokenSource _cancellationTokenSource;
+        public static Action<string> Handler { get; set; }
+        public static ConsoleColor ForeColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
+        public static Thread ConsoleThread { get; private set; } = null;
         private readonly static object _lock = new();
 
+        private static CancellationTokenSource _cts;
+        private readonly static TextReader _originalIn = Console.In;
+        private readonly static TextWriter _originalOut = Console.Out;
+        private readonly static TextWriter _originalErr = Console.Error;
 
         public static bool Open()
         {
@@ -120,20 +39,22 @@ namespace GlobalTypes
                 if (result)
                 {
                     SetHandles();
-                    SetOutputColor(ConsoleColor.Yellow);
+                    ForeColor = ConsoleColor.Yellow;
                     Console.Title = "monoconsole";
-                    openString = $"Opened ({GenerateKey(8)})";
-                    WriteLine(openString);
-
+                    
                     RemoveSystemMenu();
                     
                     Console.OutputEncoding = Encoding.UTF8;
-                    _cancellationTokenSource = new CancellationTokenSource();
+                    _cts = new();
 
-                    new Thread(() => ConsoleThread(_cancellationTokenSource.Token))
+                    ConsoleThread = new Thread(() => ConsoleRead(_cts.Token))
                     {
                         IsBackground = true
-                    }.Start();
+                    };
+                    ConsoleThread.Start();
+
+                    List<ConsoleColor> colors = Enum.GetValues<ConsoleColor>().Where(c => c != ConsoleColor.Black).ToList();
+                    WriteLine($"| monoconsole [{GenerateKey(8)}]", colors[new Random().Next(colors.Count)]);
                 }
 
                 return result;
@@ -146,7 +67,7 @@ namespace GlobalTypes
             {
                 FreeConsole();
 
-                _cancellationTokenSource?.Cancel();
+                _cts?.Cancel();
                 Reset();
 
                 IsOpened = false;
@@ -167,24 +88,58 @@ namespace GlobalTypes
         }
         public static void Execute(string command)
         {
-            if (!IsOpened)
-                return;
-            WriteLine("-> " + command);
-            CommandManager.Execute(command);
+            try
+            {
+                ConsoleColor color = Thread.CurrentThread == ConsoleThread ? ConsoleColor.DarkCyan : ConsoleColor.DarkYellow;
+                Task.Run(() =>
+                {
+                    WriteLine("> " + command, color).Wait();
+                    Executor.FromString(command);
+                }).Wait();
+            }
+            catch (Exception ex)
+            {
+                WriteLine($"{ex.Message} [sync exec]", ConsoleColor.Red).Wait();
+            }
+            
         }
-        public static void SetOutputColor(ConsoleColor color) => Console.ForegroundColor = color;
+        public static async Task ExecuteAsync(string command)
+        {
+            try
+            {
+                await WriteLine("> " + command, ConsoleColor.Blue);
+                await Task.Run(() => Executor.FromString(command));
+            }
+            catch (Exception ex)
+            {
+                await WriteLine($"{ex.Message} [async exec]", ConsoleColor.Red);
+            }
+        }
+        
+        public static void UnsafeExec(string command)
+        {
+            Main.Instance.SyncContext.Post(_ => {
+                ConsoleColor color = Thread.CurrentThread == ConsoleThread ? ConsoleColor.DarkCyan : ConsoleColor.Magenta;
 
-        private static void ConsoleThread(CancellationToken token)
+                Task.Run(() =>
+                {
+                    WriteLine("> " + command, color).Wait();
+                    Executor.FromString(command);
+                }).Wait();
+            }, null);
+        }
+
+        private static void ConsoleRead(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    CommandManager.Execute(Console.ReadLine());   
+                    Handler?.Invoke(Console.ReadLine());
                 }
                 catch (Exception ex)
                 {
-                    WriteLine($"Unhandled exception: {ex.Message}", ConsoleColor.Red);
+                    WriteLine($"{ex.Message} [console read]", ConsoleColor.Red).Wait(CancellationToken.None);
                 }
             }
         }
@@ -203,26 +158,32 @@ namespace GlobalTypes
         }
         private static void SetHandles()
         {
-            SafeFileHandle sfhIn = new(GetStdHandle(STD_INPUT_HANDLE), false);
-            SafeFileHandle sfhOut = new(GetStdHandle(STD_OUTPUT_HANDLE), false);
-            SafeFileHandle sfhErr = new(GetStdHandle(STD_ERROR_HANDLE), false);
-
-            Console.SetIn(new StreamReader(new FileStream(sfhIn, FileAccess.Read)));
-            Console.SetOut(new StreamWriter(new FileStream(sfhOut, FileAccess.Write)) { AutoFlush = true });
-            Console.SetError(new StreamWriter(new FileStream(sfhErr, FileAccess.Write)) { AutoFlush = true });
+            Console.SetIn(
+                new StreamReader(
+                    new FileStream(
+                        new SafeFileHandle(GetStdHandle(STD_INPUT_HANDLE), false), FileAccess.Read)));
+            Console.SetOut(
+                new StreamWriter(
+                    new FileStream(
+                        new SafeFileHandle(GetStdHandle(STD_OUTPUT_HANDLE), false), FileAccess.Write)) { AutoFlush = true });
+            Console.SetError(
+                new StreamWriter(
+                    new FileStream(
+                        new SafeFileHandle(GetStdHandle(STD_ERROR_HANDLE), false), FileAccess.Write)) { AutoFlush = true });
         }
         private static string GenerateKey(int length)
         {
             string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            List<char> result = new();
+            StringBuilder sb = new();
             Random rnd = new();
-            for (int i = 0; i < length; i++) 
-                result.Add(chars[rnd.Next(chars.Length)]);
 
-            return string.Join("", result);
+            for (int i = 0; i < length; i++)
+                sb.Append(chars[rnd.Next(chars.Length)]);
+
+            return sb.ToString();
         }
 
-        #region ConsoleOutputOverrides
+        #region ConsoleOutput
         private static async Task WriteAsync(Action writeAction, ConsoleColor color = ConsoleColor.White)
         {
             await Task.Run(() =>
@@ -232,11 +193,11 @@ namespace GlobalTypes
                     if (IsOpened)
                     {
                         var temp = Console.ForegroundColor;
-                        SetOutputColor(color);
+                        ForeColor = color;
 
                         writeAction();
 
-                        SetOutputColor(temp);
+                        ForeColor = temp;                        
                     }
                 }
             });

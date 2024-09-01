@@ -23,9 +23,9 @@ namespace Engine
     {
         public Vector2 position = new(0, 0);
         public Vector2 IntegerPosition => position.Rounded();
-        public float Rotation { get; set; } = 0;
+        public float RotationDeg { get; set; } = 0;
+        public float RotationRad => RotationDeg.AsRad();
 
-        public static T New<T>(params object[] args) where T : ModularObject => (T)Activator.CreateInstance(typeof(T), args);
         public virtual void Destroy()
         {
             for (int i = Modules.Count - 1; i >= 0; i--)
@@ -38,29 +38,52 @@ namespace Engine
         public event Action<ObjectModule> OnModuleRemove;
         public IReadOnlyList<ObjectModule> Modules => modules;
         
+        private static ObjectModule InitModule(Type type, params object[] args) => (ObjectModule)Activator.CreateInstance(type, args: args);
+
         public T AddModule<T>() where T : ObjectModule
         {
             if (typeof(T).IsAbstract)
                 throw new ArgumentException($"Module can't be abstract ({typeof(T).Name}).");
 
-            var module = (T)Activator.CreateInstance(typeof(T), args: this);
-
-            AddModule(module);
-
-            return module;
+            return AddModule((T)InitModule(typeof(T), new object[] { this }));
         }
-        public void AddModule<T>(T module) where T : ObjectModule
+        public T AddModule<T>(T module) where T : ObjectModule
         {
             if (module == null)
                 throw new ArgumentException($"Module cannot be null ({typeof(T).Name}).");
 
-            if (ContainsModule<T>())
+            if (ContainsModule(module))
                 throw new ArgumentException($"Module already exists ({typeof(T).Name}).");
 
             modules.Add(module);
-            module.SetOwner(this);
+
+            if(module.Owner != this)
+                module.SetOwner(this);
+
+            module.Construct(this);
+
+            return module;
         }
-        
+        public List<ObjectModule> AddModules(params ObjectModule[] modules)
+        {
+            List<ObjectModule> createdModules = new();
+
+            foreach (var module in modules)
+                createdModules.Add(AddModule(module));
+
+            return createdModules;
+        }
+        public List<ObjectModule> AddModule<T1, T2>() where T1 : ObjectModule where T2 : ObjectModule
+            => new()
+            {
+                AddModule<T1>(),
+                AddModule<T2>()
+            };
+        public List<ObjectModule> AddModule<T1, T2, T3>() where T1 : ObjectModule where T2 : ObjectModule where T3 : ObjectModule
+            => AddModule<T1, T2>().Append(AddModule<T3>()).ToList();
+        public List<ObjectModule> AddModule<T1, T2, T3, T4>() where T1 : ObjectModule where T2 : ObjectModule where T3 : ObjectModule where T4 : ObjectModule
+            => AddModule<T1, T2, T3>().Append(AddModule<T4>()).ToList();
+
         public void RemoveModule<T>() where T : ObjectModule 
             => RemoveModule(Modules.OfType<T>().FirstOrDefault());
         public void RemoveModule<T>(T module) where T : ObjectModule
@@ -117,9 +140,9 @@ namespace Engine
         public string text;
         public SpriteFont font;
         public Vector2 size = Vector2.One;
-        public Vector2 center;
+        public Vector2 origin;
 
-        public Color color = Color.White;
+        public Color Color { get; set; } = Color.White;
         public Vector2 viewport;
         private SpriteBatch spriteBatch;
         public IDrawer Drawer { get; private set; }
@@ -131,7 +154,7 @@ namespace Engine
             Viewport view = spriteBatch.GraphicsDevice.Viewport;
             viewport = new(view.Width, view.Height);
 
-            center = font.MeasureString(text) / 2;
+            origin = font.MeasureString(text) / 2;
 
             Drawer = drawer;
             drawer.AddDrawAction(Draw);
@@ -139,35 +162,33 @@ namespace Engine
             this.text = text;
             this.font = font;
         }
-       
-        public void Draw(GameTime gameTime)
+        public TextObject(IDrawer drawer, string text, SpriteFont font, params ObjectModule[] modules) : this(drawer, text, font)
         {
-            bool canDraw = position.Y >= 0 && position.Y <= viewport.Y && position.X >= 0 && position.X <= viewport.X;
-            
-            if (canDraw)
-            {
-                spriteBatch.DrawString(
-                    font,
-                    text,
-                    IntegerPosition,
-                    color,
-                    Rotation.AsRad(),
-                    center,
-                    size,
-                    SpriteEffects.None,
-                    0);
-            }
+            foreach (var module in modules) 
+                AddModule(module);
+        }
+        public virtual void Draw(GameTime gameTime)
+        {
+            spriteBatch.DrawString(
+                font,
+                text,
+                IntegerPosition,
+                Color,
+                RotationRad,
+                origin,
+                size,
+                SpriteEffects.None,
+                0);
         }
         public override void Destroy()
         {
-            Drawer.RemoveDrawAction(Draw);
             base.Destroy();
+            Drawer.RemoveDrawAction(Draw);
         }
-
 
         public override string ToString() => text;
     }
-
+    
     public class InputZone : TextObject
     {
         private readonly Queue<char> charQueue = new();
@@ -177,7 +198,7 @@ namespace Engine
             Collider collider = new(this)
             {
                 Mode = ColliderMode.Trigger,
-                polygon = Polygon.Rectangle(center.X * 2, 30)
+                polygon = Polygon.Rectangle(origin.X * 2, 30),
             };
             collider.TriggerStay += ObjectStay;
 
@@ -207,7 +228,7 @@ namespace Engine
                         if (text.Length > 1)
                         {
                             text = text[1..];
-                            center = font.MeasureString(text) / 2;
+                            origin = font.MeasureString(text) / 2;
                         }
                         else if (text.Length == 1)
                             Destroy();

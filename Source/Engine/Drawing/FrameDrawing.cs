@@ -103,39 +103,4 @@ namespace Engine.Drawing
         public static IngameDrawer Instance => _instance;
         public override int Layer => 1;
     }
-
-    public class ShapeDrawer
-    {
-        private Texture2D pixel;
-        private SpriteBatch spriteBatch;
-        public ShapeDrawer(GraphicsDevice device, SpriteBatch spriteBatch)
-        {
-            pixel = new Texture2D(device, 1, 1);
-            pixel.SetData(new[] { Color.White });
-
-            this.spriteBatch = spriteBatch;
-        }
-        public void DrawRectangle(Rectangle rect, Color color)
-        {
-            Rectangle[] rects = new Rectangle[4];
-
-            rects[0] = new(rect.Left, rect.Top, rect.Width, 1);
-            rects[1] = new(rect.Left, rect.Bottom, rect.Width, 1);
-            rects[2] = new(rect.Left, rect.Top, 1, rect.Height);
-            rects[3] = new(rect.Right, rect.Top, 1, rect.Height);
-            foreach (var item in rects)
-            {
-                spriteBatch.Draw(pixel, item, color);
-            }
-        }
-
-        public void DrawLine(Vector2 start, Vector2 end, Color color, float thickness = 1f)
-        {
-            Vector2 edge = end - start;
-            float angle = (float)Math.Atan2(edge.Y, edge.X);
-
-            spriteBatch.Draw(pixel, new Rectangle((int)start.X, (int)start.Y, (int)edge.Length(), (int)thickness),
-                             null, color, angle, Vector2.Zero, SpriteEffects.None, 0);
-        }
-    }
 }

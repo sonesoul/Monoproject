@@ -1,35 +1,36 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using Engine.Drawing;
-using Engine.Modules;
 using GlobalTypes.Events;
 using GlobalTypes;
-using GlobalTypes.Interfaces;
 using System;
+using GlobalTypes.Input;
+using GlobalTypes.Attributes;
 
-namespace Monoproject.GameUI
+namespace InGame
 {
-    public class UI : ILoadable
+    [Init(nameof(Init), InitOrders.UI), Load(nameof(Load), LoadOrders.UI)]
+    public static class UI
     {
+        public static string CustomInfo { get; set; }
         public static float Fps { get; private set; } = 0;
+        public static SpriteFont Font { get; private set; }
+
         private static float frameCounter = 0;
         private static double elapsedTime = 0;
 
-        private static SpriteFont font;
-        private static InterfaceDrawer interfaceDrawer;
+        private static InterfaceDrawer drawer;
         private static SpriteBatch spriteBatch;
         
-        void ILoadable.Load()
+        private static void Load() => Font = InstanceInfo.Content.Load<SpriteFont>("MainFont");
+        private static void Init()
         {
-            GameEvents.Update.Insert(GetFps, -3);
+            FrameEvents.Update.Insert(GetFps, EventOrders.Update.UI);
 
-            interfaceDrawer = InterfaceDrawer.Instance;
-            spriteBatch = interfaceDrawer.SpriteBatch;
+            drawer = InterfaceDrawer.Instance;
+            spriteBatch = InstanceInfo.SpriteBatch;
 
-            font = Main.Instance.Content.Load<SpriteFont>("MainFont");
-
-            interfaceDrawer.AddDrawAction(DrawInfo, DrawMouse);
+            drawer.AddDrawAction(DrawInfo, DrawMouse);
         }
         public static void GetFps(GameTime gameTime)
         {
@@ -46,18 +47,17 @@ namespace Monoproject.GameUI
         {
             frameCounter++;
 
-            spriteBatch.DrawString(font,
-                $"{(int)Fps} / {HTime.DeltaTime} \n" +
+            spriteBatch.DrawString(Font,
+                $"{(int)Fps} / {FrameState.DeltaTime} \n" +
                 $"{GC.GetTotalMemory(false).ToSizeString()}\n" +
-                $"{Mouse.GetState().Position}",
+                $"{FrameState.MousePosition}\n" +
+                CustomInfo,
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
-
         public static void DrawMouse(GameTime gameTime)
         {
-            Point curPoint = Mouse.GetState().Position;
-            spriteBatch.DrawString(font, $"<- ", new(curPoint.X + 6f, curPoint.Y - 6f), Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
+            Vector2 curPoint = FrameState.MousePosition;
+            spriteBatch.DrawString(Font, $"<- ", new(curPoint.X + 6f, curPoint.Y - 6f), Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
         }
-        public static SpriteFont Font => font;
     }
 }
