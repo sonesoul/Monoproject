@@ -5,18 +5,18 @@ using GlobalTypes.Input;
 using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using GlobalTypes;
 
 namespace InGame.Scripts
 {
     class PlayerScript : ObjectModule
     {
-        private Rigidbody _rigidbody;
         private readonly float _jumpPower = 9.5f;
         private readonly float _moveSpeed = 6;
 
         private EventListener<GameTime> _updateListener;
-        
+        private Rigidbody _rigidbody;
+        private KeyListener _jumpKey;
+
         public PlayerScript(TextObject owner = null) : base(owner) { }
 
         protected override void Initialize()
@@ -37,7 +37,7 @@ namespace InGame.Scripts
                 GravityScale = 3
             })[1] as Rigidbody;
 
-            InputManager.AddKey(Keys.Space, KeyEvent.Press, Jump);
+            _jumpKey = InputManager.AddKey(Keys.Space, KeyEvent.Press, Jump);
         }
         private void Update(GameTime gameTime)
         {
@@ -49,11 +49,13 @@ namespace InGame.Scripts
             _rigidbody.Windage = 0;
             _rigidbody.AddForce(new Vector2(0, -_jumpPower));
         }
-        protected override void Dispose(bool disposing)
+        protected override void PostDispose()
         {
-            base.Dispose(disposing);
-            _rigidbody = null;
             FrameEvents.Update.Remove(_updateListener);
+            InputManager.RemoveKey(_jumpKey);
+
+            _rigidbody = null;
+            _jumpKey = null;
         }
     }
 }

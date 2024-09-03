@@ -8,7 +8,6 @@ using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
 using GlobalTypes.Collections;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 
 namespace Engine.Modules
 {
@@ -16,9 +15,6 @@ namespace Engine.Modules
     {
         public class CollisionManager : IInitable
         {
-            //colliders must be updated after the rigidbody is updated
-            public static int UpdateOrder => Rigidbody.UpdateOrder + 1;
-
             private static readonly LockList<Collider> _allColliders = new();
 
             void IInitable.Init() => FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Collider);
@@ -250,14 +246,8 @@ namespace Engine.Modules
             _shapeDrawer.DrawLine(current, PolygonVerts[0] + Owner.IntegerPosition, drawColor);
         }
 
-        protected override void Dispose(bool disposing)
+        protected override void PostDispose()
         {
-            FrameEvents.EndSingle.Append((gt) => LateDispose(disposing));
-        }
-        private void LateDispose(bool disposing)
-        {
-            base.Dispose(disposing);
-
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
             CollisionManager.Unregister(this);
 

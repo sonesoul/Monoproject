@@ -57,7 +57,18 @@ namespace InGame
         public static void DrawMouse(GameTime gameTime)
         {
             Vector2 curPoint = FrameState.MousePosition;
-            spriteBatch.DrawString(Font, $"<- ", new(curPoint.X + 6f, curPoint.Y - 6f), Color.White, 50f.AsRad(), new(0, 0), 1.3f, SpriteEffects.None, 0);
+            int offset = 6;
+
+            spriteBatch.DrawString(
+                Font,
+                $"<- ",
+                new(curPoint.X + offset, curPoint.Y - offset),
+                Color.White,
+                50f.AsRad(),
+                Vector2.Zero, 
+                1.3f, 
+                SpriteEffects.None,
+                0);
         }
     }
 }

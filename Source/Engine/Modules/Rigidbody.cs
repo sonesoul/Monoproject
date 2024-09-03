@@ -5,6 +5,7 @@ using System.Linq;
 using Engine.Types;
 using GlobalTypes.Events;
 using Monoproject;
+using GlobalTypes;
 
 namespace Engine.Modules
 {
@@ -19,18 +20,16 @@ namespace Engine.Modules
         public float Angle { get; set; } = 0;
         public float AngularVelocity { get; set; } = 0;
        
-        public Collider CollModule { get; private set; }
+        public Collider UsedCollider { get; private set; }
 
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
         public Vector2 maxVelocity = new(-1, -1);
         private EventListener<GameTime> updateListener;
 
-        public static int UpdateOrder => -2;
-        private static float Delta => (1.0f / 60.0f);
-
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
+        private static float Delta => FrameState.FixedDeltaTime;
         public const float ZeroThreshold = 0.005f;
         public const float Tolerance = 1;
         #endregion
@@ -302,24 +301,26 @@ namespace Engine.Modules
         protected override void Initialize()
         {
             if (Owner.TryGetModule<Collider>(out var module))
-                CollModule = module;
+                UsedCollider = module;
             else
-                CollModule = Owner.AddModule<Collider>();
+                UsedCollider = Owner.AddModule<Collider>();
 
             updateListener = FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Rigidbody);
-            CollModule.PreDispose += OnColliderDispose;
+            UsedCollider.Disposing += Dispose;
         }
         public void AddForce(Vector2 force) => forces += force / Delta;
 
         private void EndUpdate(GameTime gt)
         {
-            //Collider.CollisionManager.EndUpdate(gt);
             ApplyGravity();
             velocity += forces / Mass * Delta;
             forces = Vector2.Zero;
 
-            foreach (var item in CollModule.Intersections)
+            foreach (var item in UsedCollider.Intersections)
             {
+                if (item.IsDisposed)
+                    continue;
+
                 if (item.Owner.TryGetModule(out Rigidbody otherRb))
                     HandlePhysical(this, otherRb);
                 else
@@ -334,8 +335,8 @@ namespace Engine.Modules
 
         public static void HandlePhysical(Rigidbody first, Rigidbody second)
         {
-            List<EdgeTouch> touches = GetTouches(second.CollModule, first.CollModule);
-            List<EdgeTouch> otherTouches = GetTouches(first.CollModule, second.CollModule);
+            List<EdgeTouch> touches = GetTouches(second.UsedCollider, first.UsedCollider);
+            List<EdgeTouch> otherTouches = GetTouches(first.UsedCollider, second.UsedCollider);
 
             List<CornerTouch> cornerTouches = CornerTouch.ExtractFrom(touches);
             List<CornerTouch> otherCornerTouches = CornerTouch.ExtractFrom(otherTouches);
@@ -343,11 +344,11 @@ namespace Engine.Modules
             if (cornerTouches.Count > 1)
                 touches = touches.Concat(CornerTouch.FindCommonEdges(cornerTouches)).ToList();
             else if(cornerTouches.Count == 1)
-                touches = touches.Concat(EdgeTouch.FromSingleCorner(cornerTouches, CornerTouch.ExtractFrom(GetTouches(first.CollModule, second.CollModule)))).ToList();
+                touches = touches.Concat(EdgeTouch.FromSingleCorner(cornerTouches, CornerTouch.ExtractFrom(GetTouches(first.UsedCollider, second.UsedCollider)))).ToList();
 
-            EdgeTouch.Merge(touches, second.CollModule.polygon.GetEdges());
-            EdgeTouch.Merge(otherTouches, first.CollModule.polygon.GetEdges());
-            EdgeTouch.Adjust(touches, otherTouches, first.CollModule.polygon, second.CollModule.polygon);
+            EdgeTouch.Merge(touches, second.UsedCollider.polygon.GetEdges());
+            EdgeTouch.Merge(otherTouches, first.UsedCollider.polygon.GetEdges());
+            EdgeTouch.Adjust(touches, otherTouches, first.UsedCollider.polygon, second.UsedCollider.polygon);
 
             touches = touches.Concat(otherTouches
                 .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
@@ -378,8 +379,8 @@ namespace Engine.Modules
         }
         private static void HandleOthers(Rigidbody rb, Collider other)
         {
-            List<EdgeTouch> touches = GetTouches(rb.CollModule, other);
-            List<EdgeTouch> otherTouches = GetTouches(other, rb.CollModule);
+            List<EdgeTouch> touches = GetTouches(rb.UsedCollider, other);
+            List<EdgeTouch> otherTouches = GetTouches(other, rb.UsedCollider);
             
             List<CornerTouch> corners = CornerTouch.ExtractFrom(touches);
             List<CornerTouch> otherCorners = CornerTouch.ExtractFrom(otherTouches);
@@ -395,8 +396,8 @@ namespace Engine.Modules
             }
 
             EdgeTouch.Merge(touches, other.polygon.GetEdges());
-            EdgeTouch.Merge(otherTouches, rb.CollModule.polygon.GetEdges());
-            EdgeTouch.Adjust(touches, otherTouches, rb.CollModule.polygon, other.polygon);
+            EdgeTouch.Merge(otherTouches, rb.UsedCollider.polygon.GetEdges());
+            EdgeTouch.Adjust(touches, otherTouches, rb.UsedCollider.polygon, other.polygon);
            
             List<EdgeTouch> allTouches = touches.Concat(otherTouches
                 .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
@@ -443,7 +444,7 @@ namespace Engine.Modules
             return j * touchNormal;
         }
         
-        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * Delta/*( * 200)*/);
+        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * Delta);
         private void ApplyWindage()
         {
             float deltaFrict = (Windage / Mass) * Delta;
@@ -466,13 +467,6 @@ namespace Engine.Modules
                 velocity.Y = maxVelocity.Y;
         }
 
-        private void OnColliderDispose() => Dispose();
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-            FrameEvents.EndUpdate.Remove(updateListener);
-        }
-        
         private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
             (from e in edges 
             from v in vertices
@@ -489,6 +483,11 @@ namespace Engine.Modules
                 .ToList();
 
             return GetPointsOnEdges(edges, vertices);
+        }
+        
+        protected override void PostDispose()
+        {
+            FrameEvents.EndUpdate.Remove(updateListener);
         }
     }
 }

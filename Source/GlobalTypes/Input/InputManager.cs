@@ -46,64 +46,8 @@ namespace GlobalTypes.Input
 
         private static void Update()
         {
-            _pressKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
-
-                if (!k.WasDown && isDown)
-                    k.Action?.Invoke();
-
-                k.WasDown = isDown;
-            });
-            _holdKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
-
-                if (k.WasDown && isDown)
-                    k.Action?.Invoke();
-                
-                k.WasDown = isDown;
-            });
-            _releaseKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
-                bool isUp = k.IsUp;
-
-                if (k.WasDown && isUp)
-                    k.Action?.Invoke();
-
-                k.WasDown = isDown;
-            });
-
-            _pressKeysMouse.LockForEach(mouseKey =>
-            {
-                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
-                
-                if(!mouseKey.WasDown && isDown)
-                    mouseKey.Action?.Invoke();
-
-                mouseKey.WasDown = isDown;
-            });
-            _holdKeysMouse.LockForEach(mouseKey => 
-            {
-                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
-
-                if (mouseKey.WasDown && isDown)
-                    mouseKey.Action?.Invoke();
-
-                mouseKey.WasDown = isDown;
-            });
-            _releaseKeysMouse.LockForEach(mouseKey => 
-            {
-                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
-                bool isUp = mouseKey.IsUp;
-                
-                if (mouseKey.WasDown && isUp)
-                    mouseKey.Action?.Invoke();
-
-                mouseKey.WasDown = isDown;
-            });
-
+            CheckKeyboard();
+            CheckMouse();
             UpdateAxis();
         }
 
@@ -127,39 +71,71 @@ namespace GlobalTypes.Input
 
         #region Keyboard
 
+        private static void CheckKeyboard()
+        {
+            _pressKeys.LockForEach(k =>
+            {
+                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
+
+                if (!k.WasDown && isDown)
+                    k.Action?.Invoke();
+
+                k.WasDown = isDown;
+            });
+            _holdKeys.LockForEach(k =>
+            {
+                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
+
+                if (k.WasDown && isDown)
+                    k.Action?.Invoke();
+
+                k.WasDown = isDown;
+            });
+            _releaseKeys.LockForEach(k =>
+            {
+                bool isDown = k.IsDown = KeyState.IsKeyDown(k.Key);
+                bool isUp = k.IsUp;
+
+                if (k.WasDown && isUp)
+                    k.Action?.Invoke();
+
+                k.WasDown = isDown;
+            });
+        }
+
         public static KeyListener AddKey(Keys key, KeyEvent keyEvent, Action action = null, int order = 0)
         {
-            KeyListener listener = new(key, keyEvent, action, order);
+            KeyListener keyListener = new(key, keyEvent, action, order);
 
-            AddKey(listener);
-            return listener;
+            AddKey(keyListener);
+            return keyListener;
         }
-        public static void AddKey(KeyListener key)
+        public static void AddKey(KeyListener listener)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key).ToString(), KeyListenerNullMessage);
-
-            LockList<KeyListener> keyCollection = GetCollection(key.EventType);
-
-            KeyListener listener = keyCollection.Where(k => k.Order > key.Order).FirstOrDefault();
-
             if (listener == null)
-                keyCollection.Add(key);
+                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
+
+            LockList<KeyListener> keyCollection = GetCollection(listener.EventType);
+
+            KeyListener found = keyCollection.Where(k => k.Order > listener.Order).FirstOrDefault();
+
+            if (found == null)
+                keyCollection.Add(listener);
             else 
-                keyCollection.Insert(keyCollection.IndexOf(listener), key);
+                keyCollection.Insert(keyCollection.IndexOf(found), listener);
         }
-        public static void AddKeys(params KeyListener[] keyListeners)
+        public static void AddKeys(params KeyListener[] listener)
         {
-            foreach (var kl in keyListeners)
+            foreach (var kl in listener)
                 AddKey(kl);
         }
-        public static void AddSingleTrigger(KeyListener keyListener)
+        public static void AddSingleTrigger(KeyListener listener)
         {
-            KeyListener singleTriggerListener = new(keyListener.Key, keyListener.EventType, null, keyListener.Order);
+            KeyListener singleTriggerListener = new(listener.Key, listener.EventType, null, listener.Order);
 
             void SelfRemove()
             {
-                keyListener.Action?.Invoke();
+                listener.Action?.Invoke();
                 RemoveKey(singleTriggerListener);
             };
 
@@ -170,21 +146,21 @@ namespace GlobalTypes.Input
         {
             AddSingleTrigger(new KeyListener(key, keyEvent, action, order));
         }
-        public static void RemoveKey(KeyListener key)
+        public static void RemoveKey(KeyListener listener)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key).ToString(), KeyListenerNullMessage);
+            if (listener == null)
+                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
 
-            GetCollection(key.EventType).Remove(key);
+            GetCollection(listener.EventType).Remove(listener);
         }
-        public static void MoveKey(KeyListener key, KeyEvent newEvent)
+        public static void MoveKey(KeyListener listener, KeyEvent newEvent)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key).ToString(), KeyListenerNullMessage);
+            if (listener == null)
+                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
 
-            RemoveKey(key);
-            key.EventType = newEvent;
-            AddKey(key);
+            RemoveKey(listener);
+            listener.EventType = newEvent;
+            AddKey(listener);
         }
 
         public static bool IsKeyDown(Keys key) => KeyState.IsKeyDown(key);
@@ -193,7 +169,7 @@ namespace GlobalTypes.Input
         public static void SetAxisCulture(AxisCulture axisCulture)
         {
             _axisCulture = axisCulture;
-            InputState.UpdateAxisKeys();
+            UpdateAxisKeys();
         }
 
         private static LockList<KeyListener> GetCollection(KeyEvent keyEvent)
@@ -210,6 +186,38 @@ namespace GlobalTypes.Input
         #endregion
 
         #region Mouse
+
+        private static void CheckMouse()
+        {
+            _pressKeysMouse.LockForEach(mouseKey =>
+            {
+                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
+
+                if (!mouseKey.WasDown && isDown)
+                    mouseKey.Action?.Invoke();
+
+                mouseKey.WasDown = isDown;
+            });
+            _holdKeysMouse.LockForEach(mouseKey =>
+            {
+                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
+
+                if (mouseKey.WasDown && isDown)
+                    mouseKey.Action?.Invoke();
+
+                mouseKey.WasDown = isDown;
+            });
+            _releaseKeysMouse.LockForEach(mouseKey =>
+            {
+                bool isDown = mouseKey.IsDown = IsMouseKeyDown(mouseKey.Key);
+                bool isUp = mouseKey.IsUp;
+
+                if (mouseKey.WasDown && isUp)
+                    mouseKey.Action?.Invoke();
+
+                mouseKey.WasDown = isDown;
+            });
+        }
 
         public static MouseListener AddKey(MouseKey key, KeyEvent keyEvent, Action action = null, int order = 0)
         {

@@ -9,6 +9,7 @@ using System.Diagnostics;
 using Engine.Types;
 using Microsoft.Xna.Framework.Input;
 using GlobalTypes.Collections;
+using GlobalTypes.Events;
 
 namespace Engine
 {
@@ -25,12 +26,28 @@ namespace Engine
         public Vector2 IntegerPosition => position.Rounded();
         public float RotationDeg { get; set; } = 0;
         public float RotationRad => RotationDeg.AsRad();
+        public bool IsDestroyed { get; private set; } = false;
 
-        public virtual void Destroy()
+
+        public void Destroy() => FrameEvents.EndSingle.Insert(gt => DestroyAction(), EventOrders.EndSingle.Destroy);
+        public void ForceDestroy() => DestroyAction();
+        protected void DestroyAction() 
         {
+            if (IsDestroyed) 
+                return;
+            
+            IsDestroyed = true;
+
+            PreDestroy();
+
             for (int i = Modules.Count - 1; i >= 0; i--)
                 RemoveModule(modules[i]);
+            
+            PostDestroy();
         }
+
+        protected virtual void PreDestroy() { }
+        protected virtual void PostDestroy() { }
 
         #region ModuleManagement
 
@@ -57,10 +74,10 @@ namespace Engine
 
             modules.Add(module);
 
-            if(module.Owner != this)
+            if (!module.IsConstructed)
+                module.Construct(this);
+            else if (module.Owner != this)
                 module.SetOwner(this);
-
-            module.Construct(this);
 
             return module;
         }
@@ -96,8 +113,6 @@ namespace Engine
 
             if (!module.IsDisposed)
                 module.Dispose();
-
-            return;
         }
         
         public T ReplaceModule<T>() where T : ObjectModule
@@ -180,9 +195,8 @@ namespace Engine
                 SpriteEffects.None,
                 0);
         }
-        public override void Destroy()
+        protected override void PostDestroy()
         {
-            base.Destroy();
             Drawer.RemoveDrawAction(Draw);
         }
 

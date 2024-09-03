@@ -15,31 +15,19 @@ namespace InGame
 {
     public static class Level
     {
-        public class LevelInfo : IDisposable
+        public class LevelInfo
         {
             public TextObject Player { get; private set; }
             public WordStorage WordStorage { get; private set; }
+            public StorageFiller StorageFiller { get; private set; }
             public IReadOnlyList<TextObject> Platforms { get; private set; }
             
-            private bool _disposed = false;
-
-            public LevelInfo(IReadOnlyList<TextObject> platforms, WordStorage wordStorage, TextObject player)
+            public LevelInfo(IReadOnlyList<TextObject> platforms, WordStorage storage, StorageFiller filler, TextObject player)
             {
-                WordStorage = wordStorage;
+                WordStorage = storage;
                 Platforms = platforms;
+                StorageFiller = filler;
                 Player = player;
-            }
-
-            public void Dispose()
-            {
-                if (_disposed) 
-                    return;
-
-                WordStorage = null;
-                Platforms = null;
-                _disposed = true;
-
-                GC.SuppressFinalize(this);
             }
         }
 
@@ -47,6 +35,7 @@ namespace InGame
         public static TextObject Player => Current?.Player;
         public static IReadOnlyList<TextObject> Platforms => Current?.Platforms; 
         public static WordStorage WordStorage => Current?.WordStorage;
+        public static StorageFiller StorageFiller => Current?.StorageFiller;
 
         private readonly static List<TextObject> _platforms = new();
         private readonly static Dictionary<char, Action<Vector2>> mapPattern = new()
@@ -76,6 +65,7 @@ namespace InGame
 
                 WordStorage.Destroy();
                 Player.Destroy();
+                StorageFiller.Destroy();
             }
         }
         public static void New()
@@ -113,20 +103,22 @@ namespace InGame
                 "                    "
             );
 
+
+            TextObject player = new(IngameDrawer.Instance, "#", UI.Font, new PlayerScript())
+            {
+                position = windowCenter,
+                Color = Color.Green,
+                size = new(2, 2),
+            };
+            WordStorage storage = new() { position = windowCenter };
+            StorageFiller filler = new(storage, 5) { position = new(windowCenter.X, 200) };
+
             Current = new(
-                new List<TextObject>(_platforms), 
-                new WordStorage() 
-                {
-                    position = windowCenter 
-                }, 
-                new TextObject(IngameDrawer.Instance, "#", UI.Font, new PlayerScript())
-                {
-                    position = windowCenter,
-                    Color = Color.Green,
-                    size = new(2, 2),
-                });
+                new List<TextObject>(_platforms),
+                storage, filler, player);
+                
+            
             _platforms.Clear();
-            _ = new StorageFiller(WordStorage, 5) { position = new(windowCenter.X, 200)};
         }
     }
 

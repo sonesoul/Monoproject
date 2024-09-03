@@ -5,6 +5,7 @@ namespace GlobalTypes.Extensions
     public static class StringExtensions
     {
         public static string Times(this string str, int count) => string.Concat(Enumerable.Repeat(str, count));
+
         public static (string first, string second) Partition(this string str, int index) 
             => (str[..index], str[index..]);
         public static (string first, string second) Partition(this string str, char divider) 

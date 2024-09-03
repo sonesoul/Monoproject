@@ -10,12 +10,13 @@ using Monoproject;
 using System.Reflection;
 using InGame;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace GlobalTypes
 {
     public static class Executor
     {
-        private static class GeneralCommands
+        private static class GeneralExecution
         {
             public static Dictionary<string, Action<string>> Commands => _commands;
 
@@ -30,7 +31,7 @@ namespace GlobalTypes
 
                 { "f1", static _ => Main.Instance.Exit() },
                 { "mem", static _ => Mem() },
-                { "throw", static _ => throw new("An exception was thrown using the throw command.")},
+                { "throw", static _ => throw new()},
                 { "ruler", ToggleRuler },
                 { "level", LevelControl },
             };
@@ -219,81 +220,164 @@ namespace GlobalTypes
                 }
             }
         }
-        private static class TaskCommands
+        private static class ExecutionPipeline
         {
             public static Dictionary<string, Action<string>> Commands => _commands;
-            private static TaskCompletionSource<bool> _tcs = new();
 
             private readonly static Dictionary<string, Action<string>> _commands = new()
             {
-                { "run", static arg => Execute(arg) },
-                { "async", static async arg => await ExecuteAsync(arg) },
-                { "unsafe", UnsafeExec },
+                { "run", Execute },
+                { "async", static arg => Task.Run(() => ExecuteAsync(arg)) },
+                { "unsafe", ExecuteUnsafe },
+                { "if", If },
                 { "for", For },
+                { "while", While },
                 { "wait", Wait },
                 { "batch", Batch },
-                { "if", If },
+                { "batchbegin", static _ => BatchBegin()},
 
                 { "varset", VarSet },
-                { "var", VarWrite },
                 { "vardel", VarDel },
                 { "varall", static _ => VarAll() },
-                { "varinc", static arg => varCollection[arg]++},
-                { "vardec", static arg => varCollection[arg]--},
+                { "varinc", static arg => VarCollection[arg]++},
+                { "vardec", static arg => VarCollection[arg]--},
+                { "varrandom", VarRandom },
 
-                { "write", static arg => Write(arg, CurrentColor).Wait() },
-                { "writel", static arg => WriteLine(arg, CurrentColor).Wait()},
-                { "writeasync", static arg => Write(arg, CurrentColor) },
-                { "writelasync", static arg => WriteLine(arg, CurrentColor) },
+                { "writel", CustomWriteLine },
+                { "write", CustomWrite },
             };
 
-            private readonly static Dictionary<string, int> varCollection = new();
-            private readonly static Dictionary<string, Func<string, bool>> varIfCommands = new();
+            private static Dictionary<string, int> VarCollection { get; set; } = new();
+            private static Dictionary<string, Func<string, bool>> VarConditions { get; set; } = new();
+            
+            private static void CustomWriteLine(string arg)
+            {
+                if (TryParseArg(arg, out int varValue))
+                    WriteLine(varValue, ConsoleColor.Cyan).Wait();
+                else
+                    WriteLine(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], CurrentColor).Wait();
+            }
+            private static void CustomWrite(string arg)
+            {
+                if (TryParseArg(arg, out int varValue))
+                    Write(varValue, ConsoleColor.Cyan).Wait();
+                else
+                    Write(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], CurrentColor).Wait();
+            }
 
             private static void For(string arg)
             {
                 SubInput(arg, out var countArg, out var command);
 
-                if (varCollection.ContainsKey(countArg))
-                {
-                    int count = varCollection[countArg];
-                    for (int i = 0; i < count; i++)
-                    {
-                        Execute(command);
-                        count = varCollection[countArg];
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < int.Parse(countArg); i++)
-                        Execute(command);
-                }
+                int count = ParseArg(countArg);
+                bool isVar = VarCollection.ContainsKey(countArg);
 
-                
+                for (int i = 0; i < count; i++)
+                {
+                    if (isVar)
+                        count = VarCollection[countArg];
+
+                    Execute(command);
+                }
+            }
+            private static void While(string arg)
+            {
+                (string condition, string action) = arg.Partition(':');
+
+                action = action[1..].Trim();
+                while (IsConditionTrue(condition))
+                    Execute(action);
             }
             private static void Wait(string arg)
             {
-                Task.Delay(ParseOrVar(arg) * 1000).Wait();
+                float time = 0f;
+                if (VarCollection.TryGetValue(arg, out int intTime))
+                {
+                    time = intTime;
+                }
+                else
+                {
+                    time = float.Parse(arg);
+                }
+
+                Task.Delay((int)(1000f * time)).Wait();
             }
             private static void Batch(string arg)
             {
-                SplitInput(arg, ';')
-                    .Where(static i => !string.IsNullOrEmpty(i))
-                    .ToList()
-                    .ForEach(i => Execute(i));
+                var result = new List<string>();
+                int start = 0;
+                int level = 0;
+
+                for (int i = 0; i < arg.Length; i++)
+                {
+                    if (arg[i] == '(')
+                    {
+                        if (++level == 1)
+                            arg = arg.Remove(i, 1);
+                    }
+                    else if (arg[i] == ')')
+                    {
+                        if(--level == 0)
+                            arg = arg.Remove(i, 1);
+                    }
+                    else if (arg[i] == ',' && level == 1)
+                    {
+                        result.Add(arg[start..i].Trim());
+                        start = i + 1;
+                    }
+                }
+
+                result.Add(arg.Substring(start).Trim());
+                result.ForEach(i => Execute(i));
             }
+            
             private static void If(string arg)
             {
-                arg = arg.Replace("(", "");
-                arg = arg.Replace(")", "");
+                int colonIndex = arg.IndexOf(':');
+                string condition = arg[..colonIndex].Trim();
 
-                string[] splitted = arg.Split(':');
-                if (splitted.Length < 2)
-                    throw new ArgumentException("Invalid if statement.");
+                char openBracket = '(';
+                char closeBracket = ')';
 
+                bool isconditionTrue = IsConditionTrue(condition);
 
-                string[] conditions = splitted[0].Split(new[] { "&&", "||" }, StringSplitOptions.None);
-                string[] operators = splitted[0].Where(c => c == '&' || c == '|').Select(c => c.ToString()).Distinct().ToArray();
+                int startIfAction = arg.IndexOf(openBracket, colonIndex) + 1;
+                int endIfAction = FindClosingBracket(arg, startIfAction - 1, openBracket, closeBracket);
+                string ifAction = arg.Substring(startIfAction, endIfAction - startIfAction).Trim();
+
+                if (isconditionTrue)
+                    Execute(ifAction);
+                else
+                {
+                    int elseIndex = arg.IndexOf("else", endIfAction);
+                    if (elseIndex != -1)
+                    {
+                        int startElseAction = arg.IndexOf(openBracket, elseIndex) + 1;
+                        int endElseAction = FindClosingBracket(arg, startElseAction - 1, openBracket, closeBracket);
+                        string elseAction = arg.Substring(startElseAction, endElseAction - startElseAction).Trim();
+                        Execute(elseAction);
+                    }
+                    
+                }
+            }
+            private static bool EvaluateCondition(string condition)
+            {
+                string[] parts = condition.Split(' ');
+                if (parts.Length < 2)
+                    throw new ArgumentException("Invalid condition.");
+
+                string varCommand = parts[0];
+                string comparison = parts[1];
+                
+                if (VarConditions.TryGetValue(varCommand, out var func))
+                    return func.Invoke(comparison);
+                
+                throw new ArgumentException($"Can't find variable condition: \"{varCommand}\"");
+            }
+            private static bool IsConditionTrue(string condition)
+            {
+                string[] conditions = condition.Split(new[] { "&&", "||" }, StringSplitOptions.None);
+                string[] operators = condition.Where(c => c == '&' || c == '|').Select(c => c.ToString()).Distinct().ToArray();
 
                 bool result = EvaluateCondition(conditions[0].Trim());
 
@@ -310,109 +394,168 @@ namespace GlobalTypes
                         result |= nextCondition;
                     }
                 }
-
-                if (result)
-                {
-                    string ifCommand = splitted[1].Split(',')[0].Trim();
-                    Execute(ifCommand);
-                }
-                else if (arg.Contains("else", StringComparison.OrdinalIgnoreCase))
-                {
-                    string elseCommand = splitted[2].Trim();
-                    Execute(elseCommand);
-                }
+                return result;
             }
-
-            private static bool EvaluateCondition(string condition)
+            private static int FindClosingBracket(string input, int openBracketIndex, char openBracket = '(', char closeBracket = ')')
             {
-                string[] parts = condition.Split(' ');
-                if (parts.Length < 2)
-                    throw new ArgumentException("Invalid condition.");
+                int level = 1;
 
-                string varCommand = parts[0];
-                string comparison = parts[1];
-                
-                if (varIfCommands.TryGetValue(varCommand, out var func))
+                for (int i = openBracketIndex + 1; i < input.Length; i++)
                 {
-                    return func.Invoke(comparison);
+                    if (input[i] == openBracket) level++;
+                    else if (input[i] == closeBracket)
+                    {
+                        level--;
+                        if (level == 0)
+                            return i;
+                    }
                 }
-                throw new ArgumentException($"Invalid command");
+
+                throw new ArgumentException("No matching closing bracket found.");
             }
 
             private static void VarSet(string arg)
             {
-                SubInput(arg, out string name, out string num);
-
-                int intValue = int.Parse(num);
-
-                if (varCollection.ContainsKey(name))
+                SubInput(arg, out string name, out string toSet);
+                int intValue;
+                try
                 {
-                    varCollection[name] = intValue;
+                    intValue = ParseArg(toSet);
+                }
+                catch
+                {
+                    toSet.Partition(' ', out string first, out string second);
+                    if (first == "random")
+                    {
+                        intValue = new Random().Next(ParseArg(second));
+                    }
+                    else
+                        throw;
+                }
+                
+                if (VarCollection.ContainsKey(name))
+                {
+                    VarCollection[name] = intValue;
                 }
                 else
                 {
-                    varCollection.Add(name, intValue);
+                    VarCollection.Add(name, intValue);
 
-                    varIfCommands.Add($"{name}==", arg => varCollection[name] == ParseOrVar(arg));
-                    varIfCommands.Add($"{name}!=", arg => varCollection[name] != ParseOrVar(arg));
-                    varIfCommands.Add($"{name}>=", arg => varCollection[name] >= ParseOrVar(arg));
-                    varIfCommands.Add($"{name}<=", arg => varCollection[name] <= ParseOrVar(arg));
-                    varIfCommands.Add($"{name}>", arg => varCollection[name] > ParseOrVar(arg));
-                    varIfCommands.Add($"{name}<", arg => varCollection[name] < ParseOrVar(arg));
+                    VarConditions.Add($"{name}==", arg => VarCollection[name] == ParseArg(arg));
+                    VarConditions.Add($"{name}!=", arg => VarCollection[name] != ParseArg(arg));
+                    VarConditions.Add($"{name}>=", arg => VarCollection[name] >= ParseArg(arg));
+                    VarConditions.Add($"{name}<=", arg => VarCollection[name] <= ParseArg(arg));
+                    VarConditions.Add($"{name}>", arg => VarCollection[name] > ParseArg(arg));
+                    VarConditions.Add($"{name}<", arg => VarCollection[name] < ParseArg(arg));
                 }
-                WriteLine($"{name} = {num}", ConsoleColor.Cyan).Wait();
             }
             private static void VarDel(string varname)
             {
-                varIfCommands.Remove($"{varname}==");
-                varIfCommands.Remove($"{varname}!=");
-                varIfCommands.Remove($"{varname}>=");
-                varIfCommands.Remove($"{varname}<=");
-                varIfCommands.Remove($"{varname}>");
-                varIfCommands.Remove($"{varname}<");
+                VarConditions.Remove($"{varname}==");
+                VarConditions.Remove($"{varname}!=");
+                VarConditions.Remove($"{varname}>=");
+                VarConditions.Remove($"{varname}<=");
+                VarConditions.Remove($"{varname}>");
+                VarConditions.Remove($"{varname}<");
 
-                varCollection.Remove(varname);
+                VarCollection.Remove(varname);
             }
-            private static void VarWrite(string varname) => WriteLine(varCollection[varname], ConsoleColor.Cyan);
+            private static void VarWritel(string varname) => WriteLine(VarCollection[varname], ConsoleColor.Cyan);
             private static void VarAll()
             {
-                foreach (var item in varCollection)
+                foreach (var item in VarCollection)
                 {
-                    VarWrite(item.Key);
+                    VarWritel(item.Key);
                 }
             }
-            private static int ParseOrVar(string arg)
+            private static void VarRandom(string arg)
             {
-                if(varCollection.TryGetValue(arg, out int num))
+                SubInput(arg, out string name, out string max);
+
+                VarCollection[name] = new Random().Next(ParseArg(max));
+            }
+
+            public static int ParseArg(string arg)
+            {
+                arg = arg.Trim();
+                int num;
+
+                if (VarCollection.TryGetValue(arg, out num))
+                    return num;
+                else if (int.TryParse(arg, out num))
                     return num;
 
-                return int.Parse(arg);
+
+                throw new ArgumentException($"Variable \"{arg}\" not found and \"{arg}\" can't be cast to int.");
+            }
+            public static bool TryParseArg(string arg, out int num)
+            {
+                try
+                {
+                    num = ParseArg(arg);
+                    return true;
+                }
+                catch
+                {
+                    num = -1;
+                    return false;
+                }
             }
         }
 
-        private static Dictionary<string, Action<string>> TotalCommands
-            => GeneralCommands.Commands
-            .Concat(TaskCommands.Commands)
+        private static Dictionary<string, Action<string>> Commands
+            => GeneralExecution.Commands
+            .Concat(ExecutionPipeline.Commands)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        
+        private readonly static Queue<string> _batchSeq = new();
+        public static bool IsBatchBegun { get; private set; } = false;
+
         public static void FromString(string input)
         {
-            input = input.ToLower().Trim();
+            input = input.Trim();
 
             if (string.IsNullOrEmpty(input))
                 return;
 
+            if (IsBatchBegun)
+            {
+                BatchReceive(input);
+                return;
+            }
+
             SubInput(input, out string command, out string arg);
 
-            if (!TotalCommands.TryGetValue(command, out var action))
+            if (!Commands.TryGetValue(command.ToLower(), out var action))
             {
-                WriteLine($"Unexpected command. Did you mean \"{FindClosestWord(input, TotalCommands.Keys.ToArray())}\"?", ConsoleColor.Red).Wait();
+                WriteLine($"Unexpected command. Did you mean \"{FindClosestWord(input, Commands.Keys.ToArray())}\"?", ConsoleColor.Red).Wait();
                 return;
             }
 
             action?.Invoke(arg);
         }
+
+        public static void BatchBegin() => IsBatchBegun = true;
+        public static void BatchReceive(string command)
+        {
+            if (command == "batchend")
+            {
+                BatchEnd();
+                return;
+            }
+
+            _batchSeq.Enqueue(command);
+        }
+        public static void BatchEnd()
+        {
+            IsBatchBegun = false;
+
+            while (_batchSeq.Count > 0)
+            {
+                FromString(_batchSeq.Dequeue());
+            }
+        }
+        
         private static void LogMissing(string value, string name)
         {
             WriteLine($"Missing argument -> {value} ({name})", ConsoleColor.Red).Wait();

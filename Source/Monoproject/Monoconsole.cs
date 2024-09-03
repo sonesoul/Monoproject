@@ -10,7 +10,6 @@ using static GlobalTypes.NativeInterop.NativeMethods;
 using static GlobalTypes.NativeInterop.Constants;
 using System.Linq;
 using Monoproject;
-using GlobalTypes.Events;
 
 namespace GlobalTypes
 {
@@ -19,6 +18,7 @@ namespace GlobalTypes
         public static Keys ToggleKey => Keys.OemTilde;
         public static ConsoleColor CurrentColor => Console.ForegroundColor;
         public static bool IsOpened { get; private set; } = false;
+        public static bool WriteExecuted { get; private set; } = true;
         public static Action<string> Handler { get; set; }
         public static ConsoleColor ForeColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
         public static Thread ConsoleThread { get; private set; } = null;
@@ -90,10 +90,21 @@ namespace GlobalTypes
         {
             try
             {
-                ConsoleColor color = Thread.CurrentThread == ConsoleThread ? ConsoleColor.DarkCyan : ConsoleColor.DarkYellow;
+                ConsoleColor color;
+                Thread current = Thread.CurrentThread;
+                
+                if (current == Main.Instance.WindowThread)
+                    color = ConsoleColor.DarkYellow;
+                else if (current == ConsoleThread)
+                    color = ConsoleColor.DarkCyan;
+                else 
+                    color = ConsoleColor.Blue;
+
                 Task.Run(() =>
                 {
-                    WriteLine("> " + command, color).Wait();
+                    if(WriteExecuted)
+                        WriteLine("> " + command, color).Wait();
+
                     Executor.FromString(command);
                 }).Wait();
             }
@@ -107,7 +118,9 @@ namespace GlobalTypes
         {
             try
             {
-                await WriteLine("> " + command, ConsoleColor.Blue);
+                if (WriteExecuted)
+                    await WriteLine("> " + command, ConsoleColor.Blue);
+                
                 await Task.Run(() => Executor.FromString(command));
             }
             catch (Exception ex)
@@ -115,17 +128,24 @@ namespace GlobalTypes
                 await WriteLine($"{ex.Message} [async exec]", ConsoleColor.Red);
             }
         }
-        
-        public static void UnsafeExec(string command)
+        public static void ExecuteUnsafe(string command)
         {
-            Main.Instance.SyncContext.Post(_ => {
-                ConsoleColor color = Thread.CurrentThread == ConsoleThread ? ConsoleColor.DarkCyan : ConsoleColor.Magenta;
-
-                Task.Run(() =>
+            Main.Instance.SyncContext.Post(_ =>
+            {
+                try
                 {
-                    WriteLine("> " + command, color).Wait();
-                    Executor.FromString(command);
-                }).Wait();
+                    Task.Run(() =>
+                    {
+                        if (WriteExecuted)
+                            WriteLine("> " + command, ConsoleColor.Magenta);
+                        
+                        Executor.FromString(command);
+                    }).Wait();
+                }
+                catch (Exception ex)
+                {
+                    DialogBox.ShowException(ex);
+                }
             }, null);
         }
 

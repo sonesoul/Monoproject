@@ -1,14 +1,15 @@
-﻿using System;
+﻿using GlobalTypes.Events;
+using System;
 
 namespace Engine.Modules
 {
     public abstract class ObjectModule : IDisposable
     {
         private ModularObject _owner;
-        public event Action PreDispose;
+        public event Action Disposing;
         public event Action<ModularObject> OwnerChanged;
         public bool IsDisposed { get; private set; }  
-        public bool IsInited { get; private set; }  
+        public bool IsConstructed { get; private set; }  
         public ModularObject Owner => _owner;
 
         public ObjectModule(ModularObject owner = null) 
@@ -20,16 +21,16 @@ namespace Engine.Modules
         }
         public void Construct(ModularObject owner)
         {
-            if (IsInited)
+            if (IsConstructed)
                 return;
-            IsInited = true;
+            IsConstructed = true;
 
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
 
             Initialize();
         }
         protected abstract void Initialize();
-        ~ObjectModule() => Dispose(false);
+        ~ObjectModule() => DisposeAction(false);
 
         public void SetOwner(ModularObject newOwner)
         {
@@ -50,22 +51,34 @@ namespace Engine.Modules
 
         public void Dispose()
         {
-            Dispose(true);
+            FrameEvents.EndSingle.Insert(gt => DisposeAction(true), EventOrders.EndSingle.Dispose); 
             GC.SuppressFinalize(this);
         }
-        protected virtual void Dispose(bool disposing)
+        public void ForceDispose() => DisposeAction(true);
+        protected virtual void DisposeAction(bool disposing)
         {
-            if(IsDisposed) 
+            if (IsDisposed)
                 return;
 
             IsDisposed = true;
 
+            PreDispose();
+
             if (disposing)
             {
-                PreDispose?.Invoke();
+                Disposing?.Invoke();
                 SetOwner(null);
-                PreDispose = null;
             }
+            else
+                _owner = null;
+            
+            Disposing = null;
+            OwnerChanged = null;
+
+            PostDispose();
         }
+
+        protected virtual void PostDispose() { }
+        protected virtual void PreDispose() { }
     }
 }

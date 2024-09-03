@@ -80,10 +80,9 @@ namespace InGame.GameObjects
             letterOrigin = Font.MeasureString(StringLetter) / 2;
         }
 
-        public override void Destroy()
+        protected override void PostDestroy()
         {
             base.Destroy();
-
             Drawer.RemoveDrawAction(Draw);
         }
     }

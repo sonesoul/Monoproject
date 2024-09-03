@@ -12,7 +12,7 @@ using System.Text;
 
 namespace InGame.GameObjects
 {
-    class StorageFiller : ModularObject
+    public class StorageFiller : ModularObject
     {
         private readonly WordStorage storage;
         private readonly EventListener<GameTime> updateListener;
@@ -25,7 +25,6 @@ namespace InGame.GameObjects
         private Color inputColor = Color.White;
         private Color bracketsColor = Color.White;
         private int maxLength;
-
 
         private bool canWrite = true;
 
@@ -114,10 +113,10 @@ namespace InGame.GameObjects
             }
         }
 
-        public override void Destroy()
+        protected override void PostDestroy()
         {
-            base.Destroy();
             FrameEvents.Update.Remove(updateListener);
+            Drawer.RemoveDrawAction(Draw);
         }
     }
 }

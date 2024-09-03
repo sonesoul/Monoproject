@@ -31,7 +31,7 @@ namespace Monoproject
         public SynchronizationContext SyncContext { get; private set; }
         public static Main Instance { get; private set; }
         public static Color BackgroundColor { get; set; } = Color.Black;
-        public Thread GameThread { get; init; }
+        public Thread WindowThread { get; init; }
 
         public Main()
         {
@@ -53,9 +53,9 @@ namespace Monoproject
             Content.RootDirectory = "Content";
 
             SyncContext = SynchronizationContext.Current;
-            GameThread = Thread.CurrentThread;
-            GameThread.CurrentUICulture = new CultureInfo("en-US");
-            GameThread.CurrentCulture = new CultureInfo("en-US");
+            WindowThread = Thread.CurrentThread;
+            WindowThread.CurrentUICulture = new CultureInfo("en-US");
+            WindowThread.CurrentCulture = new CultureInfo("en-US");
 
             InstanceInfo.UpdateVariables();
 
@@ -81,18 +81,18 @@ namespace Monoproject
             InitAttribute.Invoke();
             CreateInitables();
 
-
             _gameInstance = new(this);
 
             Monoconsole.WriteLine("init: " + GC.GetTotalMemory(false).ToSizeString());
             _ = Monoconsole.ExecuteAsync("mem");
         }
-        
-       
+
+
         protected override void Update(GameTime gameTime)
         {
             FrameEvents.Update.Trigger(gameTime);
             FrameEvents.EndUpdate.Trigger(gameTime);
+
             FrameEvents.EndSingle.Trigger(gameTime);
         }
         protected override void Draw(GameTime gameTime)

@@ -75,6 +75,18 @@ namespace GlobalTypes.Events
             else
                 _listeners.Insert(index, listener);
         }
+        public TListener Insert(TAction action, int order = 0)
+        {
+            TListener listener = default;
+            listener.Order = order;
+            listener.Action = action ?? throw new ArgumentNullException(nameof(action));
+
+            Add(listener);
+            return listener;
+        }
+        public TListener Append(TAction action) => Insert(action, LastOrder + 1);
+        public TListener Prepend(TAction action) => Insert(action, FirstOrder - 1);
+
         public void Remove(TListener listener) => _listeners.Remove(listener);
         public void RemoveFirst(TAction method)
         {
@@ -90,18 +102,6 @@ namespace GlobalTypes.Events
             if (found.Action != null)
                 _listeners.Remove(found);
         }
-
-        public TListener Insert(TAction action, int order = 0)
-        {
-            TListener listener = default;
-            listener.Order = order;
-            listener.Action = action ?? throw new ArgumentNullException(nameof(action));
-
-            Add(listener);
-            return listener;
-        }
-        public TListener Append(TAction action) => Insert(action, LastOrder + 1);
-        public TListener Prepend(TAction action) => Insert(action, FirstOrder - 1);
 
         public TListener SetOrder(TListener listener, int newOrder)
         {
