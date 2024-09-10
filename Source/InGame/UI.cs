@@ -46,15 +46,15 @@ namespace InGame
             frameCounter++;
 
             spriteBatch.DrawString(Font,
-                $"{(int)Fps} / {FrameState.DeltaTime} \n" +
+                $"{(int)Fps} / {FrameInfo.DeltaTime} \n" +
                 $"{GC.GetTotalMemory(false).ToSizeString()}\n" +
-                $"{FrameState.MousePosition}\n" +
+                $"{FrameInfo.MousePosition}\n" +
                 CustomInfo,
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
         public static void DrawMouse(GameTime gameTime)
         {
-            Vector2 curPoint = FrameState.MousePosition;
+            Vector2 curPoint = FrameInfo.MousePosition;
             int offset = 6;
 
             spriteBatch.DrawString(

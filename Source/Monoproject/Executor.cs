@@ -158,7 +158,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             {
                 static void UpdateInfo(GameTime gt)
                 {
-                    var mouse = FrameState.MouseState;
+                    var mouse = FrameInfo.MouseState;
                     var mousePos = mouse.Position;
 
                     if (mouse.LeftButton == ButtonState.Pressed)

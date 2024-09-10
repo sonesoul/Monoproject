@@ -24,7 +24,7 @@ namespace InGame
 
         private void Update(GameTime gameTime)
         {
-            cursorObj.position = FrameState.MousePosition;
+            cursorObj.position = FrameInfo.MousePosition;
         }
 
         private void CreateObjects()

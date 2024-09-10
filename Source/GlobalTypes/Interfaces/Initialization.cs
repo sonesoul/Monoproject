@@ -1,4 +1,6 @@
-﻿namespace GlobalTypes.Interfaces
+﻿using System.Linq;
+
+namespace GlobalTypes.Interfaces
 {
     /// <summary>
     /// Interface for objects that should be initialized in the <c>Initialize</c> method of the <c>Game</c> class. 
@@ -7,15 +9,14 @@
     public interface IInitable
     {
         /// <summary>
-        /// The name of the <c>Init</c> method that should be called to initialize the object.
-        /// </summary>
-        public static string MethodName => nameof(Init);
-
-        /// <summary>
         /// Method that will be called from the <c>Initialize</c> method after an instance of the object is created. 
         /// This method should be explicitly implemented in the class.
         /// </summary>
         protected void Init();
+        public static void InitAll() 
+            => Reflector
+            .CreateInstances<IInitable>()
+            .ForEach(i => Reflector.CallMethod(i, nameof(Init)));
     }
 
     /// <summary>
@@ -25,14 +26,13 @@
     public interface ILoadable
     {
         /// <summary>
-        /// The name of the <c>Load</c> method that should be called to load the object.
-        /// </summary>
-        public static string MethodName => nameof(Load);
-
-        /// <summary>
         /// Method that will be called from the <c>Load</c> method after an instance of the object is created. 
         /// This method should be explicitly implemented in the class.
         /// </summary>
         protected void Load();
+        public static void LoadAll()
+            => Reflector
+            .CreateInstances<ILoadable>()
+            .ForEach(i => Reflector.CallMethod(i, nameof(Load)));
     }
 }

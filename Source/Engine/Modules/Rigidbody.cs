@@ -28,7 +28,7 @@ namespace Engine.Modules
 
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
-        private static float Delta => FrameState.FixedDeltaTime;
+        private static float Delta => FrameInfo.FixedDeltaTime;
         public const float ZeroThreshold = 0.005f;
         public const float Tolerance = 1;
         #endregion
@@ -307,6 +307,7 @@ namespace Engine.Modules
             _onEndUpdate = FrameEvents.EndUpdate.Add(EndUpdate, EndUpdateOrders.Rigidbody);
             UsedCollider.Disposing += Dispose;
         }
+        
         public void AddForce(Vector2 force) => forces += force / Delta;
 
         private void EndUpdate(GameTime gt)

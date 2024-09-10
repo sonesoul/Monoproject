@@ -118,7 +118,7 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, end, elapsed);
-                elapsed += FrameState.DeltaTime * smoothSpeed;
+                elapsed += FrameInfo.DeltaTime * smoothSpeed;
 
                 yield return null;
             }
@@ -130,7 +130,7 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, Vector2.Zero, elapsed);
-                elapsed += FrameState.DeltaTime * smoothSpeed;
+                elapsed += FrameInfo.DeltaTime * smoothSpeed;
 
                 yield return null;
             }

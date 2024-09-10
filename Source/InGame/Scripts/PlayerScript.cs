@@ -101,7 +101,7 @@ namespace InGame.Scripts
             if (_fillerCollider.IntersectsWith(_collider))
             {
                 StorageFiller filler = Level.StorageFiller;
-                Keys[] keys = FrameState.KeyState.GetPressedKeys().Where(k => k.ToString().Length == 1).ToArray();
+                Keys[] keys = FrameInfo.KeyState.GetPressedKeys().Where(k => k.ToString().Length == 1).ToArray();
 
                 if (keys.Length > 0)
                 {
@@ -141,7 +141,7 @@ namespace InGame.Scripts
                     break;
                 case KeyEvent.Hold:
 
-                    holdTime += FrameState.DeltaTime;
+                    holdTime += FrameInfo.DeltaTime;
                     isKeyHeld = holdTime > _holdThreshold;
 
                     break;

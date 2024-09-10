@@ -68,10 +68,11 @@ namespace Monoproject
         protected override void LoadContent()
         {
             LoadAttribute.Invoke();
-            CreateLoadables();
+            ILoadable.LoadAll();
         }
         protected override void Initialize()
         {
+            //calls LoadContent
             base.Initialize();
 
             _spriteBatch = new(GraphicsDevice);
@@ -80,7 +81,7 @@ namespace Monoproject
             InstanceInfo.UpdateVariables();
             
             InitAttribute.Invoke();
-            CreateInitables();
+            IInitable.InitAll();
 
             _gameInstance = new();
            
@@ -90,7 +91,6 @@ namespace Monoproject
             InputManager.AddKey(Keys.F1, KeyEvent.Press, () => Monoconsole.Execute("f1"));
             InputManager.AddKey(Monoconsole.ToggleKey, KeyEvent.Press, () => Monoconsole.ToggleState());
         }
-
 
         protected override void Update(GameTime gameTime)
         {
@@ -120,32 +120,6 @@ namespace Monoproject
             _interfaceDrawer.DrawAll(gameTime);
             _spriteBatch.End();
         }
-
-        private static void CreateLoadables() => CreateInstances<ILoadable>().ForEach(l => CallPrivate(l, ILoadable.MethodName));
-        private static void CreateInitables() => CreateInstances<IInitable>().ForEach(i => CallPrivate(i, IInitable.MethodName));
-        public static List<T> CreateInstances<T>() where T : class
-        {
-            var instances = new List<T>();
-
-            var types = Assembly.GetExecutingAssembly().GetTypes()
-                .Where(t => typeof(T).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
-
-            foreach (var type in types)
-            {
-                if (Activator.CreateInstance(type) is T instance)
-                    instances.Add(instance);
-            }
-
-            return instances;
-        }
-        public static void CallPrivate<T>(T instance, string methodName)
-        {
-            MethodInfo method = 
-                typeof(T).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance) 
-                ?? throw new InvalidOperationException($"Method [{methodName}] not found.");
-
-            method.Invoke(instance, null);
-        }
     }
 
     public static class Camera
@@ -154,8 +128,8 @@ namespace Monoproject
         private static float _zoom = 1f;
 
         public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
-        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameState.DeltaTime;
-        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameState.DeltaTime;
+        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameInfo.DeltaTime;
+        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameInfo.DeltaTime;
 
         public static float Zoom 
         {

@@ -12,8 +12,8 @@ namespace GlobalTypes.Input
     {
         private static AxisCulture _axisCulture = AxisCulture.WASD;
         public static AxisCulture AxisCulture => _axisCulture;
-        private static KeyboardState KeyState => FrameState.KeyState;
-        private static MouseState MouseState => FrameState.MouseState;
+        private static KeyboardState KeyState => FrameInfo.KeyState;
+        private static MouseState MouseState => FrameInfo.MouseState;
 
         public static Vector2 Axis => _axis;
         private static Vector2 _axis = Vector2.Zero;

@@ -26,11 +26,17 @@ namespace Engine.Modules
             public static void EndUpdate(GameTime gt)
             {
                 _allColliders.LockRun(
-                    () => Parallel.ForEach(_allColliders, 
-                    (c) => c?.CheckIntersections(_allColliders)));
+                    () => Parallel.ForEach(
+                        _allColliders, 
+                        (c) => c?.CheckIntersections(_allColliders)));
             }
         }
 
+        private List<Vector2> PolygonVerts => polygon.Vertices;
+        public Rectangle ShapeBounding => _bounding;
+        public bool Intersects { get; private set; }
+        public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
+        public IReadOnlyList<Collider> Intersections => _intersections;
 
         public Polygon polygon = Polygon.Rectangle(50, 50);
         public Color drawColor = Color.Green;
@@ -45,15 +51,9 @@ namespace Engine.Modules
         
         private ColliderMode _colliderMode = ColliderMode.Physical;
         private Action<IReadOnlyList<Collider>> _intersectionChecker;
+
         private Action<GameTime> _drawAction;
-        
         private ShapeDrawer _shapeDrawer;
-        
-        private List<Vector2> PolygonVerts => polygon.Vertices;
-        public Rectangle ShapeBounding => _bounding;
-        public bool Intersects { get; private set; }
-        public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
-        public IReadOnlyList<Collider> Intersections => _intersections;
 
         public Collider(ModularObject owner = null) : base(owner) { }
        
@@ -77,6 +77,15 @@ namespace Engine.Modules
 
             return polygon.IntersectsWith(other.polygon);
         }
+        public bool IntersectsWith(Collider other, out Vector2 mtv)
+        {
+            mtv = Vector2.Zero;
+
+            if (other == null)
+                return false;
+            
+            return polygon.IntersectsWith(other.polygon, out mtv);
+        }
 
         private void CheckIntersections(IReadOnlyList<Collider> colliders)
         {
@@ -89,7 +98,12 @@ namespace Engine.Modules
             if (Owner == null)
                 return;
 
-            AfterCheck();
+            _previousIntersections.Clear();
+            _previousIntersections.AddRange(_intersections);
+            Intersects = _intersections.Any();
+            drawColor = Intersects ? Color.Red : Color.Green;
+
+            UpdatePolygon();
         }
         private void UpdatePolygon()
         {
@@ -97,14 +111,32 @@ namespace Engine.Modules
             polygon.Rotation = Owner.RotationDeg;
             UpdateBounding();
         }
-        private void AfterCheck()
+        private void UpdateBounding()
         {
-            _previousIntersections.Clear();
-            _previousIntersections.AddRange(_intersections);
-            Intersects = _intersections.Any();
-            drawColor = Intersects ? Color.Red : Color.Green;
+            var verts = PolygonVerts;
 
-            UpdatePolygon();
+            int width = (int)verts.Max(v => v.X).Ceiled() - (int)verts.Min(v => v.X).Floored();
+            int height = (int)verts.Max(v => v.Y).Ceiled() - (int)verts.Min(v => v.Y).Floored();
+
+            _bounding.X = (int)Owner.position.X - width / 2;
+            _bounding.Y = (int)Owner.position.Y - height / 2;
+            _bounding.Width = width;
+            _bounding.Height = height;
+        }
+
+        private void Draw(GameTime gt)
+        {
+            Vector2 current = PolygonVerts[0] + Owner.IntegerPosition;
+            Vector2 next;
+            for (int i = 1; i < PolygonVerts.Count; i++)
+            {
+                next = PolygonVerts[i] + Owner.IntegerPosition;
+                _shapeDrawer.DrawLine(current, next, drawColor);
+                current = next;
+            }
+
+
+            _shapeDrawer.DrawLine(current, PolygonVerts[0] + Owner.IntegerPosition, drawColor);
         }
 
         private void PhysicalCheck(IReadOnlyList<Collider> colliders)
@@ -136,7 +168,7 @@ namespace Engine.Modules
             foreach (var item in _previousIntersections)
             {
                 if (!Intersections.Contains(item))
-                    TriggerExit?.Invoke(item);
+                    IntersectionExit?.Invoke(item);
             }
         }
         private void StatiCheck(IReadOnlyList<Collider> colliders)
@@ -202,25 +234,13 @@ namespace Engine.Modules
                 Owner.position += mtv;
         }
 
-        private void UpdateBounding()
-        {
-            var verts = PolygonVerts;
-
-            int width = (int)verts.Max(v => v.X).Ceiled() - (int)verts.Min(v => v.X).Floored();
-            int height = (int)verts.Max(v => v.Y).Ceiled() - (int)verts.Min(v => v.Y).Floored();
-
-            _bounding.X = (int)Owner.position.X - width / 2;
-            _bounding.Y = (int)Owner.position.Y - height / 2;
-            _bounding.Width = width;
-            _bounding.Height = height;
-        }
         private bool IsWithinDistance(Collider other, float distance)
         {
-            Rectangle myBounding = ShapeBounding;
+            Rectangle thisBounding = ShapeBounding;
             Rectangle otherBounding = other.ShapeBounding;
 
-            float dx = Math.Max(myBounding.Left, otherBounding.Left) - Math.Min(myBounding.Right, otherBounding.Right);
-            float dy = Math.Max(myBounding.Top, otherBounding.Top) - Math.Min(myBounding.Bottom, otherBounding.Bottom);
+            float dx = Math.Max(thisBounding.Left, otherBounding.Left) - Math.Min(thisBounding.Right, otherBounding.Right);
+            float dy = Math.Max(thisBounding.Top, otherBounding.Top) - Math.Min(thisBounding.Bottom, otherBounding.Bottom);
 
             float maxDx = Math.Max(0, dx);
             float maxDy = Math.Max(0, dy);
@@ -243,20 +263,6 @@ namespace Engine.Modules
                     _intersectionChecker = StatiCheck;
                     break;
             }
-        }
-        private void Draw(GameTime gt)
-        {
-            Vector2 current = PolygonVerts[0] + Owner.IntegerPosition;
-            Vector2 next;
-            for (int i = 1; i < PolygonVerts.Count; i++)
-            {
-                next = PolygonVerts[i] + Owner.IntegerPosition;
-                _shapeDrawer.DrawLine(current, next, drawColor);
-                current = next;
-            }
-
-
-            _shapeDrawer.DrawLine(current, PolygonVerts[0] + Owner.IntegerPosition, drawColor);
         }
 
         protected override void PostDispose()

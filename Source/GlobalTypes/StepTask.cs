@@ -64,12 +64,12 @@ namespace GlobalTypes
             }
         }
 
-        public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameState.DeltaTime));
+        public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameInfo.DeltaTime));
         public static IEnumerator WaitForRealSeconds(float seconds)
         {
-            TimeSpan start = FrameState.GameTime.TotalGameTime;
+            TimeSpan start = FrameInfo.GameTime.TotalGameTime;
 
-            while ((FrameState.GameTime.TotalGameTime - start).TotalSeconds < seconds)
+            while ((FrameInfo.GameTime.TotalGameTime - start).TotalSeconds < seconds)
             {
                 yield return null;
             }

@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Input;
 namespace GlobalTypes
 {
     [Init(nameof(Init), InitOrders.FrameInfo)]
-    public static class FrameState
+    public static class FrameInfo
     {
         public const float FixedDeltaTime = 1.0f / 60.0f;
 
@@ -31,7 +31,7 @@ namespace GlobalTypes
         {
             if (isInited)
                 return;
-
+            
             FrameEvents.Update.Add(UpdateValues, UpdateOrders.FrameInfo);
             isInited = true;
         }
