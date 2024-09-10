@@ -7,7 +7,6 @@ using InGame.GameObjects;
 using InGame.Generators;
 using InGame.Scripts;
 using Microsoft.Xna.Framework;
-using Monoproject;
 using System;
 using System.Collections.Generic;
 
@@ -104,14 +103,16 @@ namespace InGame
             );
 
 
-            TextObject player = new(IngameDrawer.Instance, "#", UI.Font, new PlayerScript())
+           
+            WordStorage storage = new() { position = windowCenter };
+            StorageFiller filler = new(storage, 5) { position = new(windowCenter.X, 700) };
+
+            TextObject player = new(IngameDrawer.Instance, "#", UI.Font, new PlayerScript(filler))
             {
                 position = windowCenter,
                 Color = Color.Green,
                 size = new(2, 2),
             };
-            WordStorage storage = new() { position = windowCenter };
-            StorageFiller filler = new(storage, 5) { position = new(windowCenter.X, 200) };
 
             Current = new(
                 new List<TextObject>(_platforms),
@@ -119,83 +120,6 @@ namespace InGame
                 
             
             _platforms.Clear();
-        }
-    }
-
-    public static class OldLevelSystem
-    {
-        public static WordStorage WordStorage { get; private set; }
-        public static IReadOnlyList<TextObject> Platforms => _platforms;
-        public static TextObject Player { get; private set; }
-
-        private static List<TextObject> _platforms = new();
-
-        private readonly static Dictionary<char, Action<Vector2>> mapPattern = new()
-        {
-            { '#', static (pos) =>
-                {
-                   _platforms.Add(
-                       new TextObject(IngameDrawer.Instance, "", UI.Font,
-                           new Collider()
-                           {
-                                Mode = ColliderMode.Static,
-                                polygon = Polygon.Rectangle(37, 37)
-                           })
-                       {
-                            position = pos
-                       });
-                }
-            }
-        };
-
-        public static void Clear()
-        {
-            foreach (var item in _platforms)
-                item?.Destroy();
-
-            WordStorage?.Destroy();
-            Player?.Destroy();
-        }
-        public static void New()
-        {
-            Clear();
-
-            MapGenerator generator = new(mapPattern);
-
-            Rectangle screenSquare = new(Point.Zero, InstanceInfo.WindowSize.MinSquare().ToPoint());
-            Grid<Vector2> grid = MapGenerator.SliceRect(new Point(20, 20), screenSquare, new(0, 0));
-
-            generator.Generate(
-                grid,
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "       ##           " +
-                "                    " +
-                "####                " +
-                "                    "
-            );
-
-            WordStorage = new() { position = InstanceInfo.WindowSize / 2 };
-            Player = new(IngameDrawer.Instance, "#", UI.Font, new PlayerScript())
-            {
-                position = InstanceInfo.WindowSize / 2,
-                Color = Color.Green,
-                size = new(2, 2),
-            };
         }
     }
 }

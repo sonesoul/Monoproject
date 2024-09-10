@@ -4,24 +4,19 @@ using Engine.Modules;
 using Engine.Types;
 using GlobalTypes;
 using GlobalTypes.Events;
+using GlobalTypes.Input;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
-using Monoproject;
 
 namespace InGame
 {
     public class GameMain 
     {
         public TextObject player;
-        private readonly Main _main;
-        private static bool isConsoleTogglePressed = true;
         private TextObject cursorObj;
         
-        
-        public GameMain(Main instance)
+        public GameMain()
         {
-            _main = instance;
-            FrameEvents.Update.Insert(Update, EventOrders.Update.GameMain);
+            FrameEvents.Update.Add(Update, UpdateOrders.GameMain);
             CreateObjects();
 
             Level.New();
@@ -29,24 +24,7 @@ namespace InGame
 
         private void Update(GameTime gameTime)
         {
-            HandleInput(FrameState.KeyState, FrameState.MouseState);
-        }
-        private void HandleInput(KeyboardState keyboard, MouseState mouse)
-        {
-            if (keyboard.IsKeyDown(Monoconsole.ToggleKey) && !isConsoleTogglePressed)
-            {
-                Monoconsole.ToggleState();
-                isConsoleTogglePressed = true;
-            }
-            if (keyboard.IsKeyUp(Monoconsole.ToggleKey) && isConsoleTogglePressed)
-            {
-                isConsoleTogglePressed = false;
-            }
-            
-            cursorObj.position = mouse.Position.ToVector2();
-
-            if (keyboard.IsKeyDown(Keys.F1))
-                Monoconsole.Execute("f1");
+            cursorObj.position = FrameState.MousePosition;
         }
 
         private void CreateObjects()
@@ -60,11 +38,6 @@ namespace InGame
                 polygon = Polygon.Rectangle(50, 50),
                 Mode = ColliderMode.Static
             });
-
-            _ = new InputZone(ingameDrawer, "Fire", UI.Font)
-            {
-                position = new(InstanceInfo.WindowWidth / 2, InstanceInfo.WindowHeight - 30)
-            };
         }
         private void CreateWalls()
         {

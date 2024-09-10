@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Drawing;
 using Engine.Types;
+using GlobalTypes;
 using GlobalTypes.Events;
-using GlobalTypes.Interfaces;
 using GlobalTypes.Collections;
 using System.Threading.Tasks;
 
@@ -13,11 +13,12 @@ namespace Engine.Modules
 {
     public class Collider : ObjectModule
     {
-        public class CollisionManager : IInitable
+        [Init(nameof(Init))]
+        public static class CollisionManager
         {
             private static readonly LockList<Collider> _allColliders = new();
 
-            void IInitable.Init() => FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Collider);
+            private static void Init() => FrameEvents.EndUpdate.Add(EndUpdate, EndUpdateOrders.Collider);
 
             public static void Register(Collider collider) => _allColliders.Add(collider);
             public static void Unregister(Collider collider) => _allColliders.Remove(collider);
@@ -34,29 +35,21 @@ namespace Engine.Modules
         public Polygon polygon = Polygon.Rectangle(50, 50);
         public Color drawColor = Color.Green;
 
-        #region Events
-        public event Action<Collider> IntersectionEnter;
-        public event Action<Collider> IntersectionStay;
-        public event Action<Collider> IntersectionExit;
-
-        public event Action<Collider> TriggerEnter;
-        public event Action<Collider> TriggerStay;
-        public event Action<Collider> TriggerExit;
-        #endregion
+        public event Action<Collider> IntersectionEnter, IntersectionStay, IntersectionExit;
+        public event Action<Collider> TriggerEnter, TriggerStay, TriggerExit;
 
         private readonly List<Collider> _intersections = new();
         private readonly List<Collider> _previousIntersections = new();
 
         private Rectangle _bounding;
-        private List<Vector2> PolygonVerts => polygon.Vertices;
-
-        private ColliderMode _colliderMode = ColliderMode.Physical;
         
+        private ColliderMode _colliderMode = ColliderMode.Physical;
         private Action<IReadOnlyList<Collider>> _intersectionChecker;
         private Action<GameTime> _drawAction;
         
         private ShapeDrawer _shapeDrawer;
         
+        private List<Vector2> PolygonVerts => polygon.Vertices;
         public Rectangle ShapeBounding => _bounding;
         public bool Intersects { get; private set; }
         public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
@@ -64,7 +57,7 @@ namespace Engine.Modules
 
         public Collider(ModularObject owner = null) : base(owner) { }
        
-        protected override void Initialize()
+        protected override void PostConstruct()
         {
             _drawAction = Draw;
 
@@ -77,7 +70,15 @@ namespace Engine.Modules
             SetUpdater(_colliderMode);
         }
 
-        public void CheckIntersections(IReadOnlyList<Collider> colliders)
+        public bool IntersectsWith(Collider other)
+        {
+            if (other == null) 
+                return false;
+
+            return polygon.IntersectsWith(other.polygon);
+        }
+
+        private void CheckIntersections(IReadOnlyList<Collider> colliders)
         {
             _intersections.Clear();
 
@@ -108,7 +109,7 @@ namespace Engine.Modules
 
         private void PhysicalCheck(IReadOnlyList<Collider> colliders)
         {
-            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static) && IsWithinDistance(c, 1)))
+            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static) && IsWithinDistance(c, 2)))
             {
                 if (item == this)
                     continue;
@@ -130,13 +131,17 @@ namespace Engine.Modules
 
                     UpdatePolygon();
                 }
-                else if (_previousIntersections.Contains(item))
-                    IntersectionExit?.Invoke(item);
+            }
+
+            foreach (var item in _previousIntersections)
+            {
+                if (!Intersections.Contains(item))
+                    TriggerExit?.Invoke(item);
             }
         }
         private void StatiCheck(IReadOnlyList<Collider> colliders)
         {
-            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical) && IsWithinDistance(c, 1)))
+            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical) && IsWithinDistance(c, 2)))
             {
                 if (item == this)
                     continue;
@@ -150,13 +155,17 @@ namespace Engine.Modules
                     else
                         IntersectionStay?.Invoke(item);
                 }
-                else if (_previousIntersections.Contains(item))
+            }
+
+            foreach (var item in _previousIntersections)
+            {
+                if (!Intersections.Contains(item))
                     IntersectionExit?.Invoke(item);
             }
         }
         private void TriggerCheck(IReadOnlyList<Collider> colliders)
         {
-            foreach (var item in colliders.Where(c => IsWithinDistance(c, 1)))
+            foreach (var item in colliders.Where(c => IsWithinDistance(c, 2)))
             {
                 if (item == this)
                     continue;
@@ -170,14 +179,18 @@ namespace Engine.Modules
                     else
                         TriggerStay?.Invoke(item);
                 }
-                else if (_previousIntersections.Contains(item))
+            }
+
+            foreach (var item in _previousIntersections)
+            {
+                if (!Intersections.Contains(item))
                     TriggerExit?.Invoke(item);
             }
         }
 
         //physical-physical touches will be fixed later
         //the problem is that each object tries to push out others. Fix: there should be correct priorites for push orders. Must also handle parallel calls.
-        public void PushOut(Collider other, Vector2 mtv)
+        private void PushOut(Collider other, Vector2 mtv)
         {
             Vector2 dir = Owner.IntegerPosition - other.Owner.IntegerPosition;
             if (Vector2.Dot(dir, mtv) < 0)

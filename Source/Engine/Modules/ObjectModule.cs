@@ -23,13 +23,14 @@ namespace Engine.Modules
         {
             if (IsConstructed)
                 return;
+
             IsConstructed = true;
 
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
 
-            Initialize();
+            PostConstruct();
         }
-        protected abstract void Initialize();
+        protected abstract void PostConstruct();
         ~ObjectModule() => DisposeAction(false);
 
         public void SetOwner(ModularObject newOwner)
@@ -51,7 +52,7 @@ namespace Engine.Modules
 
         public void Dispose()
         {
-            FrameEvents.EndSingle.Insert(gt => DisposeAction(true), EventOrders.EndSingle.Dispose); 
+            FrameEvents.EndSingle.Add(gt => DisposeAction(true), EndSingleOrders.Dispose); 
             GC.SuppressFinalize(this);
         }
         public void ForceDispose() => DisposeAction(true);

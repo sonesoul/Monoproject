@@ -1,65 +1,72 @@
 ﻿using Engine;
 using Engine.Drawing;
+using Engine.Modules;
+using Engine.Types;
 using GlobalTypes;
-using GlobalTypes.Events;
-using GlobalTypes.Input;
+using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections;
 using System.Linq;
-using System.Text;
 
 namespace InGame.GameObjects
 {
-    public class StorageFiller : ModularObject
+    public class StorageFiller : ModularObject, ITaggable
     {
+        public string Tag => "filler";
+        public bool IsFilled => inputIndex >= maxLength;
         private readonly WordStorage storage;
-        private readonly EventListener<GameTime> updateListener;
 
-        private string brackets;
-        private string bracketSpace = "       ";
-        private string input = "";
-        private Vector2 bracketsOrigin;
+        private string text;
+        private int inputIndex = 0;
+        private readonly char emptyChar = '-';
         private Vector2 inputOrigin;
+        private Vector2 drawOffset = Vector2.Zero;
+        
         private Color inputColor = Color.White;
-        private Color bracketsColor = Color.White;
+        private Collider collider;
         private int maxLength;
 
-        private bool canWrite = true;
+        private StepTask moveTask;
+        private StepTask moveBackTask;
 
+        private Vector2 end => new(0, -50);
+        private float smoothSpeed = 3;
         private static IngameDrawer Drawer => IngameDrawer.Instance;
 
         public StorageFiller(WordStorage storage, int maxLength)
         {
             this.maxLength = maxLength;
             this.storage = storage;
-            updateListener = FrameEvents.Update.Append(Update);
             Drawer.AddDrawAction(Draw);
-
-            StringBuilder sb = new();
-
-            sb.Append("[" + bracketSpace);
-
-            for (int i = 0; i < maxLength; i++)
+            text = emptyChar.Times(maxLength);
+            UpdateOrigin();
+            
+            collider = AddModule(new Collider(this)
             {
-                sb.Append(bracketSpace);
-            }
+                Mode = ColliderMode.Trigger,
+                polygon = Polygon.Rectangle(inputOrigin.X * 2, 30)
+            });
 
-            sb.Append(bracketSpace + "]");
-
-            brackets = sb.ToString();
-
-            bracketsOrigin = UI.Font.MeasureString(brackets) / 2;
-            inputOrigin = UI.Font.MeasureString(input) / 2;
+            collider.TriggerEnter += c =>
+            {
+                moveBackTask?.Break();
+                moveTask = new(Move(end), true);
+            };
+            collider.TriggerExit += c =>
+            {
+                moveTask?.Break();
+                moveBackTask = new(MoveBack(), true);
+            };
         }
 
         private void Draw(GameTime gt)
         {
             Drawer.SpriteBatch.DrawString(
                 UI.Font, 
-                input, 
-                position, 
+                text, 
+                position + drawOffset, 
                 inputColor,
                 0,
                 inputOrigin,
@@ -67,55 +74,72 @@ namespace InGame.GameObjects
                 SpriteEffects.None, 
                 0
                 );
-
-            Drawer.SpriteBatch.DrawString(
-                UI.Font,
-                brackets,
-                position,
-                bracketsColor,
-                0,
-                bracketsOrigin,
-                Vector2.One,
-                SpriteEffects.None,
-                0
-                );
         }
-
-        private void Update(GameTime gt) 
+ 
+        public void Append(char c)
         {
-            Keys[] keys = FrameState.KeyState.GetPressedKeys();
+            if (!char.IsLetter(c))
+                return;
+            
+            c = char.ToUpper(c);
 
-            if (keys.Length > 0 && canWrite)
+            if (WordStorage.AlphabetUpper.Contains(c) && !IsFilled)
             {
-                Keys key = keys[0];
-                string stringKey = key.ToString();
-                if (stringKey.Length != 1)
-                    return;
-
-                char keyChar = stringKey[0];
-
-                if (key == Keys.Back && input.Length > 0)
-                {
-                    input = input.SkipLast(1).ToString();
-                    inputOrigin = UI.Font.MeasureString(input) / 2;
-                }
-                else if (WordStorage.AlphabetUpper.Contains(keyChar) && input.Length < maxLength)
-                {
-                    input += keyChar;
-                    inputOrigin = UI.Font.MeasureString(input) / 2;
-
-                    brackets = brackets.Remove(1, bracketSpace.Length);
-                    bracketsOrigin = UI.Font.MeasureString(brackets) / 2;
-                }
-
-                InputManager.AddSingleTrigger(key, KeyEvent.Release, () => canWrite = true);
-                canWrite = false;
+                text = text.CharAt(inputIndex++, c);
+                UpdateOrigin();
             }
         }
+        public void Backspace()
+        {
+            if (inputIndex > 0)
+            {
+                text = text.CharAt(--inputIndex, emptyChar);
+                UpdateOrigin();
+            }
+        }
+        public bool Push()
+        {
+            if (IsFilled)
+            {
+                if (storage.Push(text))
+                {
+                    text = emptyChar.Times(maxLength);
+                    inputIndex = 0;
+                    UpdateOrigin();        
+                    return true;
+                }
+            }
 
+            return false;
+        }
+        private IEnumerator Move(Vector2 end)
+        {
+            float elapsed = 0;
+            while (elapsed < 1f)
+            {
+                drawOffset = Vector2.Lerp(drawOffset, end, elapsed);
+                elapsed += FrameState.DeltaTime * smoothSpeed;
+
+                yield return null;
+            }
+            drawOffset = end;
+        }
+        private IEnumerator MoveBack()
+        {
+            float elapsed = 0;
+            while (elapsed < 1f)
+            {
+                drawOffset = Vector2.Lerp(drawOffset, Vector2.Zero, elapsed);
+                elapsed += FrameState.DeltaTime * smoothSpeed;
+
+                yield return null;
+            }
+            drawOffset = Vector2.Zero;
+        }
+
+        private void UpdateOrigin() => inputOrigin = UI.Font.MeasureString(text) / 2;
         protected override void PostDestroy()
         {
-            FrameEvents.Update.Remove(updateListener);
             Drawer.RemoveDrawAction(Draw);
         }
     }

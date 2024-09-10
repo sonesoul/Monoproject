@@ -4,8 +4,6 @@ using Engine.Drawing;
 using GlobalTypes.Events;
 using GlobalTypes;
 using System;
-using GlobalTypes.Input;
-using GlobalTypes.Attributes;
 
 namespace InGame
 {
@@ -25,7 +23,7 @@ namespace InGame
         private static void Load() => Font = InstanceInfo.Content.Load<SpriteFont>("MainFont");
         private static void Init()
         {
-            FrameEvents.Update.Insert(GetFps, EventOrders.Update.UI);
+            FrameEvents.Update.Add(GetFps, UpdateOrders.UI);
 
             drawer = InterfaceDrawer.Instance;
             spriteBatch = InstanceInfo.SpriteBatch;

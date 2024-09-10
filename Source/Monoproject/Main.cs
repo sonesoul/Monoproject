@@ -14,7 +14,8 @@ using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
 using Engine.Drawing;
 using InGame;
-using GlobalTypes.Attributes;
+using GlobalTypes.Input;
+using Microsoft.Xna.Framework.Input;
 
 namespace Monoproject
 {
@@ -81,10 +82,13 @@ namespace Monoproject
             InitAttribute.Invoke();
             CreateInitables();
 
-            _gameInstance = new(this);
-
+            _gameInstance = new();
+           
             Monoconsole.WriteLine("init: " + GC.GetTotalMemory(false).ToSizeString());
-            _ = Monoconsole.ExecuteAsync("mem");
+            Monoconsole.Execute("ram");
+
+            InputManager.AddKey(Keys.F1, KeyEvent.Press, () => Monoconsole.Execute("f1"));
+            InputManager.AddKey(Monoconsole.ToggleKey, KeyEvent.Press, () => Monoconsole.ToggleState());
         }
 
 

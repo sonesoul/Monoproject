@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace GlobalTypes.Events
 {
     [DebuggerDisplay("{ToString(),nq}")]
-    public class OrderedEvent<T> : OrderedEventBase<EventListener<T>, Action<T>>
+    public class OrderedEvent<T> : OrderedEventBase<OrderedAction<T>, Action<T>>
     {
         public void Trigger(T parameter)
         {
@@ -14,10 +14,10 @@ namespace GlobalTypes.Events
             _listeners.LockForEach(l => l.Action?.Invoke(parameter));
         }
 
-        public void AddSingle(EventListener<T> listener) => Add(ToSingleTrigger(listener));
+        public void AddSingle(OrderedAction<T> listener) => Add(ToSingleTrigger(listener));
         public void InsertSingle(Action<T> action, int order = 0)
         {
-            EventListener<T> listener = default;
+            OrderedAction<T> listener = default;
             listener.Order = order;
             listener.Action = action ?? throw new ArgumentNullException(nameof(action));
 
@@ -26,7 +26,7 @@ namespace GlobalTypes.Events
         public void AppendSingle(Action<T> action) => InsertSingle(action, LastOrder + 1);
         public void PrependSingle(Action<T> action) => InsertSingle(action, FirstOrder - 1);
         
-        private EventListener<T> ToSingleTrigger(EventListener<T> listener)
+        private OrderedAction<T> ToSingleTrigger(OrderedAction<T> listener)
         {
             Action<T> action = listener.Action;
 
@@ -41,7 +41,7 @@ namespace GlobalTypes.Events
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
-    public class OrderedEvent : OrderedEventBase<EventListener, Action>
+    public class OrderedEvent : OrderedEventBase<OrderedAction, Action>
     {
         public void Trigger()
         {
@@ -51,10 +51,10 @@ namespace GlobalTypes.Events
             _listeners.LockForEach(l => l.Action?.Invoke());
         }
 
-        public void AddSingle(EventListener listener) => Add(ToSingleTrigger(listener));
+        public void AddSingle(OrderedAction listener) => Add(ToSingleTrigger(listener));
         public void InsertSingle(Action action, int order = 0)
         {
-            EventListener listener = default;
+            OrderedAction listener = default;
             listener.Order = order;
             listener.Action = action ?? throw new ArgumentNullException(nameof(action));
 
@@ -63,7 +63,7 @@ namespace GlobalTypes.Events
         public void AppendSingle(Action action) => InsertSingle(action, LastOrder + 1);
         public void PrependSingle(Action action) => InsertSingle(action, FirstOrder - 1);
 
-        private EventListener ToSingleTrigger(EventListener listener)
+        private OrderedAction ToSingleTrigger(OrderedAction listener)
         {
             Action action = listener.Action;
 

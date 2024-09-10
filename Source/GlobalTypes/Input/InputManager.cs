@@ -1,5 +1,4 @@
-﻿using GlobalTypes.Attributes;
-using GlobalTypes.Collections;
+﻿using GlobalTypes.Collections;
 using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -39,7 +38,7 @@ namespace GlobalTypes.Input
             DownKey = new(down, KeyEvent.Hold, null, -1);
 
             AddKeys(RightKey, LeftKey, UpKey, DownKey);
-            FrameEvents.Update.Insert(_ => Update(), EventOrders.Update.InputManager);
+            FrameEvents.Update.Add(_ => Update(), UpdateOrders.InputManager);
 
             isInited = true;
         }
@@ -129,7 +128,7 @@ namespace GlobalTypes.Input
             foreach (var kl in listener)
                 AddKey(kl);
         }
-        public static void AddSingleTrigger(KeyListener listener)
+        public static void AddSingle(KeyListener listener)
         {
             KeyListener singleTriggerListener = new(listener.Key, listener.EventType, null, listener.Order);
 
@@ -142,9 +141,9 @@ namespace GlobalTypes.Input
             singleTriggerListener.Action = SelfRemove;
             AddKey(singleTriggerListener);
         }
-        public static void AddSingleTrigger(Keys key, KeyEvent keyEvent, Action action = null, int order = 0)
+        public static void AddSingle(Keys key, KeyEvent keyEvent, Action action = null, int order = 0)
         {
-            AddSingleTrigger(new KeyListener(key, keyEvent, action, order));
+            AddSingle(new KeyListener(key, keyEvent, action, order));
         }
         public static void RemoveKey(KeyListener listener)
         {
@@ -245,7 +244,7 @@ namespace GlobalTypes.Input
             foreach (var kl in mouseListeners)
                 AddKey(kl);
         }
-        public static void AddSingleTrigger(MouseListener mouseListener)
+        public static void AddSingle(MouseListener mouseListener)
         {
             MouseListener singleTriggerListener = new(mouseListener.Key, mouseListener.EventType, null, mouseListener.Order);
 
@@ -258,9 +257,9 @@ namespace GlobalTypes.Input
             singleTriggerListener.Action = SelfRemove;
             AddKey(singleTriggerListener);
         }
-        public static void AddSingleTrigger(MouseKey key, KeyEvent keyEvent, Action action = null, int order = 0)
+        public static void AddSingle(MouseKey key, KeyEvent keyEvent, Action action = null, int order = 0)
         {
-            AddSingleTrigger(new MouseListener(key, keyEvent, action, order));
+            AddSingle(new MouseListener(key, keyEvent, action, order));
         }
 
         public static void RemoveKey(MouseListener mouseKey)

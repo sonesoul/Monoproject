@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Modules;
 using System.Diagnostics;
-using Engine.Types;
-using Microsoft.Xna.Framework.Input;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
 
@@ -29,7 +27,7 @@ namespace Engine
         public bool IsDestroyed { get; private set; } = false;
 
 
-        public void Destroy() => FrameEvents.EndSingle.Insert(gt => DestroyAction(), EventOrders.EndSingle.Destroy);
+        public void Destroy() => FrameEvents.EndSingle.Add(gt => DestroyAction(), EndSingleOrders.Destroy);
         public void ForceDestroy() => DestroyAction();
         protected void DestroyAction() 
         {
@@ -201,56 +199,5 @@ namespace Engine
         }
 
         public override string ToString() => text;
-    }
-    
-    public class InputZone : TextObject
-    {
-        private readonly Queue<char> charQueue = new();
-  
-        public InputZone(IDrawer drawer, string text, SpriteFont font) : base(drawer, text, font)
-        {
-            Collider collider = new(this)
-            {
-                Mode = ColliderMode.Trigger,
-                polygon = Polygon.Rectangle(origin.X * 2, 30),
-            };
-            collider.TriggerStay += ObjectStay;
-
-            AddModule(collider);
-
-            foreach (var item in text.ToLower())
-            {
-                charQueue.Enqueue(item);
-            }
-        }
-        private void ObjectStay(Collider obj)
-        {
-            if(obj.Owner is TextObject textobj && textobj.text == "#")
-            {
-                Keys[] keys = Keyboard.GetState().GetPressedKeys();
-
-                for (int i = 0; i < keys.Length; i++)
-                {
-                    string keyString = keys[i].ToString().ToLower();
-
-                    if (keyString.Length > 1)
-                        continue;
-
-                    if (keyString[0] == charQueue.Peek())
-                    {
-                        charQueue.Dequeue();
-                        if (text.Length > 1)
-                        {
-                            text = text[1..];
-                            origin = font.MeasureString(text) / 2;
-                        }
-                        else if (text.Length == 1)
-                            Destroy();
-
-                        break;
-                    }
-                }
-            }            
-        }
     }
 }

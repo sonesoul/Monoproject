@@ -2,43 +2,10 @@
 using System.Collections.Generic;
 using GlobalTypes.Collections;
 using System.Linq;
-using System.Diagnostics;
+using GlobalTypes.Interfaces;
 
 namespace GlobalTypes.Events
 {
-    public interface IHasOrderedAction<TAction>
-    {
-        public int Order { get; set; }
-        public TAction Action { get; set; }
-    }
-
-    public struct EventListener<T> : IHasOrderedAction<Action<T>>
-    {
-        public Action<T> Action { get; set; }
-        public int Order { get; set; } = 0;
-
-        public EventListener(Action<T> action, int order)
-        {
-            this.Action = action;
-            Order = order;
-        }
-
-        public readonly override string ToString() => $"[{Order}] {Action.Method.DeclaringType.Name}.{Action.Method.Name}";
-    }
-    public struct EventListener : IHasOrderedAction<Action>
-    {
-        public Action Action { get; set; }
-        public int Order { get; set; } = 0;
-
-        public EventListener(Action action, int order)
-        {
-            this.Action = action;
-            Order = order;
-        }
-
-        public readonly override string ToString() => $"[{Order}] {Action.Method.DeclaringType.Name}.{Action.Method.Name}";
-    }
-
     public abstract class OrderedEventBase<TListener, TAction>
         where TListener : struct, IHasOrderedAction<TAction> 
         where TAction : Delegate
@@ -75,17 +42,18 @@ namespace GlobalTypes.Events
             else
                 _listeners.Insert(index, listener);
         }
-        public TListener Insert(TAction action, int order = 0)
+        public TListener Add(TAction action, int order = 0)
         {
-            TListener listener = default;
-            listener.Order = order;
-            listener.Action = action ?? throw new ArgumentNullException(nameof(action));
+            if (action == null) 
+                throw new ArgumentNullException(nameof(action));
+
+            TListener listener = CreateNew(action, order);
 
             Add(listener);
             return listener;
         }
-        public TListener Append(TAction action) => Insert(action, LastOrder + 1);
-        public TListener Prepend(TAction action) => Insert(action, FirstOrder - 1);
+        public TListener Append(TAction action) => Add(action, LastOrder + 1);
+        public TListener Prepend(TAction action) => Add(action, FirstOrder - 1);
 
         public void Remove(TListener listener) => _listeners.Remove(listener);
         public void RemoveFirst(TAction method)
@@ -106,13 +74,12 @@ namespace GlobalTypes.Events
         public TListener SetOrder(TListener listener, int newOrder)
         {
             Remove(listener);
-            return Insert(listener.Action, newOrder);
+            return Add(listener.Action, newOrder);
         }
 
         public int GetFirstLargerOrder(int requiredOrder)
         {
-            TListener item = default;
-            item.Order = requiredOrder;
+            TListener item = CreateNew(null, requiredOrder);
 
             int index = _listeners.ToList().BinarySearch(
                 item,
@@ -125,6 +92,13 @@ namespace GlobalTypes.Events
                 return -1;
 
             return index;
+        }
+
+        private static TListener CreateNew(TAction action, int order)
+        {
+            return (TListener)typeof(TListener)
+                .GetMethod("New", new[] { typeof(TAction), typeof(int) })
+                .Invoke(null, new object[] { action, order });
         }
 
         public override string ToString() => $"<{_listeners.Count}>  [{FirstOrder}] ... [{LastOrder}]";

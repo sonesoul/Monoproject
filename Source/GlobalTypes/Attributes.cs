@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Reflection;
 
-namespace GlobalTypes.Attributes
+namespace GlobalTypes
 {
-    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public abstract class BaseInitAttribute : Attribute
     {
         public string MethodName { get; }
@@ -44,7 +44,7 @@ namespace GlobalTypes.Attributes
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public class InitAttribute : BaseInitAttribute
     {
         public InitAttribute(string methodName, int order = 0) : base(methodName, order) { }
@@ -52,7 +52,7 @@ namespace GlobalTypes.Attributes
         public static void Invoke() => Invoke<InitAttribute>();
     }
 
-    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public class LoadAttribute : BaseInitAttribute
     {
         public LoadAttribute(string methodName, int order = 0) : base(methodName, order) { }

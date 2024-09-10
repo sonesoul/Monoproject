@@ -1,13 +1,16 @@
 ﻿using Engine;
 using Engine.Drawing;
+using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
 namespace InGame.GameObjects
 {
-    public class WordStorage : ModularObject
+    public class WordStorage : ModularObject, ITaggable
     {
+        public string Tag => "storage";
+
         public static readonly char[] AlphabetUpper =
         {
             'A', 'B', 'C', 
@@ -40,7 +43,7 @@ namespace InGame.GameObjects
             bracketsOrigin = Font.MeasureString(Brackets) / 2;
         }
 
-        public bool TryPushWord(string word)
+        public bool Push(string word)
         {
             if (word.Contains(CurrentLetter, StringComparison.OrdinalIgnoreCase))
             {
@@ -82,7 +85,6 @@ namespace InGame.GameObjects
 
         protected override void PostDestroy()
         {
-            base.Destroy();
             Drawer.RemoveDrawAction(Draw);
         }
     }

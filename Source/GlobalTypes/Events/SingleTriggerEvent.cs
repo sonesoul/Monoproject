@@ -2,7 +2,7 @@
 
 namespace GlobalTypes.Events
 {
-    public class SingleTriggerEvent<T> : OrderedEventBase<EventListener<T>, Action<T>>
+    public class SingleTriggerEvent<T> : OrderedEventBase<OrderedAction<T>, Action<T>>
     {
         public void Trigger(T parameter)
         {
@@ -16,7 +16,7 @@ namespace GlobalTypes.Events
             });
         }
     }
-    public class SingleTriggerEvent : OrderedEventBase<EventListener, Action>
+    public class SingleTriggerEvent : OrderedEventBase<OrderedAction, Action>
     {
         public void Trigger()
         {

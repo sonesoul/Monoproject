@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
 using GlobalTypes.Events;
-using Monoproject;
 using GlobalTypes;
 
 namespace Engine.Modules
@@ -25,7 +24,7 @@ namespace Engine.Modules
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
         public Vector2 maxVelocity = new(-1, -1);
-        private EventListener<GameTime> updateListener;
+        private OrderedAction<GameTime> _onEndUpdate;
 
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
@@ -298,14 +297,14 @@ namespace Engine.Modules
         }
 
         public Rigidbody(ModularObject owner = null) : base(owner) { }
-        protected override void Initialize()
+        protected override void PostConstruct()
         {
             if (Owner.TryGetModule<Collider>(out var module))
                 UsedCollider = module;
             else
                 UsedCollider = Owner.AddModule<Collider>();
 
-            updateListener = FrameEvents.EndUpdate.Insert(EndUpdate, EventOrders.EndUpdate.Rigidbody);
+            _onEndUpdate = FrameEvents.EndUpdate.Add(EndUpdate, EndUpdateOrders.Rigidbody);
             UsedCollider.Disposing += Dispose;
         }
         public void AddForce(Vector2 force) => forces += force / Delta;
@@ -487,7 +486,7 @@ namespace Engine.Modules
         
         protected override void PostDispose()
         {
-            FrameEvents.EndUpdate.Remove(updateListener);
+            FrameEvents.EndUpdate.Remove(_onEndUpdate);
         }
     }
 }

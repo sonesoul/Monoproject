@@ -1,10 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using GlobalTypes.Events;
-using GlobalTypes.Interfaces;
 using Microsoft.Xna.Framework.Input;
-using System;
-using GlobalTypes.Input;
-using GlobalTypes.Attributes;
 
 namespace GlobalTypes
 {
@@ -12,6 +8,8 @@ namespace GlobalTypes
     public static class FrameState
     {
         public const float FixedDeltaTime = 1.0f / 60.0f;
+
+        public static GameTime GameTime { get; private set; }
         public static float DeltaTime { get; private set; }
         public static float DeltaTimeMs { get; private set; }
         public static ref KeyboardState KeyState => ref _keyState;
@@ -34,7 +32,7 @@ namespace GlobalTypes
             if (isInited)
                 return;
 
-            FrameEvents.Update.Insert(UpdateValues, EventOrders.Update.FrameInfo);
+            FrameEvents.Update.Add(UpdateValues, UpdateOrders.FrameInfo);
             isInited = true;
         }
 
@@ -42,7 +40,7 @@ namespace GlobalTypes
         {
             _keyState = Keyboard.GetState();
             _mouseState = Mouse.GetState();
-            
+            GameTime = gameTime;
             DeltaTimeMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             DeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 

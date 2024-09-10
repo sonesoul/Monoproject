@@ -20,7 +20,7 @@ namespace GlobalTypes.Input
         {
             Key = key;
             EventType = keyEvent;
-            Action = action;
+            this.Action = action;
             Order = order;
         }
     }
@@ -40,7 +40,7 @@ namespace GlobalTypes.Input
         {
             Key = key;
             EventType = keyEvent;
-            Action = action;
+            this.Action = action;
             Order = order;
         }
     }
