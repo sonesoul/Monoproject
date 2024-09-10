@@ -1,6 +1,4 @@
-﻿using System.Linq;
-
-namespace GlobalTypes.Interfaces
+﻿namespace GlobalTypes.Interfaces
 {
     /// <summary>
     /// Interface for objects that should be initialized in the <c>Initialize</c> method of the <c>Game</c> class. 

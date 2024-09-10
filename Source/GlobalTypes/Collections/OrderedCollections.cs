@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace GlobalTypes.Collections
 {
-    public class OrderedList<T>
+    public class OrderedList<T> : IOrderedCollection<T, OrderedItem<T>>
     {
         public int Count => _items.Count;
         public T this[int index] => _items[index].Value;
@@ -36,6 +36,7 @@ namespace GlobalTypes.Collections
 
         public void Remove(OrderedItem<T> orderedObj) => _items.Remove(orderedObj);
         public void RemoveFirst(T item) => _items.Remove(_items.Find(m => m.Value.Equals(item)));
+        public void RemoveLast(T item) => _items.Remove(_items.LastOrDefault());
         public void RemoveAt(int index) => _items.RemoveAt(index);
         public bool Contains(T item) => _items.Select(i => i.Value).Contains(item);
 

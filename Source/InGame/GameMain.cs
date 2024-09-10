@@ -4,7 +4,6 @@ using Engine.Modules;
 using Engine.Types;
 using GlobalTypes;
 using GlobalTypes.Events;
-using GlobalTypes.Input;
 using Microsoft.Xna.Framework;
 
 namespace InGame

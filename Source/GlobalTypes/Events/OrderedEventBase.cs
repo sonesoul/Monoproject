@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using GlobalTypes.Collections;
 using System.Linq;
-using GlobalTypes.Interfaces;
 
 namespace GlobalTypes.Events
 {
-    public abstract class OrderedEventBase<TListener, TAction>
+    public abstract class OrderedEventBase<TListener, TAction> : IOrderedCollection<TAction, TListener>
         where TListener : struct, IHasOrderedAction<TAction> 
         where TAction : Delegate
     {
@@ -14,16 +13,12 @@ namespace GlobalTypes.Events
         public int FirstOrder => Count > 0 ? _listeners[0].Order : 0;
         protected bool IsLocked => _listeners.IsLocked;
         public int Count => _listeners.Count;
-
+       
         public IReadOnlyList<TListener> Listeners => _listeners.Collection;
 
         protected readonly LockList<TListener> _listeners = new();
 
-        public TListener this[int index]
-        {
-            get => _listeners[index];
-            set => _listeners[index] = value;
-        }
+        public TAction this[int index] => _listeners[index].Action;
 
         public void Add(TListener listener)
         {
@@ -56,6 +51,7 @@ namespace GlobalTypes.Events
         public TListener Prepend(TAction action) => Add(action, FirstOrder - 1);
 
         public void Remove(TListener listener) => _listeners.Remove(listener);
+        public void RemoveAt(int index) => _listeners.Remove(_listeners[index]);
         public void RemoveFirst(TAction method)
         {
             var found = _listeners.Find(l => l.Action == method);

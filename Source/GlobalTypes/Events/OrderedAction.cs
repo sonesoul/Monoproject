@@ -1,27 +1,7 @@
 ﻿using System;
 
-namespace GlobalTypes
+namespace GlobalTypes.Events
 {
-    public interface IOrderable
-    {
-        int Order { get; set; }
-    }
-    public interface IHasOrderedAction<TAction> : IOrderable
-    {
-        public TAction Action { get; set; }
-    }
-
-    public struct OrderedItem<T> : IOrderable
-    {
-        public readonly T Value { get; init; }
-        public int Order { get; set; }
-
-        public OrderedItem(T value, int order)
-        {
-            Value = value;
-            Order = order;
-        }
-    }
     public struct OrderedAction<T> : IHasOrderedAction<Action<T>>
     {
         public Action<T> Action { get; set; }
@@ -29,7 +9,7 @@ namespace GlobalTypes
 
         public OrderedAction(Action<T> action, int order)
         {
-            this.Action = action;
+            Action = action;
             Order = order;
         }
 
@@ -43,7 +23,7 @@ namespace GlobalTypes
 
         public OrderedAction(Action action, int order)
         {
-            this.Action = action;
+            Action = action;
             Order = order;
         }
 

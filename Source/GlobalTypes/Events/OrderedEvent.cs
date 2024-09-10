@@ -15,7 +15,7 @@ namespace GlobalTypes.Events
         }
 
         public void AddSingle(OrderedAction<T> listener) => Add(ToSingleTrigger(listener));
-        public void InsertSingle(Action<T> action, int order = 0)
+        public void AddSingle(Action<T> action, int order = 0)
         {
             OrderedAction<T> listener = default;
             listener.Order = order;
@@ -23,8 +23,8 @@ namespace GlobalTypes.Events
 
             Add(ToSingleTrigger(listener));
         }
-        public void AppendSingle(Action<T> action) => InsertSingle(action, LastOrder + 1);
-        public void PrependSingle(Action<T> action) => InsertSingle(action, FirstOrder - 1);
+        public void AppendSingle(Action<T> action) => AddSingle(action, LastOrder + 1);
+        public void PrependSingle(Action<T> action) => AddSingle(action, FirstOrder - 1);
         
         private OrderedAction<T> ToSingleTrigger(OrderedAction<T> listener)
         {
@@ -52,7 +52,7 @@ namespace GlobalTypes.Events
         }
 
         public void AddSingle(OrderedAction listener) => Add(ToSingleTrigger(listener));
-        public void InsertSingle(Action action, int order = 0)
+        public void AddSingle(Action action, int order = 0)
         {
             OrderedAction listener = default;
             listener.Order = order;
@@ -60,8 +60,8 @@ namespace GlobalTypes.Events
 
             Add(ToSingleTrigger(listener));
         }
-        public void AppendSingle(Action action) => InsertSingle(action, LastOrder + 1);
-        public void PrependSingle(Action action) => InsertSingle(action, FirstOrder - 1);
+        public void AppendSingle(Action action) => AddSingle(action, LastOrder + 1);
+        public void PrependSingle(Action action) => AddSingle(action, FirstOrder - 1);
 
         private OrderedAction ToSingleTrigger(OrderedAction listener)
         {

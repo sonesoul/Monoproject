@@ -11,12 +11,6 @@ using GlobalTypes.Events;
 
 namespace Engine
 {
-    public interface IRenderable
-    {
-        public IDrawer Drawer { get; }
-        public void Draw(GameTime gameTime);
-    }
-
     [DebuggerDisplay("{ToString(),nq}")]
     public abstract class ModularObject
     {
@@ -148,7 +142,7 @@ namespace Engine
     }
     
     [DebuggerDisplay("{ToString(),nq}")]
-    public class TextObject : ModularObject, IRenderable
+    public class TextObject : ModularObject, Types.IRenderable
     {
         public string text;
         public SpriteFont font;
