@@ -32,7 +32,7 @@ namespace InGame
 
             IngameDrawer ingameDrawer = IngameDrawer.Instance;
 
-            cursorObj = new(ingameDrawer, "", UI.Font, new Collider()
+            cursorObj = new(ingameDrawer, "", UI.Silk, new Collider()
             {
                 polygon = Polygon.Rectangle(50, 50),
                 Mode = ColliderMode.Static
@@ -45,17 +45,17 @@ namespace InGame
             int height = InstanceInfo.WindowHeight;
             int offset = 9;
 
-            _ = new TextObject(ingameDrawer, "", UI.Font, new Collider()
+            _ = new TextObject(ingameDrawer, "", UI.Silk, new Collider()
             {
                 polygon = Polygon.Rectangle(width, 20),
                 Mode = ColliderMode.Static
             }).position = new(width / 2, height + offset);
-            _ = new TextObject(ingameDrawer, "", UI.Font, new Collider()
+            _ = new TextObject(ingameDrawer, "", UI.Silk, new Collider()
             {
                 polygon = Polygon.Rectangle(20, height),
                 Mode = ColliderMode.Static
             }).position = new(width + offset, height / 2);
-            _ = new TextObject(ingameDrawer, "", UI.Font, new Collider()
+            _ = new TextObject(ingameDrawer, "", UI.Silk, new Collider()
             {
                 polygon = Polygon.Rectangle(20, height),
                 Mode = ColliderMode.Static

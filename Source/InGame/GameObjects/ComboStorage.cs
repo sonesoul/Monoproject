@@ -7,7 +7,7 @@ using System;
 
 namespace InGame.GameObjects
 {
-    public class WordStorage : ModularObject, ITaggable
+    public class ComboStorage : ModularObject, ITaggable
     {
         public string Tag => "storage";
 
@@ -24,9 +24,11 @@ namespace InGame.GameObjects
             'Y', 'Z'
         };
 
-        private Random random = new();
-        public char CurrentLetter { get; private set; }
-        private string StringLetter => CurrentLetter.ToString();
+        public readonly char[] Pattern = { 'Q', 'W', 'E', 'R' };
+
+        private readonly Random random = new();
+        public char Requirement { get; private set; }
+        private string StringReq => Requirement.ToString();
 
         private Vector2 letterOrigin;
         private readonly static string Brackets = "[    ]";
@@ -34,24 +36,30 @@ namespace InGame.GameObjects
 
         private static SpriteBatch SpriteBatch => Drawer.SpriteBatch;
         private static IngameDrawer Drawer => IngameDrawer.Instance;
-        private static SpriteFont Font => UI.Font;
+        private static SpriteFont Font => UI.Silk;
 
-        public WordStorage()
+        public ComboStorage()
         {
             Drawer.AddDrawAction(Draw);
-            RollLetter();
+            RollRequirement();
             bracketsOrigin = Font.MeasureString(Brackets) / 2;
         }
 
-        public bool Push(string word)
+        public bool Push(string combo)
         {
-            if (word.Contains(CurrentLetter, StringComparison.OrdinalIgnoreCase))
+            if (combo.Contains(Requirement, StringComparison.OrdinalIgnoreCase))
             {
-                RollLetter();
+                RollRequirement();
                 return true;
             }
             return false;
         }
+        public void RollRequirement()
+        {
+            Requirement = Pattern[random.Next(Pattern.Length)];
+            letterOrigin = Font.MeasureString(StringReq) / 2;
+        }
+
         public void Draw(GameTime gameTime)
         {
             SpriteBatch.DrawString(
@@ -67,7 +75,7 @@ namespace InGame.GameObjects
 
             SpriteBatch.DrawString(
                 Font,
-                StringLetter,
+                StringReq,
                 position,
                 Color.White,
                 0,
@@ -75,12 +83,6 @@ namespace InGame.GameObjects
                 1,
                 SpriteEffects.None,
                 0);
-        }
-
-        private void RollLetter()
-        {
-            CurrentLetter = AlphabetUpper[random.Next(AlphabetUpper.Length)];
-            letterOrigin = Font.MeasureString(StringLetter) / 2;
         }
 
         protected override void PostDestroy()

@@ -255,13 +255,13 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         break;
                     case "wspush":
                         
-                        bool pushed = Level.WordStorage.Push(subArg);
+                        bool pushed = Level.Storage.Push(subArg);
                         WriteLine(pushed, pushed ? ConsoleColor.Green : ConsoleColor.Red).Wait();
 
                         break;
                     case "wscrnt":
                         
-                        WriteLine(Level.WordStorage.CurrentLetter).Wait();
+                        WriteLine(Level.Storage.Requirement).Wait();
                         
                         break;
                     default:
@@ -570,7 +570,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             if (IsBatchBegun)
             {
-                BatchReceive(input);
+                BatchAppend(input);
                 return;
             }
 
@@ -586,7 +586,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
         }
 
         public static void BatchBegin() => IsBatchBegun = true;
-        public static void BatchReceive(string command)
+        public static void BatchAppend(string command)
         {
             if (command == "batchend")
             {

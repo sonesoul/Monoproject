@@ -21,7 +21,7 @@ namespace InGame.Generators
             { '#', (pos) => 
                 {
                     _ =
-                    new TextObject(IngameDrawer.Instance, "", UI.Font, new Collider()
+                    new TextObject(IngameDrawer.Instance, "", UI.Silk, new Collider()
                     {
                         Mode = ColliderMode.Static,
                         polygon = Polygon.Rectangle(37, 37)

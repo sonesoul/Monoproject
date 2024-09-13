@@ -3,7 +3,6 @@
     public static class UpdateOrders
     {
         public static int FrameInfo => -4;
-        public static int UI => -3;
         public static int InputManager => -2;
         public static int CoroutineManager => -1;
         public static int GameMain => 0;

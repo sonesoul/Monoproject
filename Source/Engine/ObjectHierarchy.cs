@@ -148,7 +148,7 @@ namespace Engine
         public SpriteFont font;
         public Vector2 size = Vector2.One;
         public Vector2 origin;
-
+        public static Vector2 OriginOffset { get; set; } = new Vector2(-0.5f, 1);
         public Color Color { get; set; } = Color.White;
         public Vector2 viewport;
         private SpriteBatch spriteBatch;
@@ -182,7 +182,7 @@ namespace Engine
                 IntegerPosition,
                 Color,
                 RotationRad,
-                origin,
+                origin + OriginOffset,
                 size,
                 SpriteEffects.None,
                 0);

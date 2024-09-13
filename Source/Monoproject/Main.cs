@@ -48,7 +48,7 @@ namespace Monoproject
             };
 
             Window.AllowUserResizing = false;
-            IsMouseVisible = false;
+            IsMouseVisible = true;
             IsFixedTimeStep = false;
 
             Content.RootDirectory = "Content";

@@ -16,7 +16,7 @@ namespace InGame.GameObjects
     {
         public string Tag => "filler";
         public bool IsFilled => inputIndex >= maxLength;
-        private readonly WordStorage storage;
+        private readonly ComboStorage storage;
 
         private string text;
         private int inputIndex = 0;
@@ -35,7 +35,7 @@ namespace InGame.GameObjects
         private float smoothSpeed = 3;
         private static IngameDrawer Drawer => IngameDrawer.Instance;
 
-        public StorageFiller(WordStorage storage, int maxLength)
+        public StorageFiller(ComboStorage storage, int maxLength)
         {
             this.maxLength = maxLength;
             this.storage = storage;
@@ -64,7 +64,7 @@ namespace InGame.GameObjects
         private void Draw(GameTime gt)
         {
             Drawer.SpriteBatch.DrawString(
-                UI.Font, 
+                UI.Silk, 
                 text, 
                 position + drawOffset, 
                 inputColor,
@@ -83,7 +83,7 @@ namespace InGame.GameObjects
             
             c = char.ToUpper(c);
 
-            if (WordStorage.AlphabetUpper.Contains(c) && !IsFilled)
+            if (ComboStorage.AlphabetUpper.Contains(c) && !IsFilled)
             {
                 text = text.CharAt(inputIndex++, c);
                 UpdateOrigin();
@@ -137,7 +137,7 @@ namespace InGame.GameObjects
             drawOffset = Vector2.Zero;
         }
 
-        private void UpdateOrigin() => inputOrigin = UI.Font.MeasureString(text) / 2;
+        private void UpdateOrigin() => inputOrigin = UI.Silk.MeasureString(text) / 2;
         protected override void PostDestroy()
         {
             Drawer.RemoveDrawAction(Draw);

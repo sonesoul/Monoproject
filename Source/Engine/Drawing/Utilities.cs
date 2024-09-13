@@ -95,7 +95,7 @@ namespace Engine.Drawing
             ShapeDrawer.DrawLine(Start, End, IngameDrawer.Instance, LineColor, Thickness);
             
             SpriteBatch batch = IngameDrawer.Instance.SpriteBatch;
-            SpriteFont font = InGame.UI.Font;
+            SpriteFont font = InGame.UI.Silk;
 
             string startText = $"({Start.X}; {Start.Y})";
             string endText = $"({End.X}; {End.Y})";

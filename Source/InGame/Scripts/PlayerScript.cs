@@ -21,7 +21,7 @@ namespace InGame.Scripts
         private readonly float _moveSpeed = 6;
         private readonly float _holdThreshold = 0.3f;
         
-        private readonly Keys _jumpKey = Keys.Space;
+        private readonly Keys _jumpKey = InputManager.AxisCulture.Up;
         private readonly Keys _typingKey = Keys.LeftShift;
         
         private KeyListener _onJumpPress;
@@ -93,8 +93,7 @@ namespace InGame.Scripts
             if (CanMove)
                 Owner.position.X += InputManager.Axis.X * _moveSpeed;
 
-            if (isTyping)
-                UpdateTyping();
+            UpdateTyping();
         }
         private void UpdateTyping()
         {
@@ -113,6 +112,9 @@ namespace InGame.Scripts
                         return;
 
                     Keys key = keys[count];
+
+                    if (!Level.Storage.Pattern.Contains((char)key))
+                        return;
 
                     pressedKeys.Add(key);
                     InputManager.AddKey(key, KeyEvent.Release, () => pressedKeys.Remove(key));

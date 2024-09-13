@@ -10,26 +10,19 @@ namespace GlobalTypes.Input
     [Init(nameof(Init))]
     public static class InputManager
     {
-        private static AxisCulture _axisCulture = AxisCulture.WASD;
-        public static AxisCulture AxisCulture => _axisCulture;
+        public static AxisCulture AxisCulture { get; private set; } = AxisCulture.Arrows;
         private static KeyboardState KeyState => FrameInfo.KeyState;
         private static MouseState MouseState => FrameInfo.MouseState;
 
         public static Vector2 Axis => _axis;
         private static Vector2 _axis = Vector2.Zero;
         private static KeyListener RightKey, LeftKey, UpKey, DownKey;
-        private static bool isInited = false;
 
         private readonly static LockList<KeyListener> _pressKeys = new(), _holdKeys = new(), _releaseKeys = new();
         private readonly static LockList<MouseListener> _pressKeysMouse = new(), _holdKeysMouse = new(), _releaseKeysMouse = new();
        
-        private readonly static string KeyListenerNullMessage = "Key listener is null";
-
         private static void Init()
         {
-            if (isInited)
-                return;
-
             AxisCulture.Deconstruct(out var up, out var down, out var left, out var right);
 
             RightKey = new(right, KeyEvent.Hold, null, -4);
@@ -39,8 +32,6 @@ namespace GlobalTypes.Input
 
             AddKeys(RightKey, LeftKey, UpKey, DownKey);
             FrameEvents.Update.Add(_ => Update(), UpdateOrders.InputManager);
-
-            isInited = true;
         }
 
         private static void Update()
@@ -111,8 +102,7 @@ namespace GlobalTypes.Input
         }
         public static void AddKey(KeyListener listener)
         {
-            if (listener == null)
-                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
             LockList<KeyListener> keyCollection = GetCollection(listener.EventType);
 
@@ -147,15 +137,13 @@ namespace GlobalTypes.Input
         }
         public static void RemoveKey(KeyListener listener)
         {
-            if (listener == null)
-                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
             GetCollection(listener.EventType).Remove(listener);
         }
-        public static void MoveKey(KeyListener listener, KeyEvent newEvent)
+        public static void SetEvent(KeyListener listener, KeyEvent newEvent)
         {
-            if (listener == null)
-                throw new ArgumentNullException(nameof(listener).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
             RemoveKey(listener);
             listener.EventType = newEvent;
@@ -167,7 +155,7 @@ namespace GlobalTypes.Input
 
         public static void SetAxisCulture(AxisCulture axisCulture)
         {
-            _axisCulture = axisCulture;
+            AxisCulture = axisCulture;
             UpdateAxisKeys();
         }
 
@@ -225,32 +213,31 @@ namespace GlobalTypes.Input
             AddKey(listener);
             return listener;
         }
-        public static void AddKey(MouseListener mouseListener)
+        public static void AddKey(MouseListener listener)
         {
-            if (mouseListener == null)
-                throw new ArgumentNullException(nameof(mouseListener).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
-            LockList<MouseListener> keyCollection = GetMouseCollection(mouseListener.EventType);
+            LockList<MouseListener> keyCollection = GetMouseCollection(listener.EventType);
 
-            MouseListener listener = keyCollection.Where(k => k.Order > mouseListener.Order).FirstOrDefault();
+            MouseListener found = keyCollection.Where(k => k.Order > listener.Order).FirstOrDefault();
 
-            if (listener == null)
-                keyCollection.Add(mouseListener);
+            if (found == null)
+                keyCollection.Add(listener);
             else
-                keyCollection.Insert(keyCollection.IndexOf(listener), mouseListener);
+                keyCollection.Insert(keyCollection.IndexOf(found), listener);
         }
-        public static void AddKeys(params MouseListener[] mouseListeners)
+        public static void AddKeys(params MouseListener[] listeners)
         {
-            foreach (var kl in mouseListeners)
+            foreach (var kl in listeners)
                 AddKey(kl);
         }
-        public static void AddSingle(MouseListener mouseListener)
+        public static void AddSingle(MouseListener listener)
         {
-            MouseListener singleTriggerListener = new(mouseListener.Key, mouseListener.EventType, null, mouseListener.Order);
+            MouseListener singleTriggerListener = new(listener.Key, listener.EventType, null, listener.Order);
 
             void SelfRemove()
             {
-                mouseListener.Action?.Invoke();
+                listener.Action?.Invoke();
                 RemoveKey(singleTriggerListener);
             };
 
@@ -262,21 +249,19 @@ namespace GlobalTypes.Input
             AddSingle(new MouseListener(key, keyEvent, action, order));
         }
 
-        public static void RemoveKey(MouseListener mouseKey)
+        public static void RemoveKey(MouseListener listener)
         {
-            if (mouseKey == null)
-                throw new ArgumentNullException(nameof(mouseKey).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
-            GetMouseCollection(mouseKey.EventType).Remove(mouseKey);
+            GetMouseCollection(listener.EventType).Remove(listener);
         }
-        public static void MoveKey(MouseListener key, KeyEvent newEvent)
+        public static void SetEvent(MouseListener listener, KeyEvent newEvent)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key).ToString(), KeyListenerNullMessage);
+            ThrowIfListenerNull(listener);
 
-            RemoveKey(key);
-            key.EventType = newEvent;
-            AddKey(key);
+            RemoveKey(listener);
+            listener.EventType = newEvent;
+            AddKey(listener);
         }
 
         public static bool IsKeyDown(MouseKey key) => IsMouseKeyDown(key);
@@ -304,5 +289,11 @@ namespace GlobalTypes.Input
         }
 
         #endregion
+
+        private static void ThrowIfListenerNull(IHasOrderedAction<Action> listener)
+        {
+            if (listener == null) 
+                throw new ArgumentNullException("Listener is null.");
+        }
     }
 }

@@ -17,11 +17,11 @@ namespace InGame
         public class LevelInfo
         {
             public TextObject Player { get; private set; }
-            public WordStorage WordStorage { get; private set; }
+            public ComboStorage WordStorage { get; private set; }
             public StorageFiller StorageFiller { get; private set; }
             public IReadOnlyList<TextObject> Platforms { get; private set; }
             
-            public LevelInfo(IReadOnlyList<TextObject> platforms, WordStorage storage, StorageFiller filler, TextObject player)
+            public LevelInfo(IReadOnlyList<TextObject> platforms, ComboStorage storage, StorageFiller filler, TextObject player)
             {
                 WordStorage = storage;
                 Platforms = platforms;
@@ -33,7 +33,7 @@ namespace InGame
         public static LevelInfo Current { get; private set; } = null;
         public static TextObject Player => Current?.Player;
         public static IReadOnlyList<TextObject> Platforms => Current?.Platforms; 
-        public static WordStorage WordStorage => Current?.WordStorage;
+        public static ComboStorage Storage => Current?.WordStorage;
         public static StorageFiller StorageFiller => Current?.StorageFiller;
 
         private readonly static List<TextObject> _platforms = new();
@@ -42,7 +42,7 @@ namespace InGame
             { '#', static (pos) => 
                 {
                    _platforms.Add(
-                       new TextObject(IngameDrawer.Instance, "", UI.Font, 
+                       new TextObject(IngameDrawer.Instance, "", UI.Silk, 
                            new Collider() 
                            {
                                 Mode = ColliderMode.Static,
@@ -62,7 +62,7 @@ namespace InGame
                 foreach (TextObject p in Platforms)
                     p.Destroy();
 
-                WordStorage.Destroy();
+                Storage.Destroy();
                 Player.Destroy();
                 StorageFiller.Destroy();
             }
@@ -104,10 +104,10 @@ namespace InGame
 
 
            
-            WordStorage storage = new() { position = windowCenter };
+            ComboStorage storage = new() { position = windowCenter };
             StorageFiller filler = new(storage, 5) { position = new(windowCenter.X, 700) };
 
-            TextObject player = new(IngameDrawer.Instance, "#", UI.Font, new PlayerScript(filler))
+            TextObject player = new(IngameDrawer.Instance, "#", UI.Silk, new PlayerScript(filler))
             {
                 position = windowCenter,
                 Color = Color.Green,

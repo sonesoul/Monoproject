@@ -48,15 +48,29 @@ namespace GlobalTypes
     public class InitAttribute : BaseInitAttribute
     {
         public InitAttribute(string methodName, int order = 0) : base(methodName, order) { }
+        private static bool inited = false;
+        public static void Invoke()
+        {
+            if (inited)
+                throw new InvalidOperationException("Can't initialize twice.");
 
-        public static void Invoke() => Invoke<InitAttribute>();
+            Invoke<InitAttribute>();
+            inited = true;
+        }
     }
 
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public class LoadAttribute : BaseInitAttribute
     {
         public LoadAttribute(string methodName, int order = 0) : base(methodName, order) { }
+        private static bool loaded = false;
+        public static void Invoke()
+        {
+            if (loaded)
+                throw new InvalidOperationException("Can't load twice.");
 
-        public static void Invoke() => Invoke<LoadAttribute>();
+            Invoke<LoadAttribute>();
+            loaded = true;
+        }
     }
 }
