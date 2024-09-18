@@ -5,8 +5,10 @@ namespace GlobalTypes.Extensions
     public static class NumericExtensions
     {
         #region Clamp
-        public static int Clamp(this int value, int min, int max) => value < min ? min : value > max ? max : value;
-        public static float Clamp(this float value, float min, float max) => value < min ? min : value > max ? max : value;
+        public static int Clamp(this int value, int min, int max) 
+            => value < min ? min : value > max ? max : value;
+        public static float Clamp(this float value, float min, float max) 
+            => value < min ? min : value > max ? max : value;
         #endregion
 
         #region Abs

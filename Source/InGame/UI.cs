@@ -49,11 +49,11 @@ namespace InGame
             spriteBatch.DrawString(
                 Silk,
                 mouse,
-                new(curPoint.X - 9, curPoint.Y),
+                new(curPoint.X - 3, curPoint.Y),
                 Color.White,
                 45f.AsRad(),
                 mouseOrigin, 
-                1.8f, 
+                1.3f, 
                 SpriteEffects.None,
                 0);
         }

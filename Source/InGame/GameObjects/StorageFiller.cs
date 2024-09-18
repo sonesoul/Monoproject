@@ -12,113 +12,126 @@ using System.Linq;
 
 namespace InGame.GameObjects
 {
-    public class StorageFiller : ModularObject, ITaggable
+    public class StorageFiller : ModularObject, ILevelObject
     {
-        public string Tag => "filler";
-        public bool IsFilled => inputIndex >= maxLength;
-        private readonly ComboStorage storage;
+        public string Tag => nameof(StorageFiller);
+        public bool IsInitialized { get; private set; } = false;
 
-        private string text;
-        private int inputIndex = 0;
-        private readonly char emptyChar = '-';
-        private Vector2 inputOrigin;
-        private Vector2 drawOffset = Vector2.Zero;
-        
-        private Color inputColor = Color.White;
-        private Collider collider;
-        private int maxLength;
+        public ComboStorage Storage { get; set; }
+        public Color TextColor { get; set; } = Color.White;
+
+        public string CurrentCombo => text[..textIndex];
+        public int MaxLength { get; private set; }
+
+        public bool IsFilled => textIndex >= MaxLength;
+
+        private char EmptyChar => '-';
+
+        private Vector2 SmoothPower { get; set; } = new(0, -50);
+        private float SmoothSpeed { get; set; } = 3;
 
         private StepTask moveTask;
         private StepTask moveBackTask;
+       
+        private string text = "";
+        private int textIndex = 0;
 
-        private Vector2 end => new(0, -50);
-        private float smoothSpeed = 3;
-        private static IngameDrawer Drawer => IngameDrawer.Instance;
+        private Vector2 textOrigin;
+        private Vector2 drawOffset = Vector2.Zero;
 
+        private Collider trigger;
+
+        private SpriteFont TextFont => UI.SilkBold;
+        
+        private IngameDrawer drawer;
+        private SpriteBatch spriteBatch;
+        
         public StorageFiller(ComboStorage storage, int maxLength)
         {
-            this.maxLength = maxLength;
-            this.storage = storage;
-            Drawer.AddDrawAction(Draw);
-            text = emptyChar.Times(maxLength);
-            UpdateOrigin();
+            Storage = storage;
+            MaxLength = maxLength;
             
-            collider = AddModule(new Collider(this)
+            text = EmptyChar.Times(maxLength);
+            UpdateOrigin();
+
+            drawer = IngameDrawer.Instance;
+            spriteBatch = drawer.SpriteBatch;
+        }
+
+        public void Init()
+        {
+            if (IsInitialized)
+                throw new InvalidOperationException("Can't be initialized twice.");
+
+            IsInitialized = true;
+
+            trigger = AddModule(new Collider()
             {
                 Mode = ColliderMode.Trigger,
-                polygon = Polygon.Rectangle(inputOrigin.X * 2, 30)
+                polygon = Polygon.Rectangle(textOrigin.X * 2, 30)
             });
 
-            collider.TriggerEnter += c =>
+            drawer.AddDrawAction(Draw);
+
+            trigger.TriggerEnter += c =>
             {
+
+                /*if (c.Owner != Level.GetObject<Player>())
+                    return;*/
+
+
                 moveBackTask?.Break();
-                moveTask = new(Move(end), true);
+                moveTask = new(Move(SmoothPower), true);
             };
-            collider.TriggerExit += c =>
+            trigger.TriggerExit += c =>
             {
+                /*if (c.Owner != Level.GetObject<Player>())
+                    return;*/
+
                 moveTask?.Break();
                 moveBackTask = new(MoveBack(), true);
             };
         }
+        public void Terminate() => Destroy();
 
-        private void Draw(GameTime gt)
+        public bool Push()
         {
-            Drawer.SpriteBatch.DrawString(
-                UI.Silk, 
-                text, 
-                position + drawOffset, 
-                inputColor,
-                0,
-                inputOrigin,
-                new Vector2(0.8f, 0.8f),
-                SpriteEffects.None, 
-                0
-                );
+            if (IsFilled)
+            {
+                return Storage.Push(new Combo(text));
+            }
+
+            return false;
         }
- 
         public void Append(char c)
         {
             if (!char.IsLetter(c))
                 return;
-            
+
             c = char.ToUpper(c);
 
-            if (ComboStorage.AlphabetUpper.Contains(c) && !IsFilled)
+            if (Level.KeyPattern.Contains(c) && !IsFilled)
             {
-                text = text.CharAt(inputIndex++, c);
+                text = text.CharAt(textIndex++, c);
                 UpdateOrigin();
             }
         }
         public void Backspace()
         {
-            if (inputIndex > 0)
+            if (textIndex > 0)
             {
-                text = text.CharAt(--inputIndex, emptyChar);
+                text = text.CharAt(--textIndex, EmptyChar);
                 UpdateOrigin();
             }
         }
-        public bool Push()
-        {
-            if (IsFilled)
-            {
-                if (storage.Push(text))
-                {
-                    text = emptyChar.Times(maxLength);
-                    inputIndex = 0;
-                    UpdateOrigin();        
-                    return true;
-                }
-            }
 
-            return false;
-        }
         private IEnumerator Move(Vector2 end)
         {
             float elapsed = 0;
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, end, elapsed);
-                elapsed += FrameInfo.DeltaTime * smoothSpeed;
+                elapsed += FrameInfo.DeltaTime * SmoothSpeed;
 
                 yield return null;
             }
@@ -130,17 +143,45 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, Vector2.Zero, elapsed);
-                elapsed += FrameInfo.DeltaTime * smoothSpeed;
+                elapsed += FrameInfo.DeltaTime * SmoothSpeed;
 
                 yield return null;
             }
             drawOffset = Vector2.Zero;
         }
 
-        private void UpdateOrigin() => inputOrigin = UI.Silk.MeasureString(text) / 2;
+
+        private void UpdateOrigin() => textOrigin = TextFont.MeasureString(text) / 2;
+
+        private void Draw(GameTime gt)
+        {
+            spriteBatch.DrawString(
+                TextFont,
+                text,
+                position + drawOffset,
+                TextColor,
+                0,
+                textOrigin,
+                new Vector2(1f, 1f),
+                SpriteEffects.None,
+                0
+            );
+        }
+
         protected override void PostDestroy()
         {
-            Drawer.RemoveDrawAction(Draw);
+            drawer.RemoveDrawAction(Draw);
+
+            trigger.TriggerEnter -= _ =>
+            {
+                moveBackTask?.Break();
+                moveTask = new(Move(SmoothPower), true);
+            };
+            trigger.TriggerExit -= _ =>
+            {
+                moveTask?.Break();
+                moveBackTask = new(MoveBack(), true);
+            };
         }
     }
 }

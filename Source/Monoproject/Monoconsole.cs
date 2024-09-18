@@ -1,5 +1,4 @@
 ﻿using Microsoft.Win32.SafeHandles;
-using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,17 +9,18 @@ using static GlobalTypes.NativeInterop.NativeMethods;
 using static GlobalTypes.NativeInterop.Constants;
 using System.Linq;
 using Monoproject;
+using GlobalTypes.InputManagement;
 
 namespace GlobalTypes
 {
     public static class Monoconsole
     {
-        public static Keys ToggleKey => Keys.OemTilde;
-        public static ConsoleColor CurrentColor => Console.ForegroundColor;
+        public static Key ToggleKey => Key.OemTilde;
+        public static ConsoleColor WriteColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
         public static bool IsOpened { get; private set; } = false;
-        public static bool WriteExecuted { get; private set; } = true;
+        public static bool WriteExecuted { get; set; } = true;
         public static Action<string> Handler { get; set; }
-        public static ConsoleColor ForeColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
+       
         public static Thread ConsoleThread { get; private set; } = null;
         private readonly static object _lock = new();
 
@@ -39,7 +39,7 @@ namespace GlobalTypes
                 if (result)
                 {
                     SetHandles();
-                    ForeColor = ConsoleColor.Yellow;
+                    WriteColor = ConsoleColor.Yellow;
                     Console.Title = "monoconsole";
                     
                     RemoveSystemMenu();
@@ -102,10 +102,10 @@ namespace GlobalTypes
 
                 Task.Run(() =>
                 {
-                    if(WriteExecuted)
+                    if (WriteExecuted)
                         WriteLine("> " + command, color).Wait();
 
-                    Executor.FromString(command);
+                    Handler?.Invoke(command);
                 }).Wait();
             }
             catch (Exception ex)
@@ -121,7 +121,7 @@ namespace GlobalTypes
                 if (WriteExecuted)
                     await WriteLine("> " + command, ConsoleColor.Blue);
                 
-                await Task.Run(() => Executor.FromString(command));
+                await Task.Run(() => Handler?.Invoke(command));
             }
             catch (Exception ex)
             {
@@ -130,23 +130,16 @@ namespace GlobalTypes
         }
         public static void ExecuteUnsafe(string command)
         {
-            Main.Instance.SyncContext.Post(_ =>
+            Main.Instance.PostToMainThread(() =>
             {
-                try
+                Task.Run(() =>
                 {
-                    Task.Run(() =>
-                    {
-                        if (WriteExecuted)
-                            WriteLine("> " + command, ConsoleColor.Magenta);
-                        
-                        Executor.FromString(command);
-                    }).Wait();
-                }
-                catch (Exception ex)
-                {
-                    DialogBox.ShowException(ex);
-                }
-            }, null);
+                    if (WriteExecuted)
+                        WriteLine("> " + command, ConsoleColor.Magenta);
+
+                    Handler?.Invoke(command);
+                }).Wait();
+            });
         }
 
         private static void ConsoleRead(CancellationToken token)
@@ -213,15 +206,18 @@ namespace GlobalTypes
                     if (IsOpened)
                     {
                         var temp = Console.ForegroundColor;
-                        ForeColor = color;
+                        WriteColor = color;
 
                         writeAction();
 
-                        ForeColor = temp;                        
+                        WriteColor = temp;                        
                     }
                 }
             });
         }
+
+        public static Task WriteState(string value) => WriteLine(value, ConsoleColor.Cyan);
+        public static Task WriteError(string value) => WriteLine(value, ConsoleColor.Red);
 
         public static Task WriteLine(ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(), color);
         public static Task WriteLine(bool value, ConsoleColor color = ConsoleColor.Gray) => WriteAsync(() => Console.WriteLine(value), color);

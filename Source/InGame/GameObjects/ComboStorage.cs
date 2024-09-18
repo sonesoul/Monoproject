@@ -3,79 +3,55 @@ using Engine.Drawing;
 using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
+using System.Collections.Generic;
 
 namespace InGame.GameObjects
 {
-    public class ComboStorage : ModularObject, ITaggable
+    public class ComboStorage : ModularObject, ILevelObject
     {
-        public string Tag => "storage";
+        public string Tag => nameof(ComboStorage);
+        public bool IsInitialized { get; private set; } = true;
 
-        public static readonly char[] AlphabetUpper =
-        {
-            'A', 'B', 'C', 
-            'D', 'E', 'F',
-            'G', 'H', 'I',
-            'J', 'K', 'L',
-            'M', 'N', 'O',
-            'P', 'Q', 'R',
-            'S', 'T', 'U', 
-            'V', 'W', 'X',
-            'Y', 'Z'
-        };
+        public int Size { get; private set; }
 
-        public readonly char[] Pattern = { 'Q', 'W', 'E', 'R' };
-
-        private readonly Random random = new();
         public char Requirement { get; private set; }
-        private string StringReq => Requirement.ToString();
+        public int CombosLeft => Size - combos.Count;
+
+        private static SpriteFont BracketsFont => UI.Silk;
+        private static SpriteFont LetterFont => UI.SilkBold;
+
+        private static IngameDrawer Drawer => IngameDrawer.Instance;
+        private static SpriteBatch SpriteBatch => Drawer.SpriteBatch;
 
         private Vector2 letterOrigin;
-        private readonly static string Brackets = "[    ]";
-        private Vector2 bracketsOrigin;
+        private readonly List<Combo> combos = new();
 
-        private static SpriteBatch SpriteBatch => Drawer.SpriteBatch;
-        private static IngameDrawer Drawer => IngameDrawer.Instance;
-        private static SpriteFont Font => UI.Silk;
-
-        public ComboStorage()
+        public ComboStorage(int storageSize)
         {
+            Size = storageSize.Clamp(1, 99);
+
             Drawer.AddDrawAction(Draw);
-            RollRequirement();
-            bracketsOrigin = Font.MeasureString(Brackets) / 2;
-        }
 
-        public bool Push(string combo)
+            RollRequirement();
+        }
+        public void Terminate() => Destroy();
+
+        public bool Push(Combo combo)
         {
-            if (combo.Contains(Requirement, StringComparison.OrdinalIgnoreCase))
+            if (combo.Contains(Requirement))
             {
                 RollRequirement();
                 return true;
             }
             return false;
         }
-        public void RollRequirement()
-        {
-            Requirement = Pattern[random.Next(Pattern.Length)];
-            letterOrigin = Font.MeasureString(StringReq) / 2;
-        }
 
-        public void Draw(GameTime gameTime)
+        private void Draw(GameTime gt)
         {
+            //letter
             SpriteBatch.DrawString(
-                Font, 
-                Brackets, 
-                position, 
-                Color.White, 
-                0, 
-                bracketsOrigin,
-                new Vector2(1f, 1.5f), 
-                SpriteEffects.None,
-                0);
-
-            SpriteBatch.DrawString(
-                Font,
-                StringReq,
+                LetterFont,
+                Requirement.ToString(),
                 position,
                 Color.White,
                 0,
@@ -83,6 +59,37 @@ namespace InGame.GameObjects
                 1,
                 SpriteEffects.None,
                 0);
+
+            Vector2 origin = BracketsFont.MeasureString("[") / 2;
+
+            SpriteBatch.DrawString(
+                BracketsFont,
+                "[",
+                position.WhereX(x => x - 15),
+                Color.White,
+                0,
+                origin,
+                new Vector2(1.4f, 2),
+                SpriteEffects.None,
+                0);
+
+            origin = BracketsFont.MeasureString("]") / 2;
+
+            SpriteBatch.DrawString(
+                BracketsFont,
+                "]",
+                position.WhereX(x => x + 14),
+                Color.White,
+                0,
+                origin,
+                new Vector2(1.4f, 2),
+                SpriteEffects.None,
+                0);
+        }
+        private void RollRequirement()
+        {
+            Requirement = Level.KeyPattern.RandomElement();
+            letterOrigin = LetterFont.MeasureString(Requirement.ToString()) / 2;
         }
 
         protected override void PostDestroy()

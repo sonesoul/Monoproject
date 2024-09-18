@@ -5,11 +5,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static GlobalTypes.Monoconsole;
-using Microsoft.Xna.Framework.Input;
 using Monoproject;
 using System.Reflection;
 using InGame;
 using System.Threading.Tasks;
+using Microsoft.Xna.Framework.Graphics;
+using System.IO;
+using GlobalTypes.InputManagement;
+using System.Diagnostics;
 
 namespace GlobalTypes
 {
@@ -32,12 +35,124 @@ namespace GlobalTypes
                 { "ram", static _ => Ram() },
                 { "rem", static _ => Rem()},
                 { "throw", static _ => throw new()},
-                { "ruler", ToggleRuler },
+                { "fps", SetFps},
+                { "isfpsfixed", static arg => WriteState($"Set to: {Main.Instance.IsFixedTimeStep = bool.Parse(arg)}")},
+               
+                { "stopwatch", StopwatchControl},
+                { "ruler", RulerControl },
                 { "level", LevelControl },
+                { "captwin", static arg => CaptureWindow(string.IsNullOrEmpty(arg) ? 1 : int.Parse(arg)) },
+                { "writeinput", static _ => ToggleWriteInput() },
             };
-            
+
             private readonly static Ruler ruler = new();
-           
+
+            private static KeyBinding[] rulerBindings =
+            {
+                new(Key.MouseLeft, KeyPhase.Hold, () => ruler.End = FrameInfo.MousePosition),
+                new(Key.MouseRight, KeyPhase.Hold, () => ruler.Start = FrameInfo.MousePosition),
+                new(Key.MouseMiddle, KeyPhase.Hold, () => ruler.InfoPosition = FrameInfo.MousePosition)
+            };
+            private static bool writeInputEnabled = false;
+            private static Stopwatch stopwatch = new();
+
+            private static void SetFps(string arg)
+            {
+                float fps = float.Parse(arg);
+                Main.Instance.TargetElapsedTime = TimeSpan.FromSeconds(1.0 / fps);
+                WriteState($"Set to: {fps}");
+            }
+            private static void StopwatchControl(string arg)
+            {
+                SubInput(arg, out var subCommand, out var subarg);
+
+                switch (subCommand)
+                {
+                    case "start":
+                        stopwatch.Start();
+                        break;
+                    case "new":
+                        stopwatch.Restart();
+                        break;
+                    case "stop":
+                        stopwatch.Stop();
+                        break;
+                    case "info":
+                        TimeSpan elapsed = stopwatch.Elapsed;
+                        WriteState($"{elapsed.Minutes:00}:{elapsed.Seconds:00}.{elapsed.Milliseconds:000}");
+                        break;
+                }
+            }
+            private static void ToggleWriteInput()
+            {
+                static void WriteKey(Key key)
+                {
+                    UI.CustomInfo = key.ToString();
+                }
+
+                if (!writeInputEnabled)
+                {
+                    Input.KeyPressed += WriteKey;
+                    writeInputEnabled = true;
+                    WriteState("Enabled");
+                }
+                else
+                {
+                    Input.KeyPressed -= WriteKey;
+                    writeInputEnabled = false;
+                    WriteState("Disabled");
+                }
+            }
+
+            private static void CaptureWindow(int scaleFactor = 1)
+            {
+                if (scaleFactor > 5)
+                    scaleFactor = 5;
+                else if (scaleFactor < 1)
+                    scaleFactor = 1;
+
+                GraphicsDevice graphics = InstanceInfo.GraphicsDevice;
+                InstanceInfo.WindowSize.ToPoint().Deconstruct(out int width, out int height);
+
+                int scaledWidth = width * scaleFactor;
+                int scaledHeight = height * scaleFactor;
+
+                Texture2D capturedTexture = new(graphics, width, height);
+                Texture2D scaledTexture = new(graphics, scaledWidth, scaledHeight);
+
+                Color[] screenData = new Color[width * height];
+                graphics.GetBackBufferData(screenData);
+                capturedTexture.SetData(screenData);
+
+                Color[] scaleData = new Color[scaledWidth * scaledHeight];
+                for (int y = 0; y < scaledHeight; y++)
+                {
+                    for (int x = 0; x < scaledWidth; x++)
+                    {
+                        int srcX = x / scaleFactor;
+                        int srcY = y / scaleFactor;
+                        scaleData[y * scaledWidth + x] = screenData[srcY * width + srcX];
+                    }
+                }
+
+                scaledTexture.SetData(scaleData);
+
+                string path = Path.Combine(Environment.CurrentDirectory, "screenshot.png");
+                using (var fs = new FileStream(path, FileMode.Create))
+                {
+                    scaledTexture.SaveAsPng(fs, scaledWidth, scaledHeight);
+
+                    scaledTexture.Dispose();
+                    capturedTexture.Dispose();
+
+                    scaleData = null;
+                    screenData = null;
+
+                    fs.Dispose();
+                }
+                Main.Instance.PostToMainThread(() => GC.Collect());
+            }
+
             //please don't ask me what is that
             public static void Rem()
             {
@@ -90,14 +205,13 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             
             public static void Ram()
             {
-                WriteLine(
+                WriteState(
                     $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
                     $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]\n" +
                     $"---\n" +
                     $"GC0: [{GC.CollectionCount(0)}]\n" +
                     $"GC1: [{GC.CollectionCount(1)}]\n" +
-                    $"GC2: [{GC.CollectionCount(2)}]",
-                    ConsoleColor.Cyan).Wait();
+                    $"GC2: [{GC.CollectionCount(2)}]").Wait();
             }
             public static void SetColor(string arg)
             {
@@ -116,21 +230,21 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         break;
                     case "reset":
                         Console.ResetColor();
-                        WriteLine($"Color set to {CurrentColor}", CurrentColor);
+                        WriteState($"Color set to {WriteColor}");
                         break;
                     default:
                         if (!Enum.TryParse<ConsoleColor>(arg, true, out var color))
-                            WriteLine($"Color \"{arg}\" not found", ConsoleColor.Red);
+                            WriteError($"Color \"{arg}\" not found");
                         else
                         {
                             if (color == ConsoleColor.Black)
                             {
-                                WriteLine("I can't see black text on my black console background. Suffer with me :3");
+                                WriteState("I can't see black text on my black console background. Suffer with me :3");
                                 return;
                             }
 
-                            ForeColor = color;
-                            WriteLine($"Color set to {color}", CurrentColor);
+                            WriteColor = color;
+                            WriteLine($"Color set to {color}", WriteColor);
                         }
                         break;
                 }
@@ -154,23 +268,8 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     Console.SetWindowPosition(int.Parse(sizes[0]), int.Parse(sizes[1]));
                 }
             }
-            public static void ToggleRuler(string arg)
+            public static void RulerControl(string arg)
             {
-                static void UpdateInfo(GameTime gt)
-                {
-                    var mouse = FrameInfo.MouseState;
-                    var mousePos = mouse.Position;
-
-                    if (mouse.LeftButton == ButtonState.Pressed)
-                        ruler.End = mousePos.ToVector2();
-
-                    if (mouse.RightButton == ButtonState.Pressed)
-                        ruler.Start = mousePos.ToVector2();
-
-                    if (mouse.MiddleButton == ButtonState.Pressed) 
-                        ruler.InfoPosition = mousePos.ToVector2();
-                }
-
                 if(!string.IsNullOrEmpty(arg))
                 {
                     SubInput(arg, out string subCommand, out string subArg);
@@ -181,7 +280,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                                .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).GetValue(null);
 
                         if(found == null)
-                            WriteLine($"Color \"{name}\" not found", ConsoleColor.Red).Wait();
+                            WriteError($"Color \"{name}\" not found").Wait();
 
                         return found;
                     }
@@ -220,22 +319,26 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                             
                             break;
                     }
-
-                    return;
-                }
-                
-                if (!ruler.IsActive)
-                {
-                    ruler.Show();
-                    _ = FrameEvents.Update.Append(UpdateInfo);
-                    WriteLine("Enabled", ConsoleColor.Cyan);
                 }
                 else
                 {
-                    ruler.Hide();
-                    FrameEvents.Update.RemoveFirst(UpdateInfo);
-                    WriteLine("Disabled", ConsoleColor.Cyan);
-                }
+                    if (!ruler.IsActive)
+                    {
+                        ruler.Show();
+
+                        Input.Bind(rulerBindings);
+
+                        WriteState("Enabled");
+                    }
+                    else
+                    {
+                        ruler.Hide();
+
+                        Input.Unbind(rulerBindings);
+
+                        WriteState("Disabled");
+                    }
+                }   
             }
             public static void LevelControl(string arg)
             {
@@ -253,17 +356,6 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         Level.Clear();
                         
                         break;
-                    case "wspush":
-                        
-                        bool pushed = Level.Storage.Push(subArg);
-                        WriteLine(pushed, pushed ? ConsoleColor.Green : ConsoleColor.Red).Wait();
-
-                        break;
-                    case "wscrnt":
-                        
-                        WriteLine(Level.Storage.Requirement).Wait();
-                        
-                        break;
                     default:
                         LogMissing(subCommand, nameof(subCommand));
                         break;
@@ -279,47 +371,72 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 { "run", Execute },
                 { "async", static arg => Task.Run(() => ExecuteAsync(arg)) },
                 { "unsafe", ExecuteUnsafe },
+                { "on", RunOn },
                 { "if", If },
                 { "for", For },
                 { "while", While },
                 { "wait", Wait },
                 { "batch", Batch },
-                { "batchbegin", static _ => BatchBegin()},
+                { "batchbegin", static _ => BatchControl() },
+                { "batchfile", BatchFileControl },
 
                 { "varset", VarSet },
                 { "vardel", VarDel },
                 { "varall", static _ => VarAll() },
-                { "varinc", static arg => VarCollection[arg]++},
-                { "vardec", static arg => VarCollection[arg]--},
+                { "varinc", static arg => VarCollection[arg]++ },
+                { "vardec", static arg => VarCollection[arg]-- },
                 { "varrandom", VarRandom },
 
                 { "writel", CustomWriteLine },
                 { "write", CustomWrite },
+
+                { "writeexec", static arg => WriteState($"Set to: {WriteExecuted = bool.Parse(arg)}") },
             };
 
             private static Dictionary<string, int> VarCollection { get; set; } = new();
             private static Dictionary<string, Func<string, bool>> VarConditions { get; set; } = new();
-            
+
+            private static void RunOn(string arg)
+            {
+                SubInput(arg, out var eventType, out var command);
+
+                switch (eventType)
+                {
+                    case "update":
+                        FrameEvents.Update.AppendSingle(_ => Execute(command));
+                        break;
+                    case "endupdate":
+                        FrameEvents.EndUpdate.AppendSingle(_ => Execute(command));
+                        break;
+                    case "predraw":
+                        FrameEvents.PreDraw.AppendSingle(_ => Execute(command));
+                        break;
+                    case "postdraw":
+                        FrameEvents.PostDraw.AppendSingle(_ => Execute(command));
+                        break;
+                }
+            }
+
             private static void CustomWriteLine(string arg)
             {
-                if (TryParseArg(arg, out int varValue))
+                if (TryVarParseArg(arg, out int varValue))
                     WriteLine(varValue, ConsoleColor.Cyan).Wait();
                 else
-                    WriteLine(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], CurrentColor).Wait();
+                    WriteLine(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], WriteColor).Wait();
             }
             private static void CustomWrite(string arg)
             {
-                if (TryParseArg(arg, out int varValue))
+                if (TryVarParseArg(arg, out int varValue))
                     Write(varValue, ConsoleColor.Cyan).Wait();
                 else
-                    Write(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], CurrentColor).Wait();
+                    Write(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], WriteColor).Wait();
             }
 
             private static void For(string arg)
             {
                 SubInput(arg, out var countArg, out var command);
 
-                int count = ParseArg(countArg);
+                int count = VarParseArg(countArg);
                 bool isVar = VarCollection.ContainsKey(countArg);
 
                 for (int i = 0; i < count; i++)
@@ -470,14 +587,14 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 int intValue;
                 try
                 {
-                    intValue = ParseArg(toSet);
+                    intValue = VarParseArg(toSet);
                 }
                 catch
                 {
                     toSet.Partition(' ', out string first, out string second);
                     if (first == "random")
                     {
-                        intValue = new Random().Next(ParseArg(second));
+                        intValue = new Random().Next(VarParseArg(second));
                     }
                     else
                         throw;
@@ -491,12 +608,12 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 {
                     VarCollection.Add(name, intValue);
 
-                    VarConditions.Add($"{name}==", arg => VarCollection[name] == ParseArg(arg));
-                    VarConditions.Add($"{name}!=", arg => VarCollection[name] != ParseArg(arg));
-                    VarConditions.Add($"{name}>=", arg => VarCollection[name] >= ParseArg(arg));
-                    VarConditions.Add($"{name}<=", arg => VarCollection[name] <= ParseArg(arg));
-                    VarConditions.Add($"{name}>", arg => VarCollection[name] > ParseArg(arg));
-                    VarConditions.Add($"{name}<", arg => VarCollection[name] < ParseArg(arg));
+                    VarConditions.Add($"{name}==", arg => VarCollection[name] == VarParseArg(arg));
+                    VarConditions.Add($"{name}!=", arg => VarCollection[name] != VarParseArg(arg));
+                    VarConditions.Add($"{name}>=", arg => VarCollection[name] >= VarParseArg(arg));
+                    VarConditions.Add($"{name}<=", arg => VarCollection[name] <= VarParseArg(arg));
+                    VarConditions.Add($"{name}>", arg => VarCollection[name] > VarParseArg(arg));
+                    VarConditions.Add($"{name}<", arg => VarCollection[name] < VarParseArg(arg));
                 }
             }
             private static void VarDel(string varname)
@@ -522,10 +639,115 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             {
                 SubInput(arg, out string name, out string max);
 
-                VarCollection[name] = new Random().Next(ParseArg(max));
+                VarCollection[name] = new Random().Next(VarParseArg(max));
+            }
+            private static void BatchFileControl(string arg)
+            {
+                static void Read(string path)
+                {
+                    string[] lines = File.ReadAllLines(path)
+                        .Where(l => !l.StartsWith('#') && !string.IsNullOrWhiteSpace(l))
+                        .ToArray();
+
+
+                    int count = 0;
+
+                    foreach (var item in lines)
+                    {
+                        try
+                        {
+                            count++;
+                            Execute(item);
+                        }
+                        catch
+                        {
+                            WriteError($"An error occured during execute command {count}: \"{item}\"");
+                        }
+                    }
+                }
+                static void Append(string command)
+                {
+                    if (command == "batchfile end")
+                    {
+                        BatchReceive -= Append;
+                        IsBatchBegun = false;
+
+                        return;
+                    }
+
+                    batchQueue.Enqueue(command);
+                }
+
+                SubInput(arg, out var subCommand, out var subArg);
+
+                switch (subCommand)
+                {
+                    case "read":
+
+                        Read(subArg);
+
+                        break;
+                    case "begin":
+
+                        IsBatchBegun = true;
+                        BatchReceive += Append;
+
+                        break;
+
+                    case "build":
+
+                        List<string> lines = new();
+
+                        while (batchQueue.Count > 0)
+                        {
+                            lines.Add(batchQueue.Dequeue());
+                        }
+                        try
+                        {
+                            File.WriteAllLines(subArg, lines);
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteError($"An error occurred while writing to file: {ex.Message}");
+                            lines.ForEach(l => batchQueue.Enqueue(l));
+                        }
+
+                        break;
+
+                    case "clear":
+
+                        batchQueue.Clear();
+
+                        break;
+                        
+                }
             }
 
-            public static int ParseArg(string arg)
+            private static void BatchControl()
+            {
+                static void Append(string command)
+                {
+                    if (command != "batchend")
+                    {
+                        batchQueue.Enqueue(command);
+                    }
+                    else
+                    {
+                        IsBatchBegun = false;
+
+                        while (batchQueue.Count > 0)
+                        {
+                            FromString(batchQueue.Dequeue());
+                        }
+                        BatchReceive -= Append;
+                    }
+                }
+
+                IsBatchBegun = true;
+                BatchReceive += Append;
+            }
+
+            public static int VarParseArg(string arg)
             {
                 arg = arg.Trim();
                 int num;
@@ -538,11 +760,11 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
                 throw new ArgumentException($"Variable \"{arg}\" not found and \"{arg}\" can't be cast to int.");
             }
-            public static bool TryParseArg(string arg, out int num)
+            public static bool TryVarParseArg(string arg, out int num)
             {
                 try
                 {
-                    num = ParseArg(arg);
+                    num = VarParseArg(arg);
                     return true;
                 }
                 catch
@@ -558,8 +780,11 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             .Concat(ExecutionPipeline.Commands)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        private readonly static Queue<string> _batchSeq = new();
+        private readonly static Queue<string> batchQueue = new();
         public static bool IsBatchBegun { get; private set; } = false;
+
+        public static event Action<string> BatchReceive;
+
 
         public static void FromString(string input)
         {
@@ -570,7 +795,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             if (IsBatchBegun)
             {
-                BatchAppend(input);
+                BatchReceive?.Invoke(input);
                 return;
             }
 
@@ -585,27 +810,6 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             action?.Invoke(arg);
         }
 
-        public static void BatchBegin() => IsBatchBegun = true;
-        public static void BatchAppend(string command)
-        {
-            if (command == "batchend")
-            {
-                BatchEnd();
-                return;
-            }
-
-            _batchSeq.Enqueue(command);
-        }
-        public static void BatchEnd()
-        {
-            IsBatchBegun = false;
-
-            while (_batchSeq.Count > 0)
-            {
-                FromString(_batchSeq.Dequeue());
-            }
-        }
-        
         private static void LogMissing(string value, string name)
         {
             WriteLine($"Missing argument -> {value} ({name})", ConsoleColor.Red).Wait();
@@ -655,16 +859,18 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
         private static void SubInput(string input, out string value1, out string value2)
         {
-            if (input.Contains(' '))
+            int index = input.IndexOf(' ');
+            if (index != -1)
             {
-                value1 = input[..input.IndexOf(' ')].Trim();
-                value2 = input[input.IndexOf(' ')..].Trim();
+                value1 = input[..index].Trim();
+                value2 = input[index..].Trim();
             }
             else
             {
                 value1 = input.Trim();
                 value2 = "";
             }
+
         }
         private static string[] SplitInput(string input, char splitter = ' ') => input.Split(splitter).Select(c => c.Trim()).ToArray();
     }

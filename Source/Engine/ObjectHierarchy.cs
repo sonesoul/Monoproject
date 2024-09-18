@@ -33,7 +33,7 @@ namespace Engine
             PreDestroy();
 
             for (int i = Modules.Count - 1; i >= 0; i--)
-                RemoveModule(modules[i]);
+                RemoveModule(modules[i], true);
             
             PostDestroy();
         }
@@ -93,9 +93,9 @@ namespace Engine
         public List<ObjectModule> AddModule<T1, T2, T3, T4>() where T1 : ObjectModule where T2 : ObjectModule where T3 : ObjectModule where T4 : ObjectModule
             => AddModule<T1, T2, T3>().Append(AddModule<T4>()).ToList();
 
-        public void RemoveModule<T>() where T : ObjectModule 
-            => RemoveModule(Modules.OfType<T>().FirstOrDefault());
-        public void RemoveModule<T>(T module) where T : ObjectModule
+        public void RemoveModule<T>(bool forced = false) where T : ObjectModule 
+            => RemoveModule(Modules.OfType<T>().FirstOrDefault(), forced);
+        public void RemoveModule<T>(T module, bool forced = false) where T : ObjectModule
         {
             if (module == null || !ContainsModule(module))
                 return;
@@ -104,7 +104,12 @@ namespace Engine
             OnModuleRemove?.Invoke(module);
 
             if (!module.IsDisposed)
-                module.Dispose();
+            {
+                if (forced)
+                    module.ForceDispose();
+                else
+                    module.Dispose();
+            }
         }
         
         public T ReplaceModule<T>() where T : ObjectModule
@@ -144,22 +149,23 @@ namespace Engine
     [DebuggerDisplay("{ToString(),nq}")]
     public class TextObject : ModularObject, Types.IRenderable
     {
-        public string text;
-        public SpriteFont font;
-        public Vector2 size = Vector2.One;
-        public Vector2 origin;
-        public static Vector2 OriginOffset { get; set; } = new Vector2(-0.5f, 1);
-        public Color Color { get; set; } = Color.White;
-        public Vector2 viewport;
-        private SpriteBatch spriteBatch;
         public IDrawer Drawer { get; private set; }
+
+        public string text;
+
+        public Vector2 size = Vector2.One;
+        
+        public Vector2 origin;
+        public Vector2 originOffset = new(-0.5f, 1);
+
+        public Color color = Color.White;
+
+        public SpriteFont font;
+        private SpriteBatch spriteBatch;
 
         public TextObject(IDrawer drawer, string text, SpriteFont font) : base()
         {
             spriteBatch = drawer.SpriteBatch;
-
-            Viewport view = spriteBatch.GraphicsDevice.Viewport;
-            viewport = new(view.Width, view.Height);
 
             origin = font.MeasureString(text) / 2;
 
@@ -180,9 +186,9 @@ namespace Engine
                 font,
                 text,
                 IntegerPosition,
-                Color,
+                color,
                 RotationRad,
-                origin + OriginOffset,
+                origin + originOffset,
                 size,
                 SpriteEffects.None,
                 0);

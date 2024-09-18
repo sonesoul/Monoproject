@@ -9,6 +9,7 @@ namespace GlobalTypes.Events
         public static OrderedEvent<GameTime> FixedUpdate { get; } = new();
 
         public static SingleTriggerEvent<GameTime> EndSingle { get; } = new();
+        
         public static OrderedEvent<GameTime> PreDraw { get; } = new();
         public static OrderedEvent<GameTime> PostDraw { get; } = new();
     }

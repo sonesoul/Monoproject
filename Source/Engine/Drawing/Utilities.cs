@@ -97,8 +97,8 @@ namespace Engine.Drawing
             SpriteBatch batch = IngameDrawer.Instance.SpriteBatch;
             SpriteFont font = InGame.UI.Silk;
 
-            string startText = $"({Start.X}; {Start.Y})";
-            string endText = $"({End.X}; {End.Y})";
+            string startText = $"({Start.X}, {Start.Y})";
+            string endText = $"({End.X}, {End.Y})";
             string distanceText = $"{startText} - {endText}\nD: [{((int)Distance)}]";
             Vector2 dm = font.MeasureString(distanceText) * InfoSize;
 

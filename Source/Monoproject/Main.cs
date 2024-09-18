@@ -1,21 +1,16 @@
 ﻿global using GlobalTypes.Extensions;
 
 using System;
-using System.Reflection;
-using System.Linq;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-
 using GlobalTypes;
 using GlobalTypes.Events;
 using GlobalTypes.Interfaces;
+using GlobalTypes.InputManagement;
 using Engine.Drawing;
 using InGame;
-using GlobalTypes.Input;
-using Microsoft.Xna.Framework.Input;
 
 namespace Monoproject
 {
@@ -48,21 +43,20 @@ namespace Monoproject
             };
 
             Window.AllowUserResizing = false;
-            IsMouseVisible = true;
+            IsMouseVisible = false;
             IsFixedTimeStep = false;
-
             Content.RootDirectory = "Content";
 
             SyncContext = SynchronizationContext.Current;
             WindowThread = Thread.CurrentThread;
             WindowThread.CurrentUICulture = new CultureInfo("en-US");
             WindowThread.CurrentCulture = new CultureInfo("en-US");
-
+            
             InstanceInfo.UpdateVariables();
 
             Monoconsole.Handler = input => Executor.FromString(input);
             Monoconsole.New();
-            Monoconsole.WriteLine($"ctor: {memCtor.ToSizeString()}", ConsoleColor.Cyan);
+            Monoconsole.WriteState($"ctor: {memCtor.ToSizeString()}");
         }
 
         protected override void LoadContent()
@@ -85,11 +79,11 @@ namespace Monoproject
 
             _gameInstance = new();
            
-            Monoconsole.WriteLine("init: " + GC.GetTotalMemory(false).ToSizeString());
+            Monoconsole.WriteState("init: " + GC.GetTotalMemory(false).ToSizeString());
             Monoconsole.Execute("ram");
 
-            InputManager.AddKey(Keys.F1, KeyEvent.Press, () => Monoconsole.Execute("f1"));
-            InputManager.AddKey(Monoconsole.ToggleKey, KeyEvent.Press, () => Monoconsole.ToggleState());
+            Input.Bind(Key.F1, KeyPhase.Press, () => Monoconsole.Execute("f1"));
+            Input.Bind(Monoconsole.ToggleKey, KeyPhase.Press, () => Monoconsole.ToggleState());
         }
 
         protected override void Update(GameTime gameTime)
@@ -119,6 +113,22 @@ namespace Monoproject
             _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp);
             _interfaceDrawer.DrawAll(gameTime);
             _spriteBatch.End();
+        }
+        
+                
+        public void PostToMainThread(Action action)
+        {
+            SyncContext.Post(_ =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    DialogBox.ShowException(ex);
+                }
+            }, null);
         }
     }
 

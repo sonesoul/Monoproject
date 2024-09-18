@@ -54,8 +54,8 @@ namespace GlobalTypes.Extensions
 
         public static float Cross(this Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
         public static Vector2 Perpendicular(this Vector2 v) => new(v.Y, -v.X);
-        public static Vector2 UnitNormal(this Vector2 v) => new Vector2(-v.Y, v.X).Normalized();
         public static Vector2 Normal(this Vector2 v) => new(-v.Y, v.X);
+        public static Vector2 UnitNormal(this Vector2 v) => new Vector2(-v.Y, v.X).Normalized();
         public static Vector2 Normalized(this Vector2 v) => Vector2.Normalize(v);
         public static float DistanceTo(this Vector2 a, Vector2 b) => Vector2.Distance(a, b);
         public static Vector2 ScalarProduct(this Vector2 a, float scalar) => new(a.Y * -scalar, a.X * scalar);
@@ -91,5 +91,12 @@ namespace GlobalTypes.Extensions
         public static Vector2 Abs(this Vector2 v) => new(v.AbsX(), v.AbsY());
         public static float AbsX(this Vector2 v) => Math.Abs(v.X);
         public static float AbsY(this Vector2 v) => Math.Abs(v.Y);
+
+        public static Vector2 Where(this Vector2 v, Func<float, float, Vector2> func) => func(v.X, v.Y);
+        public static Vector2 WhereX(this Vector2 v, Func<float, float> func) => new(func(v.X), v.Y);
+        public static Vector2 WhereY(this Vector2 v, Func<float, float> func) => new(v.X, func(v.Y));
+
+        public static Vector2 WhereX(this Vector2 v, float x) => new(x, v.Y);
+        public static Vector2 WhereY(this Vector2 v, float y) => new(v.X, y);
     }
 }

@@ -4,13 +4,13 @@ using Engine.Modules;
 using Engine.Types;
 using GlobalTypes;
 using GlobalTypes.Events;
+using InGame.GameObjects;
 using Microsoft.Xna.Framework;
 
 namespace InGame
 {
     public class GameMain 
     {
-        public TextObject player;
         private TextObject cursorObj;
         
         public GameMain()

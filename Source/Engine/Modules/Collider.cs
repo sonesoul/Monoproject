@@ -27,7 +27,7 @@ namespace Engine.Modules
             {
                 _allColliders.LockRun(
                     () => Parallel.ForEach(
-                        _allColliders, 
+                        _allColliders,
                         (c) => c?.CheckIntersections(_allColliders)));
             }
         }
@@ -48,7 +48,7 @@ namespace Engine.Modules
         private readonly List<Collider> _previousIntersections = new();
 
         private Rectangle _bounding;
-        
+
         private ColliderMode _colliderMode = ColliderMode.Physical;
         private Action<IReadOnlyList<Collider>> _intersectionChecker;
 
@@ -56,7 +56,7 @@ namespace Engine.Modules
         private ShapeDrawer _shapeDrawer;
 
         public Collider(ModularObject owner = null) : base(owner) { }
-       
+
         protected override void PostConstruct()
         {
             _drawAction = Draw;
@@ -72,7 +72,7 @@ namespace Engine.Modules
 
         public bool IntersectsWith(Collider other)
         {
-            if (other == null) 
+            if (other == null || other.IsDisposed || other.Owner.IsDestroyed) 
                 return false;
 
             return polygon.IntersectsWith(other.polygon);
@@ -81,7 +81,7 @@ namespace Engine.Modules
         {
             mtv = Vector2.Zero;
 
-            if (other == null)
+            if (other == null || other.IsDisposed || other.Owner.IsDestroyed)
                 return false;
             
             return polygon.IntersectsWith(other.polygon, out mtv);
@@ -143,7 +143,7 @@ namespace Engine.Modules
         {
             foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static) && IsWithinDistance(c, 2)))
             {
-                if (item == this)
+                if (item == this || IsDisposed)
                     continue;
                
                 if (polygon.IntersectsWith(item.polygon, out var mtv))
@@ -173,12 +173,12 @@ namespace Engine.Modules
         }
         private void StatiCheck(IReadOnlyList<Collider> colliders)
         {
-            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical) && IsWithinDistance(c, 2)))
+            foreach (var item in colliders.Where(c => (c.Mode != ColliderMode.Static) && IsWithinDistance(c, 2)))
             {
-                if (item == this)
+                if (item == this || IsDisposed)
                     continue;
 
-                if (polygon.IntersectsWith(item.polygon, out var mtv))
+                if (polygon.IntersectsWith(item.polygon))
                 {
                     _intersections.Add(item);
 
@@ -199,7 +199,7 @@ namespace Engine.Modules
         {
             foreach (var item in colliders.Where(c => IsWithinDistance(c, 2)))
             {
-                if (item == this)
+                if (item == this || IsDisposed)
                     continue;
 
                 if (polygon.IntersectsWith(item.polygon))
@@ -269,6 +269,9 @@ namespace Engine.Modules
         {
             IngameDrawer.Instance.RemoveDrawAction(_drawAction);
             CollisionManager.Unregister(this);
+
+            _intersections.Clear();
+            _previousIntersections.Clear();
 
             IntersectionEnter = null;
             IntersectionStay = null;

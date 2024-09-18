@@ -1,125 +1,73 @@
-﻿using Engine;
-using Engine.Drawing;
-using Engine.Modules;
-using Engine.Types;
-using GlobalTypes;
+﻿using GlobalTypes;
+using GlobalTypes.Events;
+using InGame.Interfaces;
 using InGame.GameObjects;
-using InGame.Generators;
-using InGame.Scripts;
 using Microsoft.Xna.Framework;
-using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace InGame
 {
     public static class Level
     {
-        public class LevelInfo
-        {
-            public TextObject Player { get; private set; }
-            public ComboStorage WordStorage { get; private set; }
-            public StorageFiller StorageFiller { get; private set; }
-            public IReadOnlyList<TextObject> Platforms { get; private set; }
-            
-            public LevelInfo(IReadOnlyList<TextObject> platforms, ComboStorage storage, StorageFiller filler, TextObject player)
-            {
-                WordStorage = storage;
-                Platforms = platforms;
-                StorageFiller = filler;
-                Player = player;
-            }
-        }
+        public static char[] KeyPattern { get; private set; } = new char[] { 'Q', 'W', 'E', 'R' };
+        public static int StorageSize { get; private set; } = 5;
 
-        public static LevelInfo Current { get; private set; } = null;
-        public static TextObject Player => Current?.Player;
-        public static IReadOnlyList<TextObject> Platforms => Current?.Platforms; 
-        public static ComboStorage Storage => Current?.WordStorage;
-        public static StorageFiller StorageFiller => Current?.StorageFiller;
+        private readonly static List<ILevelObject> levelObjects = new();
 
-        private readonly static List<TextObject> _platforms = new();
-        private readonly static Dictionary<char, Action<Vector2>> mapPattern = new()
-        {
-            { '#', static (pos) => 
-                {
-                   _platforms.Add(
-                       new TextObject(IngameDrawer.Instance, "", UI.Silk, 
-                           new Collider() 
-                           {
-                                Mode = ColliderMode.Static,
-                                polygon = Polygon.Rectangle(37, 37)
-                           })
-                       {
-                            position = pos
-                       });
-                } 
-            }
-        };
-
-        public static void Clear()
-        {
-            if (Current != null)
-            {
-                foreach (TextObject p in Platforms)
-                    p.Destroy();
-
-                Storage.Destroy();
-                Player.Destroy();
-                StorageFiller.Destroy();
-            }
-        }
         public static void New()
         {
             Clear();
 
-            MapGenerator generator = new(mapPattern);
-            Vector2 windowSize = InstanceInfo.WindowSize;
-            Vector2 windowCenter = windowSize / 2;
-
-            Rectangle screenSquare = new(Point.Zero, windowSize.MinSquare().ToPoint());
-            Grid<Vector2> grid = MapGenerator.SliceRect(new Point(20, 20), screenSquare, new(0, 0));
-
-            generator.Generate(
-                grid,
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "       ##           " +
-                "                    " +
-                "####                " +
-                "                    "
-            );
-
-
-           
-            ComboStorage storage = new() { position = windowCenter };
-            StorageFiller filler = new(storage, 5) { position = new(windowCenter.X, 700) };
-
-            TextObject player = new(IngameDrawer.Instance, "#", UI.Silk, new PlayerScript(filler))
+            FrameEvents.PostDraw.AppendSingle(gt =>
             {
-                position = windowCenter,
-                Color = Color.Green,
-                size = new(2, 2),
-            };
+                Vector2 center = InstanceInfo.WindowSize / 2;
 
-            Current = new(
-                new List<TextObject>(_platforms),
-                storage, filler, player);
-                
-            
-            _platforms.Clear();
+                ComboStorage storage = new(StorageSize)
+                {
+                    position = center.WhereY(y => y = 200)
+                };
+                StorageFiller filler = new(storage, 5)
+                {
+                    position = center.WhereY(y => y = 700)
+                };
+
+                Player player = new()
+                {
+                    position = center
+                };
+                AddObjects(storage, filler, player);
+
+                levelObjects.ForEach(i => i.Init());
+            });
         }
+        public static void Clear()
+        {
+            foreach(var item in levelObjects)
+                item.Terminate();
+
+            levelObjects.Clear();
+        }
+
+        public static void AddObject(ILevelObject levelObject) => levelObjects.Add(levelObject);
+        public static void AddObjects(params ILevelObject[] levelObjects)
+        {
+            foreach (var item in levelObjects)
+                AddObject(item);
+        }
+
+        public static void RemoveObject(ILevelObject levelObject) => levelObjects.Remove(levelObject);
+        public static void ContainsObject(ILevelObject levelObject) => levelObjects.Contains(levelObject);
+
+        public static T GetObject<T>(string tag) where T : class
+        {
+            return levelObjects.Where(i => i.IsTagEqual(tag)).FirstOrDefault().As<T>();
+
+        }
+        public static T GetObject<T>() where T : class
+        {
+            return levelObjects.Where(i => i.IsTagEqual(typeof(T).Name)).FirstOrDefault().As<T>();
+        }
+        public static object GetObject(string tag) => GetObject<object>(tag);
     }
 }
