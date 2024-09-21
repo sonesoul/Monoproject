@@ -329,7 +329,7 @@ namespace Engine.Modules
 
             ApplyWindage();
 
-            Owner.position += velocity;
+            Owner.Position += velocity;
             Owner.RotationDeg += Angle = AngularVelocity;
         }
 

@@ -1,4 +1,5 @@
 ﻿global using GlobalTypes.Extensions;
+global using MonoconsoleLib;
 
 using System;
 using System.Globalization;
@@ -11,23 +12,29 @@ using GlobalTypes.Interfaces;
 using GlobalTypes.InputManagement;
 using Engine.Drawing;
 using InGame;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace Monoproject
 {
     public class Main : Game
     {
+        public static Color BackgroundColor { get; set; } = Color.Black;
+        
+        public Thread WindowThread { get; init; }
+        public SynchronizationContext SyncContext { get; private set; }
+        public static Main Instance { get; private set; }
+
+        public GraphicsDeviceManager GraphicsManager => _graphics;
+        public SpriteBatch SpriteBatch => _spriteBatch;
+        public static Key ConsoleToggleKey => Key.OemTilde;
+
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private InterfaceDrawer _interfaceDrawer;
         private IngameDrawer _ingameDrawer;
         private GameMain _gameInstance;
-
-        public SpriteBatch SpriteBatch => _spriteBatch;
-        public GraphicsDeviceManager GraphicsManager => _graphics;
-        public SynchronizationContext SyncContext { get; private set; }
-        public static Main Instance { get; private set; }
-        public static Color BackgroundColor { get; set; } = Color.Black;
-        public Thread WindowThread { get; init; }
 
         public Main()
         {
@@ -43,7 +50,6 @@ namespace Monoproject
             };
 
             Window.AllowUserResizing = false;
-            IsMouseVisible = false;
             IsFixedTimeStep = false;
             Content.RootDirectory = "Content";
 
@@ -51,12 +57,25 @@ namespace Monoproject
             WindowThread = Thread.CurrentThread;
             WindowThread.CurrentUICulture = new CultureInfo("en-US");
             WindowThread.CurrentCulture = new CultureInfo("en-US");
-            
+
             InstanceInfo.UpdateVariables();
 
             Monoconsole.Handler = input => Executor.FromString(input);
+            Monoconsole.Opened += () =>
+            {
+                string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                StringBuilder sb = new();
+                Random rnd = new();
+
+                for (int i = 0; i < 5; i++)
+                    sb.Append(chars[rnd.Next(chars.Length)]);
+
+                List<ConsoleColor> colors = Enum.GetValues<ConsoleColor>().Where(c => c != ConsoleColor.Black).ToList();
+                Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[new Random().Next(colors.Count)]);
+            };
+            
             Monoconsole.New();
-            Monoconsole.WriteState($"ctor: {memCtor.ToSizeString()}");
+            Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}"); 
         }
 
         protected override void LoadContent()
@@ -79,11 +98,11 @@ namespace Monoproject
 
             _gameInstance = new();
            
-            Monoconsole.WriteState("init: " + GC.GetTotalMemory(false).ToSizeString());
+            Monoconsole.WriteInfo("init: " + GC.GetTotalMemory(false).ToSizeString());
             Monoconsole.Execute("ram");
-
+            
             Input.Bind(Key.F1, KeyPhase.Press, () => Monoconsole.Execute("f1"));
-            Input.Bind(Monoconsole.ToggleKey, KeyPhase.Press, () => Monoconsole.ToggleState());
+            Input.Bind(ConsoleToggleKey, KeyPhase.Press, () => Monoconsole.Toggle());
         }
 
         protected override void Update(GameTime gameTime)
@@ -114,8 +133,7 @@ namespace Monoproject
             _interfaceDrawer.DrawAll(gameTime);
             _spriteBatch.End();
         }
-        
-                
+                 
         public void PostToMainThread(Action action)
         {
             SyncContext.Post(_ =>

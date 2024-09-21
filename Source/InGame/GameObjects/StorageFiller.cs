@@ -25,14 +25,9 @@ namespace InGame.GameObjects
 
         public bool IsFilled => textIndex >= MaxLength;
 
-        private char EmptyChar => '-';
-
-        private Vector2 SmoothPower { get; set; } = new(0, -50);
-        private float SmoothSpeed { get; set; } = 3;
-
         private StepTask moveTask;
         private StepTask moveBackTask;
-       
+
         private string text = "";
         private int textIndex = 0;
 
@@ -41,10 +36,14 @@ namespace InGame.GameObjects
 
         private Collider trigger;
 
-        private SpriteFont TextFont => UI.SilkBold;
-        
         private IngameDrawer drawer;
         private SpriteBatch spriteBatch;
+
+        private Vector2 smoothDistance = new(0, -50);
+        private float smoothSpeed = 3;
+
+        private static char EmptyChar => '-';
+        private static SpriteFont Font => UI.SilkBold;
         
         public StorageFiller(ComboStorage storage, int maxLength)
         {
@@ -61,7 +60,7 @@ namespace InGame.GameObjects
         public void Init()
         {
             if (IsInitialized)
-                throw new InvalidOperationException("Can't be initialized twice.");
+                return;
 
             IsInitialized = true;
 
@@ -75,24 +74,26 @@ namespace InGame.GameObjects
 
             trigger.TriggerEnter += c =>
             {
+                if (c.Owner is not Player player)
+                    return;
 
-                /*if (c.Owner != Level.GetObject<Player>())
-                    return;*/
-
+                player.CanCombinate = true;
 
                 moveBackTask?.Break();
-                moveTask = new(Move(SmoothPower), true);
+                moveTask = new(Move(smoothDistance), true);
             };
             trigger.TriggerExit += c =>
             {
-                /*if (c.Owner != Level.GetObject<Player>())
-                    return;*/
+                if (c.Owner is not Player player)
+                    return;
 
+                player.CanCombinate = false;
+                
                 moveTask?.Break();
                 moveBackTask = new(MoveBack(), true);
             };
         }
-        public void Terminate() => Destroy();
+        public void Destruct() => Destroy();
 
         public bool Push()
         {
@@ -131,7 +132,7 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, end, elapsed);
-                elapsed += FrameInfo.DeltaTime * SmoothSpeed;
+                elapsed += FrameInfo.DeltaTime * smoothSpeed;
 
                 yield return null;
             }
@@ -143,22 +144,19 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, Vector2.Zero, elapsed);
-                elapsed += FrameInfo.DeltaTime * SmoothSpeed;
+                elapsed += FrameInfo.DeltaTime * smoothSpeed;
 
                 yield return null;
             }
             drawOffset = Vector2.Zero;
         }
 
-
-        private void UpdateOrigin() => textOrigin = TextFont.MeasureString(text) / 2;
-
         private void Draw(GameTime gt)
         {
             spriteBatch.DrawString(
-                TextFont,
+                Font,
                 text,
-                position + drawOffset,
+                Position + drawOffset,
                 TextColor,
                 0,
                 textOrigin,
@@ -168,6 +166,8 @@ namespace InGame.GameObjects
             );
         }
 
+        private void UpdateOrigin() => textOrigin = Font.MeasureString(text) / 2;
+
         protected override void PostDestroy()
         {
             drawer.RemoveDrawAction(Draw);
@@ -175,7 +175,7 @@ namespace InGame.GameObjects
             trigger.TriggerEnter -= _ =>
             {
                 moveBackTask?.Break();
-                moveTask = new(Move(SmoothPower), true);
+                moveTask = new(Move(smoothDistance), true);
             };
             trigger.TriggerExit -= _ =>
             {

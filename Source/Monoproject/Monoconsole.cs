@@ -13,15 +13,17 @@ using GlobalTypes.InputManagement;
 
 namespace GlobalTypes
 {
-    public static class Monoconsole
+    public static class OLDMonoconsole
     {
         public static Key ToggleKey => Key.OemTilde;
-        public static ConsoleColor WriteColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
+        public static ConsoleColor TextColor { get => Console.ForegroundColor; set => Console.ForegroundColor = value; }
+        
         public static bool IsOpened { get; private set; } = false;
         public static bool WriteExecuted { get; set; } = true;
+
         public static Action<string> Handler { get; set; }
-       
         public static Thread ConsoleThread { get; private set; } = null;
+
         private readonly static object _lock = new();
 
         private static CancellationTokenSource _cts;
@@ -39,10 +41,10 @@ namespace GlobalTypes
                 if (result)
                 {
                     SetHandles();
-                    WriteColor = ConsoleColor.Yellow;
+                    TextColor = ConsoleColor.Yellow;
                     Console.Title = "monoconsole";
                     
-                    RemoveSystemMenu();
+                    SetWindow();
                     
                     Console.OutputEncoding = Encoding.UTF8;
                     _cts = new();
@@ -157,11 +159,14 @@ namespace GlobalTypes
             }
         }
 
-        private static void RemoveSystemMenu()
+        private static void SetWindow()
         {
             IntPtr hWnd = GetConsoleWindow();
             int style = GetWindowLong(hWnd, GWL_STYLE);
             _ = SetWindowLong(hWnd, GWL_STYLE, style & ~WS_SYSMENU);
+
+            int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+            _ = SetWindowLong(hWnd, GWL_EXSTYLE, (exStyle & ~WS_EX_APPWINDOW) | WS_EX_TOOLWINDOW);
         }
         private static void Reset()
         {
@@ -206,11 +211,11 @@ namespace GlobalTypes
                     if (IsOpened)
                     {
                         var temp = Console.ForegroundColor;
-                        WriteColor = color;
+                        TextColor = color;
 
                         writeAction();
 
-                        WriteColor = temp;                        
+                        TextColor = temp;                        
                     }
                 }
             });

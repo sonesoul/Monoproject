@@ -11,7 +11,7 @@ namespace InGame.GameObjects
     {
         public string Tag => nameof(ComboStorage);
         public bool IsInitialized { get; private set; } = true;
-
+        
         public int Size { get; private set; }
 
         public char Requirement { get; private set; }
@@ -34,7 +34,7 @@ namespace InGame.GameObjects
 
             RollRequirement();
         }
-        public void Terminate() => Destroy();
+        public void Destruct() => Destroy();
 
         public bool Push(Combo combo)
         {
@@ -52,7 +52,7 @@ namespace InGame.GameObjects
             SpriteBatch.DrawString(
                 LetterFont,
                 Requirement.ToString(),
-                position,
+                Position,
                 Color.White,
                 0,
                 letterOrigin,
@@ -65,7 +65,7 @@ namespace InGame.GameObjects
             SpriteBatch.DrawString(
                 BracketsFont,
                 "[",
-                position.WhereX(x => x - 15),
+                Position.WhereX(x => x - 15),
                 Color.White,
                 0,
                 origin,
@@ -78,7 +78,7 @@ namespace InGame.GameObjects
             SpriteBatch.DrawString(
                 BracketsFont,
                 "]",
-                position.WhereX(x => x + 14),
+                Position.WhereX(x => x + 14),
                 Color.White,
                 0,
                 origin,

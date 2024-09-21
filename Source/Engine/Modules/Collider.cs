@@ -118,8 +118,8 @@ namespace Engine.Modules
             int width = (int)verts.Max(v => v.X).Ceiled() - (int)verts.Min(v => v.X).Floored();
             int height = (int)verts.Max(v => v.Y).Ceiled() - (int)verts.Min(v => v.Y).Floored();
 
-            _bounding.X = (int)Owner.position.X - width / 2;
-            _bounding.Y = (int)Owner.position.Y - height / 2;
+            _bounding.X = (int)Owner.Position.X - width / 2;
+            _bounding.Y = (int)Owner.Position.Y - height / 2;
             _bounding.Width = width;
             _bounding.Height = height;
         }
@@ -229,9 +229,9 @@ namespace Engine.Modules
                 mtv = -mtv;
 
             if (other.Mode == ColliderMode.Physical)
-                other.Owner.position -= mtv;
+                other.Owner.Position -= mtv;
             else
-                Owner.position += mtv;
+                Owner.Position += mtv;
         }
 
         private bool IsWithinDistance(Collider other, float distance)

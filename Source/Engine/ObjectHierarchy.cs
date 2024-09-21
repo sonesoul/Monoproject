@@ -8,18 +8,20 @@ using Engine.Modules;
 using System.Diagnostics;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
+using Engine.Types;
 
 namespace Engine
 {
     [DebuggerDisplay("{ToString(),nq}")]
     public abstract class ModularObject
     {
-        public Vector2 position = new(0, 0);
-        public Vector2 IntegerPosition => position.Rounded();
+        public Vector2 Position { get; set; } = new(0, 0);
+        public Vector2 IntegerPosition => Position.Rounded();
+
         public float RotationDeg { get; set; } = 0;
         public float RotationRad => RotationDeg.AsRad();
+        
         public bool IsDestroyed { get; private set; } = false;
-
 
         public void Destroy() => FrameEvents.EndSingle.Add(gt => DestroyAction(), EndSingleOrders.Destroy);
         public void ForceDestroy() => DestroyAction();
@@ -143,61 +145,189 @@ namespace Engine
             => Modules.Contains(module);
         #endregion
 
-        public override string ToString() => $"{position} ({modules.Count})";
+        public override string ToString() => $"{Position} ({modules.Count})";
     }
-    
+
     [DebuggerDisplay("{ToString(),nq}")]
-    public class TextObject : ModularObject, Types.IRenderable
+    public class CharObject : ModularObject, IRenderable
     {
+        public char Character { get; set; }
+        public Vector2 Offset { get; set; } = Vector2.Zero;
+        public Vector2 Origin { get; set; } = Vector2.Zero;
+        public Vector2 Scale { get; set; } = Vector2.One;
+        public Color Color { get; set; } = Color.White;
+        public SpriteEffects SpriteEffects { get; set; }
+        public SpriteFont Font { get; set; }
+
+        public IDrawer Drawer { get; private set; }
+        public bool CanDraw { get; set; } = true;
+
+        public CharObject(IDrawer drawer, char character, SpriteFont font)
+        {
+            drawer.AddDrawAction(Draw);
+            Font = font;
+
+            Character = character;
+            Origin = Font.MeasureString(character.ToString()) / 2;
+        }
+        public CharObject(IDrawer drawer, char character, SpriteFont font, params ObjectModule[] modules) : this(drawer, character, font)
+        {
+            foreach (var module in modules)
+                AddModule(module);
+        }
+
+        public void Draw(GameTime gameTime)
+        {
+            if (CanDraw)
+            {
+                Drawer.SpriteBatch.DrawString(
+                    Font,
+                    Character.ToString(),
+                    Position,
+                    Color,
+                    RotationRad,
+                    Origin,
+                    Scale,
+                    SpriteEffects,
+                    0);
+            }
+        }
+
+        protected override void PostDestroy()
+        {
+            Drawer.RemoveDrawAction(Draw);
+        }
+        public override string ToString() => Character.ToString();
+    }
+
+    [DebuggerDisplay("{ToString(),nq}")]
+    public class StringObject : ModularObject, IRenderable
+    {
+        public string Content
+        {
+            get => content;
+            set
+            {
+                content = value;
+                SliceString();
+            }
+        }
+        public Vector2 Scale { get; set; } = Vector2.One;
+        public Vector2 Origin { get; set; }
+        public Vector2 OriginOffset { get; set; } = new(-0.5f, 1);
+        public Color CharColor
+        {
+            get => charColor; set
+            {
+                charColor = value;
+                SliceString();
+            }
+        }
+        public SpriteFont Font { get; set; }
+
+        public bool CanDraw { get; set; } = true;
+        public int Length => characters.Count;
         public IDrawer Drawer { get; private set; }
 
-        public string text;
+        private string content;
+        private Color charColor = Color.White;
+        private RenderTarget2D textTexture;
+        private readonly SpriteBatch spriteBatch;
+        private readonly List<CharObject> characters = new();
 
-        public Vector2 size = Vector2.One;
-        
-        public Vector2 origin;
-        public Vector2 originOffset = new(-0.5f, 1);
-
-        public Color color = Color.White;
-
-        public SpriteFont font;
-        private SpriteBatch spriteBatch;
-
-        public TextObject(IDrawer drawer, string text, SpriteFont font) : base()
+        public StringObject(IDrawer drawer, string content, SpriteFont font) : base()
         {
             spriteBatch = drawer.SpriteBatch;
 
-            origin = font.MeasureString(text) / 2;
+            Origin = font.MeasureString(content) / 2;
 
             Drawer = drawer;
             drawer.AddDrawAction(Draw);
 
-            this.text = text;
-            this.font = font;
+            this.Font = font;
+            Content = content;
         }
-        public TextObject(IDrawer drawer, string text, SpriteFont font, params ObjectModule[] modules) : this(drawer, text, font)
+        public StringObject(IDrawer drawer, string text, SpriteFont font, params ObjectModule[] modules) : this(drawer, text, font)
         {
             foreach (var module in modules) 
                 AddModule(module);
         }
+        
+        public CharObject SetChar(int index) => characters[index];
+        public void SwapChars(int index1, int index2)
+        {
+            (characters[index1], characters[index2]) = (characters[index2], characters[index1]);
+        }
+
         public virtual void Draw(GameTime gameTime)
         {
-            spriteBatch.DrawString(
-                font,
-                text,
-                IntegerPosition,
-                color,
-                RotationRad,
-                origin + originOffset,
-                size,
-                SpriteEffects.None,
-                0);
+            if (!CanDraw) 
+                return;
+
+            foreach (var characterObject in characters)
+            {
+                spriteBatch.DrawString(
+                    Font,
+                    characterObject.Character.ToString(),
+                    IntegerPosition + characterObject.Position + characterObject.Offset,
+                    characterObject.Color,
+                    characterObject.RotationRad,
+                    Origin + OriginOffset,
+                    Scale * characterObject.Scale,
+                    SpriteEffects.None,
+                    0);
+            }
+        }
+        
+        private void SliceString()
+        {
+            characters.Clear();
+            Vector2 position = Vector2.Zero;
+
+            foreach (char character in Content)
+            {
+                CharObject c = new(Drawer, character, Font)
+                {
+                    Position = position,
+                    Color = CharColor,
+                    CanDraw = false
+                };
+                characters.Add(c);
+                Vector2 size = Font.MeasureString(character.ToString());
+
+                position.X += size.X;
+                position.Y = size.Y;
+            }
+
+            Origin = position / 2;
+
+            FrameEvents.PreDraw.AppendSingle(gt => BuildTexture());
+        }
+
+        private void BuildTexture()
+        {
+            Vector2 textSize = Font.MeasureString(Content);
+
+            if (textSize.Both() <= 0)
+                return;
+
+            textTexture = new RenderTarget2D(spriteBatch.GraphicsDevice, (int)textSize.X, (int)textSize.Y);
+
+            spriteBatch.GraphicsDevice.SetRenderTarget(textTexture);
+            spriteBatch.GraphicsDevice.Clear(Color.Transparent);
+
+            spriteBatch.Begin();
+            spriteBatch.DrawString(Font, Content, Vector2.Zero, CharColor);
+            spriteBatch.End();
+
+            spriteBatch.GraphicsDevice.SetRenderTarget(null);
+
+            Origin = textSize / 2;
         }
         protected override void PostDestroy()
         {
             Drawer.RemoveDrawAction(Draw);
         }
-
-        public override string ToString() => text;
+        public override string ToString() => Content;
     }
 }

@@ -12,13 +12,15 @@ using System.Linq;
 
 namespace InGame.GameObjects
 {
-    public class Player : TextObject, ILevelObject
+    public class Player : StringObject, ILevelObject
     {
         public string Tag => nameof(Player);
         public bool IsInitialized { get; private set; } = false;
+        public bool IsDestructed { get; private set; } = true;
 
         public bool CanMove { get; set; } = true;
         public bool CanJump { get; set; } = true;
+        public bool CanCombinate { get; set; } = false;
 
         public float JumpPower { get; set; } = 9.5f;
         public float MoveSpeed { get; set; } = 6;
@@ -35,19 +37,24 @@ namespace InGame.GameObjects
         private OrderedAction<GameTime> _onUpdate;
         private KeyBinding _onJumpPress;
 
-        private readonly List<Combo> combos = new();
+        private readonly List<Combo> combos = new()
+        {
+            new("QWER"),
+            new("QWQR"),
+            new("ERWQ"),
+        };
 
         public Player() : base(IngameDrawer.Instance, "#", UI.Silk) 
         {
-            color = Color.Green;
-            size = new(2, 2);
-            originOffset = new(-0.5f, -1.5f);
+            CharColor = Color.Green;
+            Scale = new(2, 2);
+            OriginOffset = new(-0.5f, -1.5f);
         }
 
         public void Init()
         {
             if (IsInitialized)
-                throw new InvalidOperationException("Can't be initialized twice.");
+                return;
 
             IsInitialized = true;
 
@@ -62,13 +69,13 @@ namespace InGame.GameObjects
                 GravityScale = 3
             });
 
-            collider = modules[0].To<Collider>();
-            rigidbody = modules[1].To<Rigidbody>();
+            collider = modules[0] as Collider;
+            rigidbody = modules[1] as Rigidbody;
             
             _onUpdate = FrameEvents.Update.Append(Update);
             _onJumpPress = Input.Bind(JumpKey, KeyPhase.Press, Jump);
         }
-        public void Terminate() => Destroy();
+        public void Destruct() => Destroy();
 
         public void AddCombo(Combo combo) => combos.Add(combo);
         public void RemoveCombo(Combo combo) => combos.Remove(combo);
@@ -84,7 +91,7 @@ namespace InGame.GameObjects
         {
             if (CanMove)
             {
-                position.X += Input.Axis.X * MoveSpeed;
+                Position = Position.WhereX(x => x + Input.Axis.X * MoveSpeed);
             }
         }
         private void Jump()
@@ -98,6 +105,9 @@ namespace InGame.GameObjects
 
         private void UpdateTyping()
         {
+            if (!CanCombinate)
+                return;
+            
             StorageFiller filler = Level.GetObject<StorageFiller>();
 
             Key[] keys = Input.GetPressedKeys().Where(k => k.ToString().Length == 1).ToArray();
@@ -121,7 +131,12 @@ namespace InGame.GameObjects
                 pressedKeys.Add(key);
                 Input.Bind(key, KeyPhase.Release, () => pressedKeys.Remove(key));
 
-                filler.Append(keyChar);
+                string fillerCrnt = filler.CurrentCombo;
+
+                if (combos.Where(c => c.Contains(fillerCrnt + keyChar)).Any())
+                {
+                    filler.Append(keyChar);
+                }
             }
         }
 

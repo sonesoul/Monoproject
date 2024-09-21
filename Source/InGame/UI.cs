@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework;
 using Engine.Drawing;
 using GlobalTypes;
 using System;
+using Monoproject;
+using SharpDX.Direct3D9;
 
 namespace InGame
 {
@@ -12,10 +14,15 @@ namespace InGame
         public static string CustomInfo { get; set; }
         public static SpriteFont Silk { get; private set; }
         public static SpriteFont SilkBold { get; private set; }
+        public static bool UseCustomCursor 
+        {
+            get => IsUsingCustomCursor;
+            set => Main.Instance.IsMouseVisible = !value;
+        }
+        private static bool IsUsingCustomCursor => !Main.Instance.IsMouseVisible;
         
         private static InterfaceDrawer drawer;
         private static SpriteBatch spriteBatch;
-        
         private static void Load()
         {
             Silk = InstanceInfo.Content.Load<SpriteFont>("Silkscreen");
@@ -39,6 +46,9 @@ namespace InGame
         }
         public static void DrawMouse(GameTime gameTime)
         {
+            if (!IsUsingCustomCursor) 
+                return;
+
             Vector2 curPoint = FrameInfo.MousePosition;
             
             string mouse = "<-";
