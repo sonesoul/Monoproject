@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using GlobalTypes.Events;
 using Microsoft.Xna.Framework.Input;
+using System;
 
 namespace GlobalTypes
 {
-    [Init(nameof(Init), InitOrders.FrameInfo)]
     public static class FrameInfo
     {
         public const float FixedDeltaTime = 1.0f / 60.0f;
@@ -12,6 +12,7 @@ namespace GlobalTypes
         public static GameTime GameTime { get; private set; }
         public static float DeltaTime { get; private set; }
         public static float DeltaTimeMs { get; private set; }
+
         public static float FPS { get; private set; } = 0;
         public static float FPSUpdateStep { get; set; } = 0.1f;
 
@@ -32,28 +33,29 @@ namespace GlobalTypes
         private static float frameCount = 0;
         private static double fpsBuffer = 0;
         
-        private static void Init() => FrameEvents.Update.Add(UpdateValues, UpdateOrders.FrameInfo);
-
-        private static void UpdateValues(GameTime gameTime)
+        public static void UpdateGameTime(GameTime gameTime)
         {
             GameTime = gameTime;
-            
-            _keyState = Keyboard.GetState();
-            _mouseState = Mouse.GetState();
 
             DeltaTimeMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             DeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            
+        }
+        public static void Update() 
+        {
+            _keyState = Keyboard.GetState();
+            _mouseState = Mouse.GetState();
+
             UpdateFPS();
 
             fixedUpdateBuffer += DeltaTime;
             while (fixedUpdateBuffer >= FixedDeltaTime)
             {
-                FrameEvents.FixedUpdate.Trigger(gameTime);
+                FrameEvents.FixedUpdate.Trigger();
                 fixedUpdateBuffer -= FixedDeltaTime;
             }
         }
-        public static void UpdateFPS()
+
+        private static void UpdateFPS()
         {
             frameCount++;
             fpsBuffer += DeltaTimeMs;

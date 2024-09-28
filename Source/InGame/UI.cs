@@ -5,6 +5,8 @@ using GlobalTypes;
 using System;
 using Monoproject;
 using SharpDX.Direct3D9;
+using InGame.GameObjects;
+using System.Linq;
 
 namespace InGame
 {
@@ -14,13 +16,15 @@ namespace InGame
         public static string CustomInfo { get; set; }
         public static SpriteFont Silk { get; private set; }
         public static SpriteFont SilkBold { get; private set; }
+        public static bool DrawDebug { get; set; }
         public static bool UseCustomCursor 
         {
             get => IsUsingCustomCursor;
             set => Main.Instance.IsMouseVisible = !value;
         }
         private static bool IsUsingCustomCursor => !Main.Instance.IsMouseVisible;
-        
+        private static string playerCombos => string.Join("\n", Level.GetObject<Player>()?.Combos.Select((c, i) => $"{i + 1} {c}"));
+
         private static InterfaceDrawer drawer;
         private static SpriteBatch spriteBatch;
         private static void Load()
@@ -35,16 +39,19 @@ namespace InGame
 
             drawer.AddDrawAction(DrawInfo, DrawMouse);
         }
-        public static void DrawInfo(GameTime gameTime)
+        public static void DrawInfo()
         {
             spriteBatch.DrawString(Silk,
-                $"{FrameInfo.FPS} / {FrameInfo.DeltaTime} \n" +
-                $"{GC.GetTotalMemory(false).ToSizeString()}\n" +
-                $"{FrameInfo.MousePosition}\n" +
+                (DrawDebug ? 
+                $"{FrameInfo.FPS} / {FrameInfo.DeltaTime}\n" +
+                $"{GC.GetTotalMemory(false).ToSizeString()}\n" : 
+                "") +
+                
+                /*$"{playerCombos}\n" +*/
                 CustomInfo,
                 new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
         }
-        public static void DrawMouse(GameTime gameTime)
+        public static void DrawMouse()
         {
             if (!IsUsingCustomCursor) 
                 return;

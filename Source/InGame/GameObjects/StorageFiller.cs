@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace InGame.GameObjects
 {
-    public class StorageFiller : ModularObject, ILevelObject
+    public class StorageFiller : ModularObject, ILevelObject, IFillable
     {
         public string Tag => nameof(StorageFiller);
         public bool IsInitialized { get; private set; } = false;
@@ -21,9 +21,9 @@ namespace InGame.GameObjects
         public Color TextColor { get; set; } = Color.White;
 
         public string CurrentCombo => text[..textIndex];
-        public int MaxLength { get; private set; }
+        public int Size { get; private set; }
 
-        public bool IsFilled => textIndex >= MaxLength;
+        public bool IsFilled => textIndex >= Size;
 
         private StepTask moveTask;
         private StepTask moveBackTask;
@@ -34,7 +34,7 @@ namespace InGame.GameObjects
         private Vector2 textOrigin;
         private Vector2 drawOffset = Vector2.Zero;
 
-        private Collider trigger;
+        private Collider collider;
 
         private IngameDrawer drawer;
         private SpriteBatch spriteBatch;
@@ -45,13 +45,12 @@ namespace InGame.GameObjects
         private static char EmptyChar => '-';
         private static SpriteFont Font => UI.SilkBold;
         
-        public StorageFiller(ComboStorage storage, int maxLength)
+        public StorageFiller(ComboStorage storage, int size)
         {
             Storage = storage;
-            MaxLength = maxLength;
-            
-            text = EmptyChar.Times(maxLength);
-            UpdateOrigin();
+            Size = size;
+
+            Clear();
 
             drawer = IngameDrawer.Instance;
             spriteBatch = drawer.SpriteBatch;
@@ -64,7 +63,7 @@ namespace InGame.GameObjects
 
             IsInitialized = true;
 
-            trigger = AddModule(new Collider()
+            collider = AddModule(new Collider()
             {
                 Mode = ColliderMode.Trigger,
                 polygon = Polygon.Rectangle(textOrigin.X * 2, 30)
@@ -72,26 +71,11 @@ namespace InGame.GameObjects
 
             drawer.AddDrawAction(Draw);
 
-            trigger.TriggerEnter += c =>
-            {
-                if (c.Owner is not Player player)
-                    return;
+            moveTask = new(Move);
+            moveBackTask = new(MoveBack);
 
-                player.CanCombinate = true;
-
-                moveBackTask?.Break();
-                moveTask = new(Move(smoothDistance), true);
-            };
-            trigger.TriggerExit += c =>
-            {
-                if (c.Owner is not Player player)
-                    return;
-
-                player.CanCombinate = false;
-                
-                moveTask?.Break();
-                moveBackTask = new(MoveBack(), true);
-            };
+            collider.TriggerEnter += OnTriggerEnter;
+            collider.TriggerExit += OnTriggerExit;
         }
         public void Destruct() => Destroy();
 
@@ -99,7 +83,11 @@ namespace InGame.GameObjects
         {
             if (IsFilled)
             {
-                return Storage.Push(new Combo(text));
+                bool isPushed = Storage.Push(new Combo(text));
+
+                Clear();
+
+                return isPushed;
             }
 
             return false;
@@ -125,9 +113,17 @@ namespace InGame.GameObjects
                 UpdateOrigin();
             }
         }
-
-        private IEnumerator Move(Vector2 end)
+        public void Clear()
         {
+            textIndex = 0;
+            text = EmptyChar.Times(Size);
+            UpdateOrigin();
+        }
+
+        private IEnumerator Move()
+        {
+            Vector2 end = smoothDistance;
+
             float elapsed = 0;
             while (elapsed < 1f)
             {
@@ -151,7 +147,30 @@ namespace InGame.GameObjects
             drawOffset = Vector2.Zero;
         }
 
-        private void Draw(GameTime gt)
+        private void OnTriggerEnter(Collider c)
+        {
+            if (c.Owner is not Player player)
+                return;
+
+            player.CanCombinate = true;
+            player.CanRollCombos = false;
+
+            moveBackTask?.Break();
+            moveTask.Start();
+        }
+        private void OnTriggerExit(Collider c)
+        {
+            if (c.Owner is not Player player)
+                return;
+
+            player.CanCombinate = false;
+            player.CanRollCombos = true;
+
+            moveTask?.Break();
+            moveBackTask.Start();
+        }
+
+        private void Draw()
         {
             spriteBatch.DrawString(
                 Font,
@@ -172,16 +191,8 @@ namespace InGame.GameObjects
         {
             drawer.RemoveDrawAction(Draw);
 
-            trigger.TriggerEnter -= _ =>
-            {
-                moveBackTask?.Break();
-                moveTask = new(Move(smoothDistance), true);
-            };
-            trigger.TriggerExit -= _ =>
-            {
-                moveTask?.Break();
-                moveBackTask = new(MoveBack(), true);
-            };
+            collider.TriggerEnter -= OnTriggerEnter;
+            collider.TriggerExit -= OnTriggerExit;
         }
     }
 }

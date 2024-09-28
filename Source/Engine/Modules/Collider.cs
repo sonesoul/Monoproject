@@ -23,7 +23,7 @@ namespace Engine.Modules
             public static void Register(Collider collider) => _allColliders.Add(collider);
             public static void Unregister(Collider collider) => _allColliders.Remove(collider);
 
-            public static void EndUpdate(GameTime gt)
+            public static void EndUpdate()
             {
                 _allColliders.LockRun(
                     () => Parallel.ForEach(
@@ -52,7 +52,7 @@ namespace Engine.Modules
         private ColliderMode _colliderMode = ColliderMode.Physical;
         private Action<IReadOnlyList<Collider>> _intersectionChecker;
 
-        private Action<GameTime> _drawAction;
+        private Action _drawAction;
         private ShapeDrawer _shapeDrawer;
 
         public Collider(ModularObject owner = null) : base(owner) { }
@@ -124,7 +124,7 @@ namespace Engine.Modules
             _bounding.Height = height;
         }
 
-        private void Draw(GameTime gt)
+        private void Draw()
         {
             Vector2 current = PolygonVerts[0] + Owner.IntegerPosition;
             Vector2 next;
@@ -141,7 +141,7 @@ namespace Engine.Modules
 
         private void PhysicalCheck(IReadOnlyList<Collider> colliders)
         {
-            foreach (var item in colliders.Where(c => (c.Mode == ColliderMode.Physical || c.Mode == ColliderMode.Static) && IsWithinDistance(c, 2)))
+            foreach (var item in colliders.Where(c => IsWithinDistance(c, 2)))
             {
                 if (item == this || IsDisposed)
                     continue;
@@ -230,7 +230,7 @@ namespace Engine.Modules
 
             if (other.Mode == ColliderMode.Physical)
                 other.Owner.Position -= mtv;
-            else
+            else if (other.Mode == ColliderMode.Static)
                 Owner.Position += mtv;
         }
 

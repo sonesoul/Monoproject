@@ -18,6 +18,9 @@ namespace InGame
     {
         public static char[] KeyPattern { get; private set; } = new char[] { 'Q', 'W', 'E', 'R' };
         public static int StorageSize { get; private set; } = 5;
+        public static int FillerSize { get; private set; } = 4;
+
+        public static Player PlayerInstance { get; private set; } = null;
 
         private readonly static List<ILevelObject> levelObjects = new();
 
@@ -39,13 +42,14 @@ namespace InGame
                 }
             }
         };
+        
         private readonly static Random random = new();
-
+        
         public static void New()
         {
             Clear();
 
-            FrameEvents.EndSingle.Append(gt =>
+            FrameEvents.EndSingle.Append(() =>
             {
                 Vector2 center = InstanceInfo.WindowSize / 2;
 
@@ -58,19 +62,21 @@ namespace InGame
                     Position = center.WhereY(y => y = 700)
                 };
 
-                Player player = new()
-                {
-                    Position = center
-                };
-                AddObjects(storage, filler, player);
+                PlayerInstance ??= new();
+                PlayerInstance.Position = center;
+                PlayerInstance.Reset();
+                AddObjects(storage, filler, PlayerInstance);
 
                 NewPlatforms();
             });
         }
         public static void Clear()
         {
-            foreach(var item in levelObjects)
-                item.Destruct();
+            foreach (var item in levelObjects) 
+            {
+                if (item is not Player)
+                    item.Destruct();
+            }
 
             levelObjects.Clear();
         }

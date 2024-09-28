@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
@@ -7,10 +6,10 @@ namespace Engine.Drawing
 {
     public interface IDrawer
     {
-        public void DrawAll(GameTime gameTime);
-        public void AddDrawAction(params Action<GameTime>[] drawActions);
+        public void DrawAll();
+        public void AddDrawAction(params Action[] drawActions);
 
-        public void RemoveDrawAction(Action<GameTime> drawAction);
+        public void RemoveDrawAction(Action drawAction);
 
         public SpriteBatch SpriteBatch { get; }
         public GraphicsDevice GraphicsDevice { get; }
@@ -20,7 +19,7 @@ namespace Engine.Drawing
     {
         protected SpriteBatch _spriteBatch;
         protected GraphicsDevice _graphicsDevice;
-        protected List<Action<GameTime>> _drawActions = new();
+        protected List<Action> _drawActions = new();
 
         protected void Init(SpriteBatch batch, GraphicsDevice device)
         {
@@ -28,19 +27,19 @@ namespace Engine.Drawing
             _spriteBatch = batch;
         }
 
-        public virtual void DrawAll(GameTime gameTime)
+        public virtual void DrawAll()
         {
             foreach (var item in _drawActions)
             {
-                item.Invoke(gameTime);
+                item.Invoke();
             }
         }
-        public virtual void AddDrawAction(Action<GameTime> drawAction)
+        public virtual void AddDrawAction(Action drawAction)
         {
             if (drawAction != null)
                 _drawActions.Add(drawAction);
         }
-        public virtual void AddDrawAction(params Action<GameTime>[] drawActions)
+        public virtual void AddDrawAction(params Action[] drawActions)
         {
             foreach (var item in drawActions)
             {
@@ -49,7 +48,7 @@ namespace Engine.Drawing
             }
         }
 
-        public virtual void RemoveDrawAction(Action<GameTime> drawAction)
+        public virtual void RemoveDrawAction(Action drawAction)
         {
             if (drawAction != null)
                 _drawActions.Remove(drawAction);

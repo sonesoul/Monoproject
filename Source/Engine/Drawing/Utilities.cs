@@ -90,7 +90,7 @@ namespace Engine.Drawing
             }
         }
 
-        public void Draw(GameTime gt)
+        public void Draw()
         {
             ShapeDrawer.DrawLine(Start, End, IngameDrawer.Instance, LineColor, Thickness);
             

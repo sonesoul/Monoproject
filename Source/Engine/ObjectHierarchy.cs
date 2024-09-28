@@ -23,7 +23,7 @@ namespace Engine
         
         public bool IsDestroyed { get; private set; } = false;
 
-        public void Destroy() => FrameEvents.EndSingle.Add(gt => DestroyAction(), EndSingleOrders.Destroy);
+        public void Destroy() => FrameEvents.EndSingle.Add(DestroyAction, EndSingleOrders.Destroy);
         public void ForceDestroy() => DestroyAction();
         protected void DestroyAction() 
         {
@@ -176,7 +176,7 @@ namespace Engine
                 AddModule(module);
         }
 
-        public void Draw(GameTime gameTime)
+        public void Draw()
         {
             if (CanDraw)
             {
@@ -259,7 +259,7 @@ namespace Engine
             (characters[index1], characters[index2]) = (characters[index2], characters[index1]);
         }
 
-        public virtual void Draw(GameTime gameTime)
+        public virtual void Draw()
         {
             if (!CanDraw) 
                 return;
@@ -301,7 +301,7 @@ namespace Engine
 
             Origin = position / 2;
 
-            FrameEvents.PreDraw.AppendSingle(gt => BuildTexture());
+            FrameEvents.PreDraw.AppendSingle(BuildTexture);
         }
 
         private void BuildTexture()

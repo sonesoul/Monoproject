@@ -18,7 +18,7 @@ namespace InGame
             Level.New();
         }
 
-        private void Update(GameTime gameTime)
+        private void Update()
         {
             
         }

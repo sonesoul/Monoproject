@@ -52,7 +52,7 @@ namespace Engine.Modules
 
         public void Dispose()
         {
-            FrameEvents.EndSingle.Add(gt => DisposeAction(true), EndSingleOrders.Dispose); 
+            FrameEvents.EndSingle.Add(() => DisposeAction(true), EndSingleOrders.Dispose); 
             GC.SuppressFinalize(this);
         }
         public void ForceDispose() => DisposeAction(true);

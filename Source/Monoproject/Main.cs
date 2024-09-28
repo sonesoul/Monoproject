@@ -61,7 +61,7 @@ namespace Monoproject
             InstanceInfo.UpdateVariables();
 
             Monoconsole.Handler = input => Executor.FromString(input);
-            Monoconsole.Opened += () =>
+            Monoconsole.Opened += async () =>
             {
                 string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
                 StringBuilder sb = new();
@@ -71,11 +71,11 @@ namespace Monoproject
                     sb.Append(chars[rnd.Next(chars.Length)]);
 
                 List<ConsoleColor> colors = Enum.GetValues<ConsoleColor>().Where(c => c != ConsoleColor.Black).ToList();
-                Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[new Random().Next(colors.Count)]);
+                await Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[new Random().Next(colors.Count)]);
             };
-            
+
             Monoconsole.New();
-            Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}"); 
+            Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}");
         }
 
         protected override void LoadContent()
@@ -107,30 +107,35 @@ namespace Monoproject
 
         protected override void Update(GameTime gameTime)
         {
-            FrameEvents.Update.Trigger(gameTime);
-            FrameEvents.EndUpdate.Trigger(gameTime);
+            FrameInfo.UpdateGameTime(gameTime);
+            FrameInfo.Update();
 
-            FrameEvents.EndSingle.Trigger(gameTime);
+            FrameEvents.Update.Trigger();
+            FrameEvents.EndUpdate.Trigger();
+
+            FrameEvents.EndSingle.Trigger();
         }
         protected override void Draw(GameTime gameTime)
         {
+            FrameInfo.UpdateGameTime(gameTime);
+            
             GraphicsDevice.Clear(BackgroundColor);
             
-            FrameEvents.PreDraw.Trigger(gameTime);
-            DrawFrame(gameTime);
-            FrameEvents.PostDraw.Trigger(gameTime);
+            FrameEvents.PreDraw.Trigger();
+            DrawFrame();
+            FrameEvents.PostDraw.Trigger();
 
             base.Draw(gameTime);
         }
         
-        private void DrawFrame(GameTime gameTime)
+        private void DrawFrame()
         {
             _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
-            _ingameDrawer.DrawAll(gameTime);
+            _ingameDrawer.DrawAll();
             _spriteBatch.End();
 
             _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp);
-            _interfaceDrawer.DrawAll(gameTime);
+            _interfaceDrawer.DrawAll();
             _spriteBatch.End();
         }
                  

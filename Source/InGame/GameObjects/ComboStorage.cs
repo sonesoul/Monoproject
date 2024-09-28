@@ -15,7 +15,7 @@ namespace InGame.GameObjects
         public int Size { get; private set; }
 
         public char Requirement { get; private set; }
-        public int CombosLeft => Size - combos.Count;
+        public int CombosLeft => Size - pushedCombos.Count;
 
         private static SpriteFont BracketsFont => UI.Silk;
         private static SpriteFont LetterFont => UI.SilkBold;
@@ -24,7 +24,7 @@ namespace InGame.GameObjects
         private static SpriteBatch SpriteBatch => Drawer.SpriteBatch;
 
         private Vector2 letterOrigin;
-        private readonly List<Combo> combos = new();
+        private readonly List<Combo> pushedCombos = new();
 
         public ComboStorage(int storageSize)
         {
@@ -41,12 +41,18 @@ namespace InGame.GameObjects
             if (combo.Contains(Requirement))
             {
                 RollRequirement();
+                pushedCombos.Add(combo);
+
+                if (pushedCombos.Count >= Size)
+                    Level.New();
+
                 return true;
             }
+
             return false;
         }
 
-        private void Draw(GameTime gt)
+        private void Draw()
         {
             //letter
             SpriteBatch.DrawString(

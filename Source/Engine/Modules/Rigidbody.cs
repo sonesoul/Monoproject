@@ -24,7 +24,7 @@ namespace Engine.Modules
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
         public Vector2 maxVelocity = new(-1, -1);
-        private OrderedAction<GameTime> _onEndUpdate;
+        private OrderedAction _onEndUpdate;
 
         public static Vector2 Gravity { get; set; } = new(0, 9.81f);
 
@@ -310,13 +310,13 @@ namespace Engine.Modules
         
         public void AddForce(Vector2 force) => forces += force / Delta;
 
-        private void EndUpdate(GameTime gt)
+        private void EndUpdate()
         {
             ApplyGravity();
             velocity += forces / Mass * Delta;
             forces = Vector2.Zero;
 
-            foreach (var item in UsedCollider.Intersections)
+            foreach (var item in UsedCollider.Intersections.Where(i => i.Mode == ColliderMode.Physical || i.Mode == ColliderMode.Static))
             {
                 if (item.IsDisposed)
                     continue;

@@ -13,6 +13,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using GlobalTypes.InputManagement;
 using System.Diagnostics;
+using InGame.GameObjects;
 
 namespace GlobalTypes
 {
@@ -23,14 +24,29 @@ namespace GlobalTypes
             public static Dictionary<string, Action<string>> Commands => _commands;
             private readonly static Dictionary<string, Action<string>> _commands = new() 
             {
-                { "writeexec", static arg => WriteSet(WriteExecuted = bool.Parse(arg)) },
-                { "isfpsfixed", static arg => WriteSet(Main.Instance.IsFixedTimeStep = bool.Parse(arg)) },
+                { "writeexec", static arg => SetProp(arg, nameof(WriteExecuted), typeof(Monoconsole)) },
+                { "isfpsfixed", static arg => SetProp(arg, nameof(Main.Instance.IsFixedTimeStep), Main.Instance) },
+                { "drawdebug", static arg => SetProp(arg, nameof(UI.DrawDebug), typeof(UI))},
                 { "customcur", CustomCurCommand },
             };
+            private static void SetProp(string arg, string propname, Type t, object obj = null)
+            {
+                var property = t.GetProperty(propname);
+                
+                bool before = (bool)property.GetValue(obj);
+                bool after = string.IsNullOrEmpty(arg) ? !before : bool.Parse(arg);
+
+                property.SetValue(obj, after);
+                WriteSet(after);
+            }
+
+            private static void SetProp(string arg, string propname, object obj) => SetProp(arg, propname, obj.GetType(), obj);
+            private static void WriteSet(bool value) => WriteInfo(value ? "Enabled" : "Disabled");
+
             private static void CustomCurCommand(string arg)
             {
                 Main main = Main.Instance;
-                bool value = bool.Parse(arg);
+                bool value = string.IsNullOrEmpty(arg) ? !UI.UseCustomCursor : bool.Parse(arg);
 
                 WriteSet(value);
 
@@ -43,7 +59,6 @@ namespace GlobalTypes
                 main.Activated += Toggle;
             }
 
-            private static void WriteSet(bool value) => WriteInfo(value ? "Enabled" : "Disabled");
         }
         private static class GeneralExecution
         {
@@ -64,13 +79,14 @@ namespace GlobalTypes
                 { "throw", static _ => throw new()},
                 { "fps", FpsCommand},
 
-                { "stopwatch", StopwatchCommand},
+                { "stopwatch", StopwatchCommand },
                 { "ruler", RulerCommand },
-                { "level", LevelCommand },
                 { "captwin", static arg => CaptureWindow(string.IsNullOrEmpty(arg) ? 1 : int.Parse(arg)) },
                 { "writeinput", static _ => ToggleWriteInput() },
+                { "level", LevelCommand },
+                { "combo", ComboCommand },
             };
-
+            
             private readonly static Ruler ruler = new();
             private readonly static KeyBinding[] rulerBindings =
             {
@@ -81,7 +97,29 @@ namespace GlobalTypes
             private static bool writeInputEnabled = false;
             private readonly static Stopwatch stopwatch = new();
 
+            private static void ComboCommand(string arg)
+            {
+                SubInput(arg, out var subCommand, out var subArg);
+                var player = Level.GetObject<Player>();
 
+                switch (subCommand)
+                {
+                    case "add":
+
+                        player.AddCombo(Combo.NewRandom());
+
+                        break;
+                    case "remove":
+                        
+                        Combo combo = player.Combos[int.Parse(subArg)];
+                        player.RemoveCombo(combo);
+
+                        break;
+                    default:
+                        LogInvalidArg(subCommand, nameof(subCommand));
+                        break;
+                }
+            }
             private static void FpsCommand(string arg)
             {
                 float fps = float.Parse(arg);
@@ -394,7 +432,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             private readonly static Dictionary<string, Action<string>> _commands = new()
             {
                 { "run", Execute },
-                { "async", static arg => Task.Run(() => ExecuteAsync(arg)) },
+                { "async", static arg => System.Threading.Tasks.Task.Run(() => ExecuteAsync(arg)) },
                 { "unsafe", static arg => ExecuteOnThread(Main.Instance.SyncContext, arg, (ex) => DialogBox.ShowException(ex)) },
                 { "on", RunOn },
                 { "if", If },
@@ -426,16 +464,16 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 switch (eventType)
                 {
                     case "update":
-                        FrameEvents.Update.AppendSingle(_ => Execute(command));
+                        FrameEvents.Update.AppendSingle(() => Execute(command));
                         break;
                     case "endupdate":
-                        FrameEvents.EndUpdate.AppendSingle(_ => Execute(command));
+                        FrameEvents.EndUpdate.AppendSingle(() => Execute(command));
                         break;
                     case "predraw":
-                        FrameEvents.PreDraw.AppendSingle(_ => Execute(command));
+                        FrameEvents.PreDraw.AppendSingle(() => Execute(command));
                         break;
                     case "postdraw":
-                        FrameEvents.PostDraw.AppendSingle(_ => Execute(command));
+                        FrameEvents.PostDraw.AppendSingle(() => Execute(command));
                         break;
                 }
             }
@@ -490,7 +528,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     time = float.Parse(arg);
                 }
 
-                Task.Delay((int)(1000f * time)).Wait();
+                System.Threading.Tasks.Task.Delay((int)(1000f * time)).Wait();
             }
             private static void Batch(string arg)
             {

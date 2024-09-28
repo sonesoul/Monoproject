@@ -2,6 +2,7 @@ using System.Collections;
 using GlobalTypes.Events;
 using System;
 using GlobalTypes.Collections;
+using System.Threading.Tasks;
 
 namespace GlobalTypes
 {
@@ -13,14 +14,25 @@ namespace GlobalTypes
             private readonly static OrderedList<StepTask> tasks = new();
             private static void Init()
             {
-                FrameEvents.Update.Add(gt => Update(), UpdateOrders.CoroutineManager);
+                FrameEvents.Update.Add(() => Update(), UpdateOrders.CoroutineManager);
             }
 
             private static void Update()
             {
                 for (int i = tasks.Count - 1; i >= 0; i--)
                 {
-                    if (!tasks[i].Action.MoveNext())
+                    if (tasks[i].IsPaused)
+                        continue;
+
+                    var action = tasks[i].workingTask;
+
+                    if (action.Current is IEnumerator subCoroutine)
+                    {
+                        if (subCoroutine.MoveNext())
+                            continue;
+                    }
+                    
+                    if (!action.MoveNext())
                     {
                         tasks.RemoveAt(i);
                     }
@@ -34,27 +46,51 @@ namespace GlobalTypes
             public static bool Contains(StepTask coroutine) => tasks.Contains(coroutine);
         }
 
-        public bool IsRunning => item != null;
+        public bool IsRunning => item != null && !IsPaused;
+        public bool IsPaused { get; set; } = false;
         public int Order { get; set; }
-        public IEnumerator Action { get; set; }
+        public Func<IEnumerator> Task { get; set; }
 
+        public event Action Completed;
+
+        private IEnumerator workingTask;
         private OrderedItem<StepTask>? item = null;
 
-        public StepTask(IEnumerator action, bool run = false) 
+        public StepTask(Func<IEnumerator> task, bool run = false)
         {
-            Action = action ?? throw new ArgumentNullException(nameof(action), "Action can't be null.");
+            Task = task;
 
             if (run)
-                Run();
+                Start();
         }
-        public void Run() => item = StepTaskManager.Append(this);
-        public void RunNew()
+        public void Start()
+        {
+            workingTask = Task() ?? throw new ArgumentNullException(nameof(Task), "Action can't be null.");
+            item = StepTaskManager.Append(this);
+        }
+        public void Restart()
         {
             if (IsRunning)
                 Break();
 
-            Run();
+            Start();
         }
+        
+        public void Pause()
+        {
+            if (IsPaused)
+                return;
+
+            IsPaused = true;
+        }
+        public void Resume()
+        {
+            if (!IsPaused)
+                return;
+
+            IsPaused = false;
+        }
+
         public void Break()
         {
             if (item.HasValue)
@@ -64,6 +100,10 @@ namespace GlobalTypes
             }
         }
 
+        public static StepTask Run(Func<IEnumerator> action) => new(action, true);
+
+        #region WaitMethods
+        
         public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameInfo.DeltaTime));
         public static IEnumerator WaitForRealSeconds(float seconds)
         {
@@ -82,5 +122,21 @@ namespace GlobalTypes
                 yield return null;
             }
         }
+        public static IEnumerator WaitWhile(Func<bool> condition)
+        {
+            while (condition())
+            {
+                yield return null;
+            }
+        }
+        public static IEnumerator WaitUntil(Func<bool> condition)
+        {
+            while (!condition())
+            {
+                yield return null;
+            }
+        }
+
+        #endregion
     }
 }

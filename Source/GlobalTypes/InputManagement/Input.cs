@@ -40,7 +40,7 @@ namespace GlobalTypes.InputManagement
             DownKey = new(down, KeyPhase.Hold, null, -1);
 
             Bind(RightKey, LeftKey, UpKey, DownKey);
-            FrameEvents.Update.Add(_ => Update(), UpdateOrders.InputManager);
+            FrameEvents.Update.Add(Update, UpdateOrders.InputManager);
         }
 
         private static void Update()

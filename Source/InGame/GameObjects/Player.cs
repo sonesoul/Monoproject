@@ -2,11 +2,13 @@
 using Engine.Drawing;
 using Engine.Modules;
 using Engine.Types;
+using GlobalTypes;
 using GlobalTypes.Events;
 using GlobalTypes.InputManagement;
 using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -14,6 +16,90 @@ namespace InGame.GameObjects
 {
     public class Player : StringObject, ILevelObject
     {
+        [Init(nameof(Init))]
+        private static class PlayerVisual
+        {
+            private static readonly List<ComboVisual> comboDisplays = new();
+            private static Vector2 comboStartPosition = new(10, 10);
+            private static float comboSpacing = 30f;
+
+            public class ComboVisual
+            {
+                public Combo Combo { get; set; }
+                public Vector2 Position { get; set; }
+                public Vector2 TargetPosition { get; set; }
+
+                public float Alpha { get; set; } = 1f;
+                public bool IsDisappearing { get; set; } = false;
+
+                public ComboVisual(Combo combo, Vector2 position)
+                {
+                    Combo = combo;
+                    Position = position;
+                    TargetPosition = position;
+                }
+            }
+
+            private static void Init()
+            {
+                InterfaceDrawer.Instance.AddDrawAction(Draw);
+                FrameEvents.Update.Append(Update);
+            }
+
+            private static void Update()
+            {
+                for (int i = comboDisplays.Count - 1; i >= 0; i--)
+                {
+                    var display = comboDisplays[i];
+
+                    if (display.IsDisappearing)
+                    {
+                        display.Alpha -= 0.10f;
+                        if (display.Alpha <= 0)
+                        {
+                            comboDisplays.RemoveAt(i);
+                            UpdateTargetPositions();
+                            continue;
+                        }
+                    }
+
+                    display.Position = Vector2.Lerp(display.Position, display.TargetPosition, 0.2f);
+                }
+            }
+            private static void Draw()
+            {
+                foreach (var display in comboDisplays)
+                {
+                    Color color = Color.White * display.Alpha;
+                    InstanceInfo.SpriteBatch.DrawString(UI.Silk, display.Combo.ToString(), display.Position, color);
+                }
+            }
+
+            public static void AddComboVisual(Combo combo)
+            {
+                Vector2 position = comboStartPosition + new Vector2(0, comboDisplays.Count * comboSpacing);
+                comboDisplays.Add(new ComboVisual(combo, position));
+            }
+            public static void RemoveComboVisual(Combo combo)
+            {
+                var display = comboDisplays.FirstOrDefault(c => c.Combo == combo);
+                if (display != null)
+                {
+                    display.IsDisappearing = true;
+                }
+
+                UpdateTargetPositions();
+            }
+
+            private static void UpdateTargetPositions()
+            {
+                for (int i = 0; i < comboDisplays.Count; i++)
+                {
+                    comboDisplays[i].TargetPosition = comboStartPosition + new Vector2(0, i * comboSpacing);
+                }
+            }
+        }
+
         public string Tag => nameof(Player);
         public bool IsInitialized { get; private set; } = false;
         public bool IsDestructed { get; private set; } = true;
@@ -21,9 +107,11 @@ namespace InGame.GameObjects
         public bool CanMove { get; set; } = true;
         public bool CanJump { get; set; } = true;
         public bool CanCombinate { get; set; } = false;
+        public bool CanRollCombos { get; set; } = true;
 
         public float JumpPower { get; set; } = 9.5f;
         public float MoveSpeed { get; set; } = 6;
+
         public IReadOnlyList<Combo> Combos => combos;
 
         public Key JumpKey { get; set; } = Input.AxisCulture.Up;
@@ -34,15 +122,13 @@ namespace InGame.GameObjects
         private Collider collider;
         private Rigidbody rigidbody;
 
-        private OrderedAction<GameTime> _onUpdate;
+        private OrderedAction _onUpdate;
         private KeyBinding _onJumpPress;
 
-        private readonly List<Combo> combos = new()
-        {
-            new("QWER"),
-            new("QWQR"),
-            new("ERWQ"),
-        };
+        private StepTask _comboRollTask = null;
+
+        private readonly List<Combo> combos = new();
+        private readonly int poolSize = 4;
 
         public Player() : base(IngameDrawer.Instance, "#", UI.Silk) 
         {
@@ -74,17 +160,54 @@ namespace InGame.GameObjects
             
             _onUpdate = FrameEvents.Update.Append(Update);
             _onJumpPress = Input.Bind(JumpKey, KeyPhase.Press, Jump);
+
+            Input.KeyPressed += OnKeyPressed;
+
+            _comboRollTask ??= new(RollCombos, true);
         }
         public void Destruct() => Destroy();
+        public void Reset()
+        {
+            if (rigidbody != null)
+                rigidbody.velocity = Vector2.Zero;
+        }
 
-        public void AddCombo(Combo combo) => combos.Add(combo);
-        public void RemoveCombo(Combo combo) => combos.Remove(combo);
+        public void AddCombo(Combo combo)
+        {
+            combos.Add(combo);
 
-        private void Update(GameTime time)
+            if (combos.Count > poolSize)
+                RemoveCombo(combos[0]);
+
+            PlayerVisual.AddComboVisual(combo);
+        }
+        public void RemoveCombo(Combo combo)
+        {
+            combos.Remove(combo);
+            PlayerVisual.RemoveComboVisual(combo);
+        }
+        public void RemoveComboAt(int index)
+        {
+            Combo combo = combos[index];
+            RemoveCombo(combo);
+        }
+
+        private void Update()
         {
             Move();
+        }
 
-            UpdateTyping();
+        private IEnumerator RollCombos()
+        {
+            while (true) 
+            {
+                yield return StepTask.WaitWhile(() => !CanRollCombos);
+                yield return StepTask.WaitForSeconds(1.5f);
+                
+                AddCombo(Combo.NewRandom());
+
+                yield return StepTask.WaitForSeconds(1.5f);
+            }
         }
 
         private void Move()
@@ -103,41 +226,36 @@ namespace InGame.GameObjects
             }
         }
 
-        private void UpdateTyping()
+        private void OnKeyPressed(Key key)
         {
-            if (!CanCombinate)
+            char keyChar = (char)key;
+
+            if (!Level.KeyPattern.Contains(keyChar))
                 return;
-            
-            StorageFiller filler = Level.GetObject<StorageFiller>();
 
-            Key[] keys = Input.GetPressedKeys().Where(k => k.ToString().Length == 1).ToArray();
+            //StorageFiller filler = Level.GetObject<StorageFiller>();
+            var fillables = collider.Intersections.Where(i => i.Owner is IFillable).Select(i => (IFillable)i.Owner).ToList();
 
-            if (keys.Length > 0)
+            if (!fillables.Any())
+                return;
+
+            foreach (var filler in fillables)
             {
-                int count = 0;
-                while (count < keys.Length && pressedKeys.Contains(keys[count]))
-                    count++;
-
-                if (count >= keys.Length)
-                    return;
-
-                Key key = keys[count];
-
-                char keyChar = (char)key;
-                
-                if (!Level.KeyPattern.Contains(keyChar))
-                    return;
-
-                pressedKeys.Add(key);
-                Input.Bind(key, KeyPhase.Release, () => pressedKeys.Remove(key));
-
-                string fillerCrnt = filler.CurrentCombo;
-
-                if (combos.Where(c => c.Contains(fillerCrnt + keyChar)).Any())
+                if (combos.Where(c => c.StartsWith(filler.CurrentCombo + keyChar)).Any())
                 {
                     filler.Append(keyChar);
+
+                    if (filler.IsFilled)
+                    {
+                        Combo combo = new(filler.CurrentCombo);
+                        filler.Push();
+
+                        RemoveCombo(combo);
+                        AddCombo(Combo.NewRandom());
+                    }
                 }
             }
+            
         }
 
         protected override void PostDestroy()
@@ -150,6 +268,7 @@ namespace InGame.GameObjects
             rigidbody = null;
             collider = null;
             _onJumpPress = null;
+            _comboRollTask.Break();
         }
     }
 }
