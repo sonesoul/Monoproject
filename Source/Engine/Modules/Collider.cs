@@ -32,7 +32,6 @@ namespace Engine.Modules
             }
         }
 
-        private List<Vector2> PolygonVerts => polygon.Vertices;
         public Rectangle ShapeBounding => _bounding;
         public bool Intersects { get; private set; }
         public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
@@ -41,9 +40,8 @@ namespace Engine.Modules
         public Polygon polygon = Polygon.Rectangle(50, 50);
         public Color drawColor = Color.Green;
 
-        public event Action<Collider> IntersectionEnter, IntersectionStay, IntersectionExit;
-        public event Action<Collider> TriggerEnter, TriggerStay, TriggerExit;
-
+        public event Action<Collider> OverlapEnter, OverlapStay, OverlapExit;
+        
         private readonly List<Collider> _intersections = new();
         private readonly List<Collider> _previousIntersections = new();
 
@@ -54,6 +52,7 @@ namespace Engine.Modules
 
         private Action _drawAction;
         private ShapeDrawer _shapeDrawer;
+        private List<Vector2> PolygonVerts => polygon.Vertices;
 
         public Collider(ModularObject owner = null) : base(owner) { }
 
@@ -157,9 +156,9 @@ namespace Engine.Modules
                     PushOut(item, mtv);
 
                     if (!_previousIntersections.Contains(item))
-                        IntersectionEnter?.Invoke(item);
+                        OverlapEnter?.Invoke(item);
                     else
-                        IntersectionStay?.Invoke(item);
+                        OverlapStay?.Invoke(item);
 
                     UpdatePolygon();
                 }
@@ -168,7 +167,7 @@ namespace Engine.Modules
             foreach (var item in _previousIntersections)
             {
                 if (!Intersections.Contains(item))
-                    IntersectionExit?.Invoke(item);
+                    OverlapExit?.Invoke(item);
             }
         }
         private void StatiCheck(IReadOnlyList<Collider> colliders)
@@ -183,16 +182,16 @@ namespace Engine.Modules
                     _intersections.Add(item);
 
                     if (!_previousIntersections.Contains(item))
-                        IntersectionEnter?.Invoke(item);
+                        OverlapEnter?.Invoke(item);
                     else
-                        IntersectionStay?.Invoke(item);
+                        OverlapStay?.Invoke(item);
                 }
             }
 
             foreach (var item in _previousIntersections)
             {
                 if (!Intersections.Contains(item))
-                    IntersectionExit?.Invoke(item);
+                    OverlapExit?.Invoke(item);
             }
         }
         private void TriggerCheck(IReadOnlyList<Collider> colliders)
@@ -207,16 +206,16 @@ namespace Engine.Modules
                     _intersections.Add(item);
 
                     if (!_previousIntersections.Contains(item))
-                        TriggerEnter?.Invoke(item);
+                        OverlapEnter?.Invoke(item);
                     else
-                        TriggerStay?.Invoke(item);
+                        OverlapStay?.Invoke(item);
                 }
             }
 
             foreach (var item in _previousIntersections)
             {
                 if (!Intersections.Contains(item))
-                    TriggerExit?.Invoke(item);
+                    OverlapExit?.Invoke(item);
             }
         }
 
@@ -273,12 +272,9 @@ namespace Engine.Modules
             _intersections.Clear();
             _previousIntersections.Clear();
 
-            IntersectionEnter = null;
-            IntersectionStay = null;
-            IntersectionExit = null;
-            TriggerEnter = null;
-            TriggerStay = null;
-            TriggerExit = null;
+            OverlapEnter = null;
+            OverlapStay = null;
+            OverlapExit = null;
         }
     }
 }

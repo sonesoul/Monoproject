@@ -2,9 +2,8 @@
 {
     public static class UpdateOrders
     {
-        public static int FrameInfo => -4;
         public static int InputManager => -2;
-        public static int CoroutineManager => -1;
+        public static int StepTaskManager => -1;
         public static int GameMain => 0;
     }
     public static class EndUpdateOrders

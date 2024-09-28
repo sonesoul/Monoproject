@@ -14,7 +14,7 @@ namespace GlobalTypes
             private readonly static OrderedList<StepTask> tasks = new();
             private static void Init()
             {
-                FrameEvents.Update.Add(() => Update(), UpdateOrders.CoroutineManager);
+                FrameEvents.Update.Add(() => Update(), UpdateOrders.StepTaskManager);
             }
 
             private static void Update()
@@ -34,6 +34,7 @@ namespace GlobalTypes
                     
                     if (!action.MoveNext())
                     {
+                        tasks[i].Completed?.Invoke();
                         tasks.RemoveAt(i);
                     }
                 }

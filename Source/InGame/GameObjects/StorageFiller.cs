@@ -74,8 +74,8 @@ namespace InGame.GameObjects
             moveTask = new(Move);
             moveBackTask = new(MoveBack);
 
-            collider.TriggerEnter += OnTriggerEnter;
-            collider.TriggerExit += OnTriggerExit;
+            collider.OverlapEnter += OnTriggerEnter;
+            collider.OverlapExit += OnTriggerExit;
         }
         public void Destruct() => Destroy();
 
@@ -191,8 +191,8 @@ namespace InGame.GameObjects
         {
             drawer.RemoveDrawAction(Draw);
 
-            collider.TriggerEnter -= OnTriggerEnter;
-            collider.TriggerExit -= OnTriggerExit;
+            collider.OverlapEnter -= OnTriggerEnter;
+            collider.OverlapExit -= OnTriggerExit;
         }
     }
 }

@@ -161,10 +161,12 @@ namespace InGame.GameObjects
             _onUpdate = FrameEvents.Update.Append(Update);
             _onJumpPress = Input.Bind(JumpKey, KeyPhase.Press, Jump);
 
-            Input.KeyPressed += OnKeyPressed;
 
             _comboRollTask ??= new(RollCombos, true);
+            
+            Input.KeyPressed += OnKeyPressed;
         }
+
         public void Destruct() => Destroy();
         public void Reset()
         {
@@ -233,9 +235,8 @@ namespace InGame.GameObjects
             if (!Level.KeyPattern.Contains(keyChar))
                 return;
 
-            //StorageFiller filler = Level.GetObject<StorageFiller>();
-            var fillables = collider.Intersections.Where(i => i.Owner is IFillable).Select(i => (IFillable)i.Owner).ToList();
-
+            var fillables = collider.Intersections.Select(c => c.Owner).OfType<IFillable>().ToList();
+            
             if (!fillables.Any())
                 return;
 
@@ -244,14 +245,14 @@ namespace InGame.GameObjects
                 if (combos.Where(c => c.StartsWith(filler.CurrentCombo + keyChar)).Any())
                 {
                     filler.Append(keyChar);
-
+                     
                     if (filler.IsFilled)
                     {
                         Combo combo = new(filler.CurrentCombo);
                         filler.Push();
 
                         RemoveCombo(combo);
-                        AddCombo(Combo.NewRandom());
+                        //AddCombo(Combo.NewRandom());
                     }
                 }
             }
@@ -264,6 +265,7 @@ namespace InGame.GameObjects
 
             FrameEvents.Update.Remove(_onUpdate);
             Input.Unbind(_onJumpPress);
+            Input.KeyPressed -= OnKeyPressed;
 
             rigidbody = null;
             collider = null;
