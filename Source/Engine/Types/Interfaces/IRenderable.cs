@@ -1,4 +1,4 @@
-﻿namespace Engine.Types
+﻿namespace Engine.Types.Interfaces
 {
     public interface IRenderable
     {

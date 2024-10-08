@@ -1,6 +1,5 @@
 ﻿using Engine.Types;
 using GlobalTypes;
-using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -8,86 +7,15 @@ using System.Linq;
 
 namespace Engine.Modules
 {
-    public class Rigidbody : ObjectModule
+    public enum BodyType
     {
-        [Init(nameof(Init))]
-        private static class Updater
-        {
-            private static List<Rigidbody> bodies = new();
-            private static Queue<Rigidbody> updateQueue = new();
+        Dynamic,
+        Kinematic,
+        Static,
+    }
 
-            private static void Init()
-            {
-                FrameEvents.EndUpdate.Add(() =>
-                {
-                    BatchContacts();
-                    UpdateCollisions();
-                }, EndUpdateOrders.RigidbodyUpdater);
-                
-                FrameEvents.PostDraw.Add(() =>
-                {
-                    ApplyGravity();
-                    ApplyForces();
-                    
-                    ApplyVelocity();
-                });
-            }
-
-            public static void Register(Rigidbody rb)
-            {
-                if (!bodies.Contains(rb))
-                    bodies.Add(rb);
-            }
-            public static void Unregister(Rigidbody rb)
-            {
-                if (bodies.Contains(rb))
-                    bodies.Remove(rb);
-            }
-
-            private static void UpdateCollisions()
-            {
-                List<Rigidbody> handled = new();
-                var sorted = bodies.OrderByDescending(b => GetPriority(b)).ToList();
-
-                foreach (var body in sorted)
-                {
-                    if (handled.Contains(body) || !body.UsedCollider.Intersects)
-                        continue;
-
-                    body.UpdatePhysics();
-
-                    while (updateQueue.Count > 0)
-                    {
-                        var queuedBody = updateQueue.Dequeue();
-
-                        queuedBody.UpdatePhysics();
-
-                        handled.Add(queuedBody);
-                    }
-                }
-            }
-
-            private static void BatchContacts() => bodies.PForEach(b => b?.Batch());
-            private static void ApplyGravity() => bodies.PForEach(b => b?.ApplyGravity());
-            private static void ApplyVelocity() => bodies.PForEach(b => b?.ApplyVelocity());
-            private static void ApplyForces() => bodies.PForEach(b => b?.ApplyForces());
-
-            private static int GetPriority(Rigidbody rb)
-            {
-                int priority = 0;
-
-                priority += rb.UsedCollider.Intersections.Count;
-
-                if (rb.BodyType == BodyType.Static)
-                    priority += 1000;
-
-                priority += (int)(rb.velocity.Length());
-
-
-                return priority;
-            }
-        }
-
+    public partial class Rigidbody : ObjectModule
+    {
         public struct Contact
         {
             public readonly struct ContactBatch
@@ -115,7 +43,7 @@ namespace Engine.Modules
                 }
             }
 
-            public readonly Vector2 Normal => Edge.Normal;
+            public readonly Vector2 Normal => Edge.UnitNormal;
             public readonly Vector2 Vertex => Corner.CommonVertex;
             public readonly Vector2 MovedVertex => Edge.ClosestPoint(Corner.CommonVertex);
 
@@ -134,7 +62,7 @@ namespace Engine.Modules
 
                 foreach (var vert in vertsPoly.WorldVertices)
                 {
-                    if (edgesPoly.IsPointWithin(vert))
+                    if (edgesPoly.ContainsPoint(vert))
                     {
                         var mtv = edgesPoly.GetMTV(vertsPoly);
 
@@ -175,7 +103,7 @@ namespace Engine.Modules
 
             public static Corner FromVertex(Vector2 vertex, Polygon poly)
             {
-                List<LineSegment> corners = poly.WorldEdges.Where(e => e.OLDIsPointBetween(vertex)).ToList();
+                List<LineSegment> corners = poly.WorldEdges.Where(e => e.ContainsPoint(vertex)).ToList();
                 return new Corner(vertex, corners[0], corners[1]);
             }
 
@@ -184,24 +112,22 @@ namespace Engine.Modules
 
         public static Vector2 Gravity { get; set; } = new Vector2(0, 9.81f) * 50; // if 1 meter == 50 pixels
 
-        #region Fields
         public float Mass { get; set; } = 1;
         public float Bounciness { get; set; } = 0.0f;
         public float Windage { get; set; } = 0.3f;
 
         public Vector2 VelocityScale { get; set; } = new(1, 1);
         public Vector2 GravityScale { get; set; } = new(0, 0);
+        public Vector2 MaxVelocity { get; set; } = new(-1, -1);
 
         public Collider UsedCollider { get; set; }
         public BodyType BodyType { get; set; }
         
-        public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
-        public Vector2 maxVelocity = new(-1, -1);
+        private Vector2 forces = Vector2.Zero;
 
         private Queue<Contact.ContactBatch> contactBatches = new();
         private List<Rigidbody> suppresedPhysics = new();
-        #endregion
 
         private static float Delta => FrameInfo.FixedDeltaTime;
 
@@ -306,7 +232,7 @@ namespace Engine.Modules
             }
 
             ResolveCollision(batch);
-            otherRb.SuppressCheck(thisRb);
+            otherRb.SuppressUpdate(thisRb);
         }
         
         private static void ResolveCollision(Contact.ContactBatch batch)
@@ -335,7 +261,7 @@ namespace Engine.Modules
                 rb.UsedCollider.UpdateShape();
             }
         }
-        private void SuppressCheck(Rigidbody rb) => suppresedPhysics.Add(rb);
+        private void SuppressUpdate(Rigidbody rb) => suppresedPhysics.Add(rb);
 
         private static Vector2 GetImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody first, Rigidbody second)
         {

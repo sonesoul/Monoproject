@@ -8,8 +8,7 @@ using Engine.Modules;
 using System.Diagnostics;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
-using Engine.Types;
-using GlobalTypes;
+using Engine.Types.Interfaces;
 
 namespace Engine
 {

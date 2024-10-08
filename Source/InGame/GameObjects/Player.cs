@@ -151,7 +151,7 @@ namespace InGame.GameObjects
             },
             new Rigidbody()
             {
-                maxVelocity = new(50, 50),
+                MaxVelocity = new(50, 50),
             });
 
             collider = modules[0] as Collider;
