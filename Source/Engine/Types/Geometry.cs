@@ -17,12 +17,14 @@ namespace Engine.Types
         public float Min { get; set; }
         public float Max { get; set; }
         public Vector2 Axis { get; set; }
+
         public Projection(float min, float max, Vector2 axis)
         {
             Min = min;
             Max = max;
             Axis = axis;
         }
+
         public readonly float GetOverlap(Projection other)
         {
             if (Intersects(other))
@@ -32,36 +34,129 @@ namespace Engine.Types
         }
         public readonly bool Intersects(Projection other) => !(other.Max < Min || other.Min > Max);
 
-        public static float ProjectPoint(Vector2 point, Vector2 axis) => Vector2.Dot(point, axis);
+        public static float ProjectPoint(Vector2 point, Vector2 axis) => Vector2.Dot(point, axis.Normalized());
 
         public readonly override string ToString() => $"{Axis}: {Min} ---- {Max}";
     }
-    
-    [DebuggerDisplay("{ToString(),nq}")] 
+
+    [DebuggerDisplay("{ToString(),nq}")]
     public struct LineSegment : IProjectable
     {
         public Vector2 Start { get; set; } = Vector2.Zero;
         public Vector2 End { get; set; } = Vector2.Zero;
 
         public readonly Vector2 Center => (Start + End) / 2;
-        public readonly float Distance => Vector2.Distance(Start, End);
+        public readonly float Distance => Start.DistanceTo(End);
         public readonly Vector2 Direction => End - Start;
+
         public readonly Vector2 Normal => Direction.UnitNormal();
-        
+        public readonly Vector2 UnitNormal => Direction.UnitNormal();
+        public readonly Vector2 Perpendicular => Direction.Perpendicular();
+        public readonly Vector2 UnitPerpendicular => Direction.Perpendicular();
+
         public LineSegment(Vector2 start, Vector2 end)
         {
             Start = start;
             End = end;
         }
 
-        public readonly bool IsPointBetween(Vector2 point, float tolerance)
+        public readonly bool IsPointBetween(Vector2 point, float tolerance = 0) => DistanceToPoint(point) <= tolerance;
+        public readonly bool IsSegmentBetween(LineSegment other, float tolerance = 0)
+        {
+            return
+                IsPointBetween(other.Start, tolerance) &&
+                IsPointBetween(other.End, tolerance);
+        }
+
+        public readonly bool HasCommonVertex(LineSegment other, out Vector2 vertex)
+        {
+            vertex = Vector2.Zero;
+
+            if (Start == other.Start || Start == other.End)
+            {
+                vertex = Start;
+                return true;
+            }
+            else if (End == other.Start || End == other.End)
+            {
+                vertex = End;
+                return true;
+            }
+
+            return false;    
+        }
+
+        public readonly Vector2 ClosestPoint(Vector2 point)
+        {
+            Vector2 ab = Direction;
+            Vector2 ap = point - Start;
+
+            float proj = Vector2.Dot(ap, ab);
+            float d = (proj / ab.LengthSquared()).Clamp(0, 1);
+
+            return Start + ab * d;
+        }
+        public readonly float DistanceToPoint(Vector2 point) => Vector2.Distance(point, ClosestPoint(point));
+
+        public readonly bool Intersects(LineSegment other, out Vector2 point)
+        {
+            point = Vector2.Zero;
+
+            float denominator = Denominator(other);
+
+            if (denominator == 0)
+            {
+                return false;
+            }
+
+            float ua = ((other.End.X - other.Start.X) * (Start.Y - other.Start.Y) -
+                         (other.End.Y - other.Start.Y) * (Start.X - other.Start.X)) / denominator;
+
+            float ub = ((End.X - Start.X) * (Start.Y - other.Start.Y) -
+                         (End.Y - Start.Y) * (Start.X - other.Start.X)) / denominator;
+
+            if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1)
+            {
+                float intersectionX = Start.X + ua * (End.X - Start.X);
+                float intersectionY = Start.Y + ua * (End.Y - Start.Y);
+                
+                point = new Vector2(intersectionX, intersectionY);
+                return true;
+            }
+
+            return false;
+        }
+        public readonly bool Intersects(LineSegment other) => Intersects(other, out _);
+
+        public readonly void Deconstruct(out Vector2 start, out Vector2 end)
+        {
+            start = Start;
+            end = End;
+        }
+
+        public readonly float Denominator(LineSegment other)
+        {
+            Vector2 dir1 = Direction;
+            Vector2 dir2 = other.Direction;
+            
+            return dir1.Cross(dir2);
+        }
+
+        public readonly Projection ProjectOn(Vector2 axis)
+        {
+            float start = Projection.ProjectPoint(Start, axis);
+            float end = Projection.ProjectPoint(End, axis);
+            return new(Math.Min(start, end), Math.Max(start, end), axis);
+        }
+        public readonly LineSegment Rounded() => new(Start.Rounded(), End.Rounded());
+
+        public readonly bool OLDIsPointBetween(Vector2 point, float tolerance = 0)
         {
             Vector2 start = Start;
             Vector2 end = End;
-
             Vector2 dir = Direction;
-            float length = dir.Length();
-            dir /= length;
+
+            dir /= dir.Length();
 
             Vector2 perpendicular = dir.Perpendicular();
 
@@ -69,12 +164,12 @@ namespace Engine.Types
 
             Vector2 rectStart = start - offset - (dir * tolerance);
             Vector2 rectEnd = end + offset + (dir * tolerance);
-            
+
             Vector2 min = new(
                 Math.Min(rectStart.X, rectEnd.X),
                 Math.Min(rectStart.Y, rectEnd.Y));
             Vector2 max = new(
-                Math.Max(rectStart.X, rectEnd.X),            
+                Math.Max(rectStart.X, rectEnd.X),
                 Math.Max(rectStart.Y, rectEnd.Y));
 
             bool betweenX = point.X >= min.X && point.X <= max.X;
@@ -82,36 +177,13 @@ namespace Engine.Types
 
             return betweenX && betweenY;
         }
-        public readonly bool IsSegmentBetween(LineSegment other, float tolerance) => IsPointBetween(other.Start, tolerance) && IsPointBetween(other.End, tolerance);
-        
-        public readonly bool HasCommonVertex(LineSegment other) => Start == other.Start || End == other.End || Start == other.End || End == other.Start;
-        public readonly float DistanceToPoint(Vector2 point)
+        public readonly bool OLDIsSegmentBetween(LineSegment other, float tolerance = 0)
         {
-            Vector2 lineDir = Direction;
-            Vector2 pointDir = point - Start;
-
-            float lineLength = lineDir.Length();
-            lineDir /= lineLength;
-
-            float projection = Vector2.Dot(pointDir, lineDir);
-            projection = Math.Clamp(projection, 0, lineLength);
-
-            Vector2 closestPoint = Start + lineDir * projection;
-            return Vector2.Distance(point, closestPoint);
-        }
-        public readonly void Deconstruct(out Vector2 start, out Vector2 end)
-        {
-            start = Start;
-            end = End;
+            return
+                OLDIsPointBetween(other.Start, tolerance) &&
+                OLDIsPointBetween(other.End, tolerance);
         }
 
-        public readonly Projection ProjectOn(Vector2 axis)
-        {
-            float start = Vector2.Dot(Start, axis);
-            float end = Vector2.Dot(End, axis);
-            return new(Math.Min(start, end), Math.Max(start, end), axis);
-        }
-        public readonly LineSegment Rounded() => new(Start.Rounded(), End.Rounded());
 
         #region ObjectOverrides
         private static bool Equals(LineSegment left, LineSegment right) =>
@@ -130,52 +202,87 @@ namespace Engine.Types
 
         public static bool operator ==(LineSegment left, LineSegment right) => Equals(left, right);
         public static bool operator !=(LineSegment left, LineSegment right) => !(left == right);
+
+        public static LineSegment operator +(LineSegment left, LineSegment right) => new(left.Start + right.Start, left.End + right.End);
+        public static LineSegment operator +(LineSegment left, Vector2 right) => new(left.Start + right, left.End + right);
+        public static LineSegment operator -(LineSegment left, LineSegment right) => new(left.Start - right.Start, left.End - right.End);
+        public static LineSegment operator -(LineSegment left, Vector2 right) => new(left.Start - right, left.End - right);
         #endregion
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
     public struct Polygon : IProjectable
     {
-        public Vector2 position;
-        private float _rotationAngle = 0;
-        private readonly List<Vector2> _originalVertices;
+        public readonly Vector2 IntegerPosition => position.IntCast();
 
-        public readonly Vector2 IntegerPosition => position.Rounded();
+        public List<Vector2> Vertices { get; set; }
+        public List<LineSegment> Edges { get; private set; } = new();
+       
+        public readonly List<Vector2> WorldVertices 
+        {
+            get 
+            {
+                Vector2 pos = IntegerPosition;
+                return Vertices.Select(v => v + pos).ToList();
+            }
+        }
+        public readonly List<LineSegment> WorldEdges 
+        { 
+            get
+            {
+                Vector2 pos = IntegerPosition;
+                return Edges.Select(e => e + pos).ToList();
+            } 
+        }
+
+        public Vector2 Center { get; set; } = Vector2.Zero;
         public float Rotation
         {
-            readonly get => _rotationAngle;
+            readonly get => rotationAngle;
             set
             {
-                float oldRotation = _rotationAngle;
-                _rotationAngle = value % 360;
+                float oldRotation = rotationAngle;
+                rotationAngle = value % 360;
 
-                if (oldRotation == _rotationAngle)
+                if (oldRotation == rotationAngle)
                     return;
 
-                if (_rotationAngle < 0)
-                    _rotationAngle += 360;
+                if (rotationAngle < 0)
+                    rotationAngle += 360;
 
                 UpdateVertices();
             }
         }
-        public Vector2 Center { get; set; } = Vector2.Zero;
-        public List<Vector2> Vertices { get; private set; }
+        
+        public Vector2 position;
 
-        public Polygon(Vector2 position, List<Vector2> vertices)
+        private float rotationAngle = 0;
+        private readonly List<Vector2> originalVertices;
+
+        public Polygon(List<Vector2> vertices)
         {
-            this.position = position;
-            Vertices = vertices;
-            _originalVertices = new List<Vector2>(vertices);
-            Center = DetectCenter();
-        }
-        public Polygon(List<Vector2> vertices) : this(Vector2.Zero, vertices) { }
+            if (vertices.Count < 3)
+                throw new ArgumentOutOfRangeException(nameof(vertices), "The polygon must have at least 3 vertices.");
 
+            position = Vector2.Zero;
+            Vertices = vertices;
+            originalVertices = new List<Vector2>(vertices);
+
+            Center = DetectCenter();
+            UpdateVertices();
+        }
+       
         private readonly void UpdateVertices()
         {
             Vertices.Clear();
 
-            foreach (var item in _originalVertices)
-                Vertices.Add(RotatePoint(item, Center, _rotationAngle));
+            foreach (var item in originalVertices)
+                Vertices.Add(item.RotateAround(Center, rotationAngle));
+
+            Vector2 pos = IntegerPosition;
+
+            Edges.Clear();
+            Edges.AddRange(ForEachEdge((p1, p2) => new LineSegment(p1, p2), Vertices));
         }
 
         public readonly bool IntersectsWith(Polygon other)
@@ -193,7 +300,12 @@ namespace Engine.Types
         }
         public readonly bool IntersectsWith(Polygon other, out Vector2 mtv)
         {
-            mtv = Vector2.Zero;
+            mtv = GetMTV(other);
+            return mtv != Vector2.Zero;
+        }
+        
+        public readonly Vector2 GetMTV(Polygon other)
+        {
             float minOverlap = float.MaxValue;
             Vector2 smallestAxis = Vector2.Zero;
 
@@ -203,7 +315,7 @@ namespace Engine.Types
                 Projection proj2 = other.ProjectOn(axis);
 
                 if (!proj1.Intersects(proj2))
-                    return false;
+                    return Vector2.Zero;
 
                 float overlap = proj1.GetOverlap(proj2);
                 if (overlap < minOverlap)
@@ -212,16 +324,45 @@ namespace Engine.Types
                     smallestAxis = axis;
                 }
             }
+            
+            Vector2 dir = other.position - position;
+            Vector2 mtv = smallestAxis * minOverlap;
 
-            mtv = smallestAxis * minOverlap;
-            return true;
+            if (Vector2.Dot(dir, mtv) < 0)
+                mtv = -mtv;
+
+            return mtv;
+        }
+        public readonly bool IsPointWithin(Vector2 point)
+        {
+            bool result = false;
+            
+            foreach (var item in WorldEdges)
+            {
+                Vector2 v1 = item.Start;
+                Vector2 v2 = item.End;
+
+                LineSegment edge = new(v1, v2);
+                if (edge.IsPointBetween(point, 0))
+                {
+                    return true;
+                }
+
+                if ((v1.Y > point.Y) != (v2.Y > point.Y) &&
+                    (point.X < (v2.X - v1.X) * (point.Y - v1.Y) / (v2.Y - v1.Y) + v1.X))
+                {
+                    result = !result;
+                }
+                
+            }
+            return result;
         }
 
         public readonly Vector2 DetectCenter()
         {
             float x = 0, y = 0;
 
-            foreach (var vertex in _originalVertices)
+            foreach (var vertex in originalVertices)
             {
                 x += vertex.X;
                 y += vertex.Y;
@@ -233,9 +374,49 @@ namespace Engine.Types
             return new Vector2(devidedX, devidedY);
         }
 
+        public readonly LineSegment ClosestEdge(Vector2 point)
+        {
+            (LineSegment edge, float distance)? closestEdge = null;
+
+            foreach (var edge in WorldEdges)
+            {
+                float distance = edge.DistanceToPoint(point);
+
+                if (closestEdge == null || distance < closestEdge.Value.distance)
+                {
+                    closestEdge = (edge,  distance);
+                }
+            }
+
+            return closestEdge.Value.edge;
+        }
+        public readonly LineSegment ClosestNormalEdge(Vector2 vector)
+        {
+            vector.Normalize();
+
+            LineSegment closest = new();
+
+            float maxDot = float.NegativeInfinity;
+            
+            foreach (var edge in Edges)
+            {
+                Vector2 edgeNormal = edge.Perpendicular;
+               
+                float dot = Vector2.Dot(vector, edgeNormal);
+                if (dot > maxDot)
+                {
+                    maxDot = dot;
+                    closest = edge;
+                }
+            }
+
+            return closest;
+        }
+
         public readonly Projection ProjectOn(Vector2 axis)
         {
-            float min = Vector2.Dot(axis, Vertices[0] + IntegerPosition);
+            var v = Vertices[0];
+            float min = Vector2.Dot(axis, v + IntegerPosition);
             float max = min;
 
             foreach (var vertex in Vertices)
@@ -256,7 +437,9 @@ namespace Engine.Types
             Vector2 edge = p2 - p1;
             return new Vector2(-edge.Y, edge.X).Normalized();
         }, Vertices);
-        public readonly List<LineSegment> GetEdges()
+
+        [Obsolete]
+        public readonly List<LineSegment> OLDGetEdges()
         {
             Vector2 pos = IntegerPosition; 
             return ForEachEdge((p1, p2) => new LineSegment(p1 + pos, p2 + pos), Vertices);
@@ -274,30 +457,19 @@ namespace Engine.Types
             }
             return edges;
         }
-        public static List<T> ForEachVertex<T>(Func<Vector2, T> action, List<Vector2> vertices)
+        public static void ForEachEdge(Action<Vector2, Vector2> action, List<Vector2> vertices)
         {
-            List<T> edges = new();
             for (int i = 0; i < vertices.Count; i++)
-                edges.Add(action(vertices[i]));
-            
-            return edges;
-        }
-        public static Vector2 RotatePoint(Vector2 point, Vector2 origin, float rotation)
-        {
-            rotation = rotation.AsRad();
+            {
+                Vector2 p1 = vertices[i];
+                Vector2 p2 = vertices[(i + 1) % vertices.Count];
 
-            float cos = (float)Math.Cos(rotation);
-            float sin = (float)Math.Sin(rotation);
-
-            Vector2 translatedPoint = point - origin;
-
-            float newX = translatedPoint.X * cos - translatedPoint.Y * sin;
-            float newY = translatedPoint.X * sin + translatedPoint.Y * cos;
-
-            return new Vector2(newX, newY) + origin;
+                action(p1, p2);
+            }
+            return;
         }
 
-        public readonly override string ToString() => $"({position.X}, {position.Y}), {_rotationAngle}° [{Vertices.Count}]";
+        public readonly override string ToString() => $"({position.X}, {position.Y}), {rotationAngle}° [{Vertices.Count}]";
 
         #region ShapeSamples
         public static List<Vector2> RectangleVerts(float width, float height)

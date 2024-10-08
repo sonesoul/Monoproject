@@ -8,6 +8,9 @@
     }
     public static class EndUpdateOrders
     {
+        public static int ColliderUpdater => -5;
+        public static int RigidbodyUpdater => -4;
+
         public static int Rigidbody => -3;
         public static int Collider => -2;
     }

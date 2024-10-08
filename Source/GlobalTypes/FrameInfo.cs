@@ -35,7 +35,7 @@ namespace GlobalTypes
         
         public static void UpdateGameTime(GameTime gameTime)
         {
-            GameTime = gameTime;
+            GameTime = gameTime ?? throw new ArgumentNullException(nameof(gameTime));
 
             DeltaTimeMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             DeltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;

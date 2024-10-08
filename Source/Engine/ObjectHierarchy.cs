@@ -9,6 +9,7 @@ using System.Diagnostics;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
 using Engine.Types;
+using GlobalTypes;
 
 namespace Engine
 {
@@ -16,7 +17,7 @@ namespace Engine
     public abstract class ModularObject
     {
         public Vector2 Position { get; set; } = new(0, 0);
-        public Vector2 IntegerPosition => Position.Rounded();
+        public Vector2 IntegerPosition => Position.IntCast();
 
         public float RotationDeg { get; set; } = 0;
         public float RotationRad => RotationDeg.AsRad();
@@ -45,9 +46,10 @@ namespace Engine
 
         #region ModuleManagement
 
-        private readonly LockList<ObjectModule> modules = new();
-        public event Action<ObjectModule> OnModuleRemove;
         public IReadOnlyList<ObjectModule> Modules => modules;
+        public event Action<ObjectModule> OnModuleRemove;
+
+        private readonly LockList<ObjectModule> modules = new();
         
         private static ObjectModule InitModule(Type type, params object[] args) => (ObjectModule)Activator.CreateInstance(type, args: args);
 
@@ -214,7 +216,7 @@ namespace Engine
         }
         public Vector2 Scale { get; set; } = Vector2.One;
         public Vector2 Origin { get; set; }
-        public Vector2 OriginOffset { get; set; } = new(-0.5f, 1);
+        public Vector2 OriginOffset { get; set; } = Vector2.Zero;//new(-0.5f, 1);
         public Color CharColor
         {
             get => charColor; set
@@ -225,6 +227,7 @@ namespace Engine
         }
         public SpriteFont Font { get; set; }
 
+        public float Spacing { get => Font.Spacing; set => Font.Spacing = value; }
         public bool CanDraw { get; set; } = true;
         public int Length => characters.Count;
         public IDrawer Drawer { get; private set; }
@@ -238,13 +241,13 @@ namespace Engine
         public StringObject(IDrawer drawer, string content, SpriteFont font) : base()
         {
             spriteBatch = drawer.SpriteBatch;
-
+            
             Origin = font.MeasureString(content) / 2;
-
+            
             Drawer = drawer;
             drawer.AddDrawAction(Draw);
 
-            this.Font = font;
+            Font = font;
             Content = content;
         }
         public StringObject(IDrawer drawer, string text, SpriteFont font, params ObjectModule[] modules) : this(drawer, text, font)
@@ -264,44 +267,41 @@ namespace Engine
             if (!CanDraw) 
                 return;
 
-            foreach (var characterObject in characters)
+            foreach (var charObj in characters)
             {
                 spriteBatch.DrawString(
-                    Font,
-                    characterObject.Character.ToString(),
-                    IntegerPosition + characterObject.Position + characterObject.Offset,
-                    characterObject.Color,
-                    characterObject.RotationRad,
+                    charObj.Font,
+                    charObj.Character.ToString(),
+                    IntegerPosition + charObj.Position,
+                    charObj.Color,
+                    charObj.RotationRad,
                     Origin + OriginOffset,
-                    Scale * characterObject.Scale,
+                    Scale * charObj.Scale,
                     SpriteEffects.None,
                     0);
             }
         }
-        
+
         private void SliceString()
         {
             characters.Clear();
             Vector2 position = Vector2.Zero;
 
+            Vector2 startPosition = new(0, 0);
+
             foreach (char character in Content)
             {
                 CharObject c = new(Drawer, character, Font)
                 {
-                    Position = position,
+                    Position = startPosition + position,
                     Color = CharColor,
                     CanDraw = false
                 };
                 characters.Add(c);
+
                 Vector2 size = Font.MeasureString(character.ToString());
-
-                position.X += size.X;
-                position.Y = size.Y;
+                position.X += size.X + Spacing;
             }
-
-            Origin = position / 2;
-
-            FrameEvents.PreDraw.AppendSingle(BuildTexture);
         }
 
         private void BuildTexture()
@@ -324,6 +324,7 @@ namespace Engine
 
             Origin = textSize / 2;
         }
+
         protected override void PostDestroy()
         {
             Drawer.RemoveDrawAction(Draw);

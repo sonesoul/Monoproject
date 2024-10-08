@@ -65,8 +65,7 @@ namespace InGame.GameObjects
 
             collider = AddModule(new Collider()
             {
-                Mode = ColliderMode.Trigger,
-                polygon = Polygon.Rectangle(textOrigin.X * 2, 30)
+                Shape = Polygon.Rectangle(textOrigin.X * 2, 30)
             });
 
             drawer.AddDrawAction(Draw);
@@ -74,8 +73,8 @@ namespace InGame.GameObjects
             moveTask = new(Move);
             moveBackTask = new(MoveBack);
 
-            collider.OverlapEnter += OnTriggerEnter;
-            collider.OverlapExit += OnTriggerExit;
+            collider.OnOverlapEnter += OnTriggerEnter;
+            collider.OnOverlapExit += OnTriggerExit;
         }
         public void Destruct() => Destroy();
 
@@ -191,8 +190,8 @@ namespace InGame.GameObjects
         {
             drawer.RemoveDrawAction(Draw);
 
-            collider.OverlapEnter -= OnTriggerEnter;
-            collider.OverlapExit -= OnTriggerExit;
+            collider.OnOverlapEnter -= OnTriggerEnter;
+            collider.OnOverlapExit -= OnTriggerExit;
         }
     }
 }

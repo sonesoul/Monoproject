@@ -58,9 +58,21 @@ namespace GlobalTypes.Extensions
         public static Vector2 UnitNormal(this Vector2 v) => new Vector2(-v.Y, v.X).Normalized();
         public static Vector2 Normalized(this Vector2 v) => Vector2.Normalize(v);
         public static float DistanceTo(this Vector2 a, Vector2 b) => Vector2.Distance(a, b);
-        public static Vector2 ScalarProduct(this Vector2 a, float scalar) => new(a.Y * -scalar, a.X * scalar);
-        public static Vector2 VectorProduct(this Vector2 a, Vector2 b) => new(a.Y * b.X, a.X * b.Y);
         public static float Dot(this Vector2 a, Vector2 b) => Vector2.Dot(a, b);
+        public static Vector2 RotateAround(this Vector2 v, Vector2 origin, float rotation)
+        {
+            rotation = rotation.AsRad();
+
+            float cos = (float)Math.Cos(rotation);
+            float sin = (float)Math.Sin(rotation);
+
+            Vector2 translatedPoint = v - origin;
+
+            float newX = translatedPoint.X * cos - translatedPoint.Y * sin;
+            float newY = translatedPoint.X * sin + translatedPoint.Y * cos;
+
+            return (new Vector2(newX, newY) + origin).Rounded();
+        }
 
         public static BothAxes Both(this Vector2 v) => new(v);
         public static AnyAxis Any(this Vector2 v) => new(v);
@@ -84,8 +96,12 @@ namespace GlobalTypes.Extensions
             new(
                 /*X*/(v.X > 0 ? v.X.Floored() : v.X < 0 ? v.X.Ceiled() : 0),
                 /*Y*/(v.Y > 0 ? v.Y.Floored() : v.Y < 0 ? v.Y.Ceiled() : 0));
-        
-        public static Vector2 Rounded(this Vector2 v) => Vector2.Round(v);
+
+        public static Vector2 Rounded(this Vector2 v) => new((int)Math.Round(v.X), (int)Math.Round(v.Y));
+        public static Vector2 Rounded(this Vector2 v, int digits)
+            => new(
+                (float)Math.Round(v.X, digits),
+                (float)Math.Round(v.Y, digits));
         public static Vector2 IntCast(this Vector2 v) => new((int)v.X, (int)v.Y);
 
         public static Vector2 Abs(this Vector2 v) => new(v.AbsX(), v.AbsY());

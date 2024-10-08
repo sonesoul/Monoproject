@@ -1,80 +1,70 @@
-﻿using Microsoft.Xna.Framework;
+﻿using GlobalTypes.Collections;
+using GlobalTypes.Events;
+using GlobalTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Engine.Drawing;
-using Engine.Types;
-using GlobalTypes;
-using GlobalTypes.Events;
-using GlobalTypes.Collections;
 using System.Threading.Tasks;
+using Engine.Types;
+using Microsoft.Xna.Framework;
+using Engine.Drawing;
 
 namespace Engine.Modules
 {
     public class Collider : ObjectModule
     {
         [Init(nameof(Init))]
-        public static class CollisionManager
+        public static class Updater
         {
             private static readonly LockList<Collider> _allColliders = new();
 
-            private static void Init() => FrameEvents.EndUpdate.Add(EndUpdate, EndUpdateOrders.Collider);
+            private static void Init() => FrameEvents.EndUpdate.Add(Update, EndUpdateOrders.ColliderUpdater);
 
             public static void Register(Collider collider) => _allColliders.Add(collider);
             public static void Unregister(Collider collider) => _allColliders.Remove(collider);
 
-            public static void EndUpdate()
+            private static void Update()
             {
-                _allColliders.LockRun(
-                    () => Parallel.ForEach(
-                        _allColliders,
-                        (c) => c?.CheckIntersections(_allColliders)));
+                _allColliders.LockRun(UpdateShapes);
+
+                _allColliders.LockRun(CheckIntersections);
             }
+            private static void CheckIntersections() => _allColliders.PForEach(c => c.CheckIntersections(_allColliders));
+            private static void UpdateShapes() => _allColliders.PForEach(c => c.UpdateShape());
         }
 
-        public Rectangle ShapeBounding => _bounding;
-        public bool Intersects { get; private set; }
-        public ColliderMode Mode { get => _colliderMode; set => SetUpdater(value); }
-        public IReadOnlyList<Collider> Intersections => _intersections;
+        public Polygon Shape { get => shape; set => shape = value; } 
+        public Rectangle Bounds => bounds;
+        public IReadOnlyList<Collider> Intersections => collisions;
+        public bool Intersects => collisions.Count > 0;
 
-        public Polygon polygon = Polygon.Rectangle(50, 50);
-        public Color drawColor = Color.Green;
-
-        public event Action<Collider> OverlapEnter, OverlapStay, OverlapExit;
+        public event Action<Collider> OnOverlapEnter, OnOverlapStay, OnOverlapExit;
         
-        private readonly List<Collider> _intersections = new();
-        private readonly List<Collider> _previousIntersections = new();
+        private readonly List<Collider> collisions = new();
+        private readonly List<Collider> previousCollisions = new();
 
-        private Rectangle _bounding;
+        private Rectangle bounds;
+        private Polygon shape = Polygon.Rectangle(50, 50);
+        private Color shapeDrawColor = Color.Lime;
 
-        private ColliderMode _colliderMode = ColliderMode.Physical;
-        private Action<IReadOnlyList<Collider>> _intersectionChecker;
-
-        private Action _drawAction;
-        private ShapeDrawer _shapeDrawer;
-        private List<Vector2> PolygonVerts => polygon.Vertices;
+        private ShapeDrawer shapeDrawer;
+        
+        private List<Vector2> Vertices => Shape.Vertices;
 
         public Collider(ModularObject owner = null) : base(owner) { }
-
         protected override void PostConstruct()
         {
-            _drawAction = Draw;
-
-            _shapeDrawer = new(IngameDrawer.Instance);
-
-            IngameDrawer.Instance.AddDrawAction(_drawAction);
-            CollisionManager.Register(this);
-
-            UpdateBounding();
-            SetUpdater(_colliderMode);
+            shapeDrawer = new(InstanceInfo.GraphicsDevice, InstanceInfo.SpriteBatch);
+            IngameDrawer.Instance.AddDrawAction(DrawShape, DrawBounds);
+            Updater.Register(this);
         }
-
+        
         public bool IntersectsWith(Collider other)
         {
-            if (other == null || other.IsDisposed || other.Owner.IsDestroyed) 
+            if (other == null || other.IsDisposed || other.Owner.IsDestroyed)
                 return false;
 
-            return polygon.IntersectsWith(other.polygon);
+            return Shape.IntersectsWith(other.Shape);
         }
         public bool IntersectsWith(Collider other, out Vector2 mtv)
         {
@@ -82,199 +72,114 @@ namespace Engine.Modules
 
             if (other == null || other.IsDisposed || other.Owner.IsDestroyed)
                 return false;
+
+            return Shape.IntersectsWith(other.Shape, out mtv);
+        }
+        public Vector2 GetMTV(Collider other) => Shape.GetMTV(other.Shape);
+
+        public bool IsPointWithin(Vector2 point) => Shape.IsPointWithin(point);
+
+        private void DrawShape()
+        {
+            UpdateShape();
             
-            return polygon.IntersectsWith(other.polygon, out mtv);
-        }
-
-        private void CheckIntersections(IReadOnlyList<Collider> colliders)
-        {
-            _intersections.Clear();
-
-            UpdatePolygon();
-
-            _intersectionChecker(colliders);
-
-            if (Owner == null)
-                return;
-
-            _previousIntersections.Clear();
-            _previousIntersections.AddRange(_intersections);
-            Intersects = _intersections.Any();
-            drawColor = Intersects ? Color.Red : Color.Green;
-
-            UpdatePolygon();
-        }
-        private void UpdatePolygon()
-        {
-            polygon.position = Owner.IntegerPosition;
-            polygon.Rotation = Owner.RotationDeg;
-            UpdateBounding();
-        }
-        private void UpdateBounding()
-        {
-            var verts = PolygonVerts;
-
-            int width = (int)verts.Max(v => v.X).Ceiled() - (int)verts.Min(v => v.X).Floored();
-            int height = (int)verts.Max(v => v.Y).Ceiled() - (int)verts.Min(v => v.Y).Floored();
-
-            _bounding.X = (int)Owner.Position.X - width / 2;
-            _bounding.Y = (int)Owner.Position.Y - height / 2;
-            _bounding.Width = width;
-            _bounding.Height = height;
-        }
-
-        private void Draw()
-        {
-            Vector2 current = PolygonVerts[0] + Owner.IntegerPosition;
+            Vector2 current = Vertices[0] + Owner.IntegerPosition;
             Vector2 next;
-            for (int i = 1; i < PolygonVerts.Count; i++)
+            for (int i = 1; i < Vertices.Count; i++)
             {
-                next = PolygonVerts[i] + Owner.IntegerPosition;
-                _shapeDrawer.DrawLine(current, next, drawColor);
+                next = Vertices[i] + Owner.IntegerPosition;
+                shapeDrawer.DrawLine(current, next, shapeDrawColor);
                 current = next;
             }
 
 
-            _shapeDrawer.DrawLine(current, PolygonVerts[0] + Owner.IntegerPosition, drawColor);
+            shapeDrawer.DrawLine(current, Vertices[0] + Owner.IntegerPosition, shapeDrawColor);
+            
+        }
+        private void DrawBounds()
+        {
+            //shapeDrawer.DrawRectangle(Bounds, Color.Gray);
         }
 
-        private void PhysicalCheck(IReadOnlyList<Collider> colliders)
+        public void UpdateShape()
         {
-            foreach (var item in colliders.Where(c => IsWithinDistance(c, 2)))
+            shape.position = Owner.IntegerPosition;
+            shape.Rotation = Owner.RotationDeg;
+            
+            UpdateBounds();
+        }
+        private void UpdateBounds()
+        {
+            var verts = Vertices;
+
+            int width = (int)verts.Max(v => v.X).Ceiled() - (int)verts.Min(v => v.X).Floored();
+            int height = (int)verts.Max(v => v.Y).Ceiled() - (int)verts.Min(v => v.Y).Floored();
+
+            bounds.X = (int)(Owner.IntegerPosition.X - width / 2) - 1;
+            bounds.Y = (int)(Owner.IntegerPosition.Y - height / 2) - 1;
+
+            bounds.Width = width + 1;
+            bounds.Height = height + 1;
+        }
+
+        private void CheckIntersections(IEnumerable<Collider> colliders)
+        {
+            collisions.Clear();
+
+            foreach (var item in colliders.Where(c => IsInProximity(c, 2) && c != this && !IsDisposed))
             {
-                if (item == this || IsDisposed)
-                    continue;
-               
-                if (polygon.IntersectsWith(item.polygon, out var mtv))
+                if (IntersectsWith(item, out var mtv))
                 {
-                    _intersections.Add(item);
+                    collisions.Add(item);
 
-                    //bruh idk why the fuck it works better than Round or Floor methods
-                    //upd: ok its just an int casting, but I won't remove it
-                    mtv = mtv.ToPoint().ToVector2();
-
-                    PushOut(item, mtv);
-
-                    if (!_previousIntersections.Contains(item))
-                        OverlapEnter?.Invoke(item);
+                    if (!previousCollisions.Contains(item))
+                        OnOverlapEnter?.Invoke(item);
                     else
-                        OverlapStay?.Invoke(item);
-
-                    UpdatePolygon();
+                        OnOverlapStay?.Invoke(item);
                 }
             }
 
-            foreach (var item in _previousIntersections)
+            foreach (var item in previousCollisions)
             {
                 if (!Intersections.Contains(item))
-                    OverlapExit?.Invoke(item);
+                    OnOverlapExit?.Invoke(item);
+            }
+
+            previousCollisions.Clear();
+            previousCollisions.AddRange(collisions);
+
+            if (collisions.Count > 0)
+            {
+                shapeDrawColor = Color.Red;
+            }
+            else
+            {
+                shapeDrawColor = Color.LightGreen;
             }
         }
-        private void StatiCheck(IReadOnlyList<Collider> colliders)
+        
+        private bool IsInProximity(Collider other, float distance)
         {
-            foreach (var item in colliders.Where(c => (c.Mode != ColliderMode.Static) && IsWithinDistance(c, 2)))
-            {
-                if (item == this || IsDisposed)
-                    continue;
-
-                if (polygon.IntersectsWith(item.polygon))
-                {
-                    _intersections.Add(item);
-
-                    if (!_previousIntersections.Contains(item))
-                        OverlapEnter?.Invoke(item);
-                    else
-                        OverlapStay?.Invoke(item);
-                }
-            }
-
-            foreach (var item in _previousIntersections)
-            {
-                if (!Intersections.Contains(item))
-                    OverlapExit?.Invoke(item);
-            }
-        }
-        private void TriggerCheck(IReadOnlyList<Collider> colliders)
-        {
-            foreach (var item in colliders.Where(c => IsWithinDistance(c, 2)))
-            {
-                if (item == this || IsDisposed)
-                    continue;
-
-                if (polygon.IntersectsWith(item.polygon))
-                {
-                    _intersections.Add(item);
-
-                    if (!_previousIntersections.Contains(item))
-                        OverlapEnter?.Invoke(item);
-                    else
-                        OverlapStay?.Invoke(item);
-                }
-            }
-
-            foreach (var item in _previousIntersections)
-            {
-                if (!Intersections.Contains(item))
-                    OverlapExit?.Invoke(item);
-            }
-        }
-
-        //physical-physical touches will be fixed later
-        //the problem is that each object tries to push out others. Fix: there should be correct priorites for push orders. Must also handle parallel calls.
-        private void PushOut(Collider other, Vector2 mtv)
-        {
-            Vector2 dir = Owner.IntegerPosition - other.Owner.IntegerPosition;
-            if (Vector2.Dot(dir, mtv) < 0)
-                mtv = -mtv;
-
-            if (other.Mode == ColliderMode.Physical)
-                other.Owner.Position -= mtv;
-            else if (other.Mode == ColliderMode.Static)
-                Owner.Position += mtv;
-        }
-
-        private bool IsWithinDistance(Collider other, float distance)
-        {
-            Rectangle thisBounding = ShapeBounding;
-            Rectangle otherBounding = other.ShapeBounding;
+            Rectangle thisBounding = Bounds;
+            Rectangle otherBounding = other.Bounds;
 
             float dx = Math.Max(thisBounding.Left, otherBounding.Left) - Math.Min(thisBounding.Right, otherBounding.Right);
             float dy = Math.Max(thisBounding.Top, otherBounding.Top) - Math.Min(thisBounding.Bottom, otherBounding.Bottom);
 
-            float maxDx = Math.Max(0, dx);
-            float maxDy = Math.Max(0, dy);
+            Vector2 max = new(Math.Max(0, dx), Math.Max(0, dy));
 
-            return (maxDx * maxDx) + (maxDy * maxDy) <= distance * distance;
-        }
-       
-        private void SetUpdater(ColliderMode newMode)
-        {
-            _colliderMode = newMode;
-            switch (_colliderMode)
-            {
-                case ColliderMode.Physical:
-                    _intersectionChecker = PhysicalCheck;
-                    break;
-                case ColliderMode.Trigger:
-                    _intersectionChecker = TriggerCheck;
-                    break;
-                case ColliderMode.Static:
-                    _intersectionChecker = StatiCheck;
-                    break;
-            }
+            return max.LengthSquared() <= distance * distance;
         }
 
         protected override void PostDispose()
         {
-            IngameDrawer.Instance.RemoveDrawAction(_drawAction);
-            CollisionManager.Unregister(this);
-
-            _intersections.Clear();
-            _previousIntersections.Clear();
-
-            OverlapEnter = null;
-            OverlapStay = null;
-            OverlapExit = null;
+            Updater.Unregister(this);
+            
+            IngameDrawer.Instance.RemoveDrawAction(DrawBounds);
+            IngameDrawer.Instance.RemoveDrawAction(DrawShape);
+            
+            collisions.Clear();
+            previousCollisions.Clear();
         }
     }
 }

@@ -34,7 +34,7 @@ namespace GlobalTypes
                     
                     if (!action.MoveNext())
                     {
-                        tasks[i].Completed?.Invoke();
+                        tasks[i].OnComplete?.Invoke();
                         tasks.RemoveAt(i);
                     }
                 }
@@ -44,7 +44,7 @@ namespace GlobalTypes
             public static void Add(OrderedItem<StepTask> orderedTask) => tasks.Add(orderedTask);
             public static void RemoveFirst(StepTask task) => tasks.RemoveFirst(task);
             public static void Remove(OrderedItem<StepTask> orderedTask) => tasks.Remove(orderedTask);
-            public static bool Contains(StepTask coroutine) => tasks.Contains(coroutine);
+            public static bool Contains(StepTask task) => tasks.Contains(task);
         }
 
         public bool IsRunning => item != null && !IsPaused;
@@ -52,7 +52,7 @@ namespace GlobalTypes
         public int Order { get; set; }
         public Func<IEnumerator> Task { get; set; }
 
-        public event Action Completed;
+        public event Action OnComplete;
 
         private IEnumerator workingTask;
         private OrderedItem<StepTask>? item = null;
@@ -102,6 +102,7 @@ namespace GlobalTypes
         }
 
         public static StepTask Run(Func<IEnumerator> action) => new(action, true);
+        public static StepTask Run(IEnumerator task) => Run(() => task);
 
         #region WaitMethods
         

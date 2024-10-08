@@ -1,300 +1,209 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Engine.Types;
+using GlobalTypes;
+using GlobalTypes.Events;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Engine.Types;
-using GlobalTypes.Events;
-using GlobalTypes;
 
 namespace Engine.Modules
 {
     public class Rigidbody : ObjectModule
     {
+        [Init(nameof(Init))]
+        private static class Updater
+        {
+            private static List<Rigidbody> bodies = new();
+            private static Queue<Rigidbody> updateQueue = new();
+
+            private static void Init()
+            {
+                FrameEvents.EndUpdate.Add(() =>
+                {
+                    BatchContacts();
+                    UpdateCollisions();
+                }, EndUpdateOrders.RigidbodyUpdater);
+                
+                FrameEvents.PostDraw.Add(() =>
+                {
+                    ApplyGravity();
+                    ApplyForces();
+                    
+                    ApplyVelocity();
+                });
+            }
+
+            public static void Register(Rigidbody rb)
+            {
+                if (!bodies.Contains(rb))
+                    bodies.Add(rb);
+            }
+            public static void Unregister(Rigidbody rb)
+            {
+                if (bodies.Contains(rb))
+                    bodies.Remove(rb);
+            }
+
+            private static void UpdateCollisions()
+            {
+                List<Rigidbody> handled = new();
+                var sorted = bodies.OrderByDescending(b => GetPriority(b)).ToList();
+
+                foreach (var body in sorted)
+                {
+                    if (handled.Contains(body) || !body.UsedCollider.Intersects)
+                        continue;
+
+                    body.UpdatePhysics();
+
+                    while (updateQueue.Count > 0)
+                    {
+                        var queuedBody = updateQueue.Dequeue();
+
+                        queuedBody.UpdatePhysics();
+
+                        handled.Add(queuedBody);
+                    }
+                }
+            }
+
+            private static void BatchContacts() => bodies.PForEach(b => b?.Batch());
+            private static void ApplyGravity() => bodies.PForEach(b => b?.ApplyGravity());
+            private static void ApplyVelocity() => bodies.PForEach(b => b?.ApplyVelocity());
+            private static void ApplyForces() => bodies.PForEach(b => b?.ApplyForces());
+
+            private static int GetPriority(Rigidbody rb)
+            {
+                int priority = 0;
+
+                priority += rb.UsedCollider.Intersections.Count;
+
+                if (rb.BodyType == BodyType.Static)
+                    priority += 1000;
+
+                priority += (int)(rb.velocity.Length());
+
+
+                return priority;
+            }
+        }
+
+        public struct Contact
+        {
+            public readonly struct ContactBatch
+            {
+                public List<Contact> ThisContacts { get; init; }
+                public Rigidbody ThisRigidbody { get; init; }
+                public Vector2 ThisMTV { get; init; }
+
+                public List<Contact> OtherContacts { get; init; }
+                public Rigidbody OtherRigidbody { get; init; }
+                public Vector2 OtherMTV { get; init; }
+
+                public ContactBatch(List<Contact> thisContacts, List<Contact> otherContacts, Rigidbody thisRb, Rigidbody otherRb)
+                {
+                    ThisContacts = thisContacts;
+                    ThisRigidbody = thisRb;
+
+                    OtherContacts = otherContacts;
+                    OtherRigidbody = otherRb;
+
+                    var mtv = thisRb.UsedCollider.GetMTV(otherRb.UsedCollider);
+
+                    ThisMTV = mtv;
+                    OtherMTV = -mtv;
+                }
+            }
+
+            public readonly Vector2 Normal => Edge.Normal;
+            public readonly Vector2 Vertex => Corner.CommonVertex;
+            public readonly Vector2 MovedVertex => Edge.ClosestPoint(Corner.CommonVertex);
+
+            public Corner Corner { get; set; }
+            public LineSegment Edge { get; set; }
+
+            public Contact(Corner corner, LineSegment edge)
+            {
+                Corner = corner;
+                Edge = edge;
+            }
+
+            public static List<Contact> Detect(Polygon edgesPoly, Polygon vertsPoly)
+            {
+                List<Contact> contacts = new();
+
+                foreach (var vert in vertsPoly.WorldVertices)
+                {
+                    if (edgesPoly.IsPointWithin(vert))
+                    {
+                        var mtv = edgesPoly.GetMTV(vertsPoly);
+
+                        contacts.Add(
+                            new(
+                                Corner.FromVertex(vert, vertsPoly),
+                                edgesPoly.ClosestNormalEdge(mtv) + edgesPoly.IntegerPosition));
+                    }
+                }
+
+                return contacts;
+            }
+
+            public static ContactBatch Batch(Rigidbody first, Rigidbody second)
+            {
+                var firstShape = first.UsedCollider.Shape;
+                var secondShape = second.UsedCollider.Shape;
+
+                List<Contact> contacts = Detect(firstShape, secondShape);
+                List<Contact> otherContacts = Detect(secondShape, firstShape);
+
+                return new(otherContacts, contacts, first, second);
+            }
+        }
+        public struct Corner
+        {
+            public Vector2 CommonVertex { get; set; }
+
+            public LineSegment FirstEdge { get; set; }
+            public LineSegment SecondEdge { get; set; }
+
+            public Corner(Vector2 vertex, LineSegment edge1, LineSegment edge2)
+            {
+                CommonVertex = vertex;
+                FirstEdge = edge1;
+                SecondEdge = edge2;
+            }
+
+            public static Corner FromVertex(Vector2 vertex, Polygon poly)
+            {
+                List<LineSegment> corners = poly.WorldEdges.Where(e => e.OLDIsPointBetween(vertex)).ToList();
+                return new Corner(vertex, corners[0], corners[1]);
+            }
+
+            public readonly override string ToString() => CommonVertex.ToString();
+        }
+
+        public static Vector2 Gravity { get; set; } = new Vector2(0, 9.81f) * 50; // if 1 meter == 50 pixels
+
         #region Fields
         public float Mass { get; set; } = 1;
-        public float GravityScale { get; set; } = 2;
         public float Bounciness { get; set; } = 0.0f;
         public float Windage { get; set; } = 0.3f;
 
-        public float Angle { get; set; } = 0;
-        public float AngularVelocity { get; set; } = 0;
-       
-        public Collider UsedCollider { get; private set; }
+        public Vector2 VelocityScale { get; set; } = new(1, 1);
+        public Vector2 GravityScale { get; set; } = new(0, 0);
 
+        public Collider UsedCollider { get; set; }
+        public BodyType BodyType { get; set; }
+        
         public Vector2 forces = Vector2.Zero;
         public Vector2 velocity = Vector2.Zero;
         public Vector2 maxVelocity = new(-1, -1);
-        private OrderedAction _onEndUpdate;
 
-        public static Vector2 Gravity { get; set; } = new(0, 9.81f);
-
-        private static float Delta => FrameInfo.FixedDeltaTime;
-        public const float ZeroThreshold = 0.005f;
-        public const float Tolerance = 1;
+        private Queue<Contact.ContactBatch> contactBatches = new();
+        private List<Rigidbody> suppresedPhysics = new();
         #endregion
 
-        private struct EdgeTouch
-        {
-            public Vector2 vertex;
-            public LineSegment edge;
-            public EdgeTouch(Vector2 vertex, LineSegment edge)
-            {
-                this.vertex = vertex;
-                this.edge = edge;
-            }
-
-            public static List<EdgeTouch> FromSingleCorner(List<CornerTouch> touches1, List<CornerTouch> touches2)
-            {
-                List<EdgeTouch> result = new();
-
-                var touchPairs = from t1 in touches1
-                                 from t2 in touches2
-                                 select new { t1, t2 };
-
-                foreach (var pair in touchPairs)
-                {
-                    var edgeCombinations = from e1 in new[] { pair.t1.edge1, pair.t1.edge2 }
-                                           from e2 in new[] { pair.t2.edge1, pair.t2.edge2 }
-                                           select new { e1, e2 };
-
-                    foreach (var comb in edgeCombinations)
-                    {
-                        var e1 = comb.e1;
-                        var e2 = comb.e2;
-
-                        if (e1.IsSegmentBetween(e2, Tolerance))
-                        {
-                            e1.Deconstruct(out var a, out var b);
-                            e2.Deconstruct(out var c, out var d);
-
-                            if (c.DistanceTo(a) > Tolerance && c.DistanceTo(b) > Tolerance)
-                                result.Add(new(d, e2));
-                            else if (d.DistanceTo(a) > Tolerance && d.DistanceTo(b) > Tolerance)
-                                result.Add(new(c, e2));
-                        }
-                    }
-                }
-
-                return result;
-            }
-            public static void Merge(List<EdgeTouch> edgeTouches, List<LineSegment> edges)
-            {
-                HashSet<EdgeTouch> toAdd = new();
-
-                for (int i = 0; i < edgeTouches.Count; i++)
-                {
-                    for (int j = 0; j < edgeTouches.Count; j++)
-                    {
-                        EdgeTouch e1 = edgeTouches[i];
-                        EdgeTouch e2 = edgeTouches[j];
-
-                        if (e1.edge == e2.edge)
-                            continue;
-
-                        if (TryGetCommonVertex(e1.edge, e2.edge, out var commonEnd))
-                        {
-                            foreach (var edge in edges)
-                            {
-                                if (edge.IsPointBetween(commonEnd, Tolerance))
-                                {
-                                    toAdd.Add(new(commonEnd, edge));
-
-                                    edgeTouches.Remove(e1);
-                                    edgeTouches.Remove(e2);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                edgeTouches.AddRange(toAdd);
-            }
-            public static void Adjust(List<EdgeTouch> edgeTouches1, List<EdgeTouch> edgeTouches2, Polygon polygon1, Polygon polygon2)
-            {
-                List<LineSegment> edges1 = polygon1.GetEdges();
-                List<LineSegment> edges2 = polygon2.GetEdges();
-
-                EdgeTouch? vertexTouch1 = null;
-                EdgeTouch? vertexTouch2 = null;
-
-                foreach (var et1 in edgeTouches1)
-                {
-                    foreach (var et2 in edgeTouches2)
-                    {
-                        var e = et2.edge;
-
-                        if(et1.vertex == e.Start.Rounded() || et1.vertex == e.End.Rounded())
-                            vertexTouch1 = new(et1.vertex, et1.edge);
-                    }
-                }
-                foreach (var et1 in edgeTouches2)
-                {
-                    foreach (var et2 in edgeTouches1)
-                    {
-                        var e = et2.edge;
-
-                        if (et1.vertex == e.Start.Rounded() || et1.vertex == e.End.Rounded())
-                            vertexTouch2 = new(et1.vertex, et1.edge);
-                    }
-                }
-
-                if(vertexTouch1 != null && vertexTouch2 != null)
-                {
-                    var vt1 = vertexTouch1.Value;
-                    var vt2 = vertexTouch2.Value;
-                    foreach (var e1 in edges1)
-                    {
-                        if (e1.Rounded() == vt1.edge)
-                        {
-                            vt1.edge = e1;
-
-                            foreach (var e2 in edges2)
-                            {
-                                if (vt1.vertex == e2.Start.Rounded())
-                                    vt1.vertex = e2.Start;
-                                else if (vt1.vertex == e2.End.Rounded())
-                                    vt1.vertex = e2.End;
-                                break;
-                            }
-
-                            break;
-                        }
-                    }
-                    foreach (var e2 in edges2)
-                    {
-                        if(e2.Rounded() == vt2.edge)
-                        {
-                            vt2.edge = e2;
-
-                            foreach (var e1 in edges1)
-                            {
-                                if (vt2.vertex == e1.Start.Rounded())
-                                    vt2.vertex = e1.Start;
-                                else if (vt2.vertex == e1.End.Rounded())
-                                    vt2.vertex = e1.End;
-                                break;
-                            }
-
-                            break;
-                        }
-                    }
-
-                    var distance1 = vt1.edge.DistanceToPoint(vt1.vertex);
-                    var distance2 = vt2.edge.DistanceToPoint(vt2.vertex);
-
-                    if (distance1 > distance2)
-                        edgeTouches1.Remove(vertexTouch1.Value);
-                    else if (distance2 > distance1)
-                        edgeTouches2.Remove(vertexTouch2.Value);
-                }
-            }
-            public static bool TryGetCommonVertex(LineSegment segment1, LineSegment segment2, out Vector2 commonEnd)
-            {
-                commonEnd = Vector2.Zero;
-                Vector2[] ends1 = { segment1.Start, segment1.End };
-                Vector2[] ends2 = { segment2.Start, segment2.End };
-
-                foreach (var end1 in ends1)
-                {
-                    foreach (var end2 in ends2)
-                    {
-                        if (end1 == end2)
-                        {
-                            commonEnd = end1;
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
-        }
-        private struct CornerTouch
-        {
-            public Vector2 commonVertex;
-            public LineSegment edge1;
-            public LineSegment edge2;
-            public CornerTouch(Vector2 position, LineSegment edge1, LineSegment edge2)
-            {
-                this.commonVertex = position;
-                this.edge1 = edge1;
-                this.edge2 = edge2;
-            }
-
-            public static List<CornerTouch> ExtractFrom(List<EdgeTouch> items)
-            {
-                List<CornerTouch> resultPairs = new();
-                var groups = items.GroupBy(item => item.vertex);
-
-                HashSet<EdgeTouch> toRemove = new();
-
-                foreach (var group in groups)
-                {
-                    var edges = group.ToList();
-
-                    if (edges.Select(item => item.edge).Distinct().ToList().Count <= 1)
-                        continue;
-
-                    for (int i = 0; i < edges.Count; i++)
-                    {
-                        for (int j = i + 1; j < edges.Count; j++)
-                        {
-                            var e1 = edges[i].edge;
-                            var e2 = edges[j].edge;
-
-                            if (e1 != e2)
-                            {
-                                resultPairs.Add(new(edges[i].vertex, e1, e2));
-
-                                toRemove.Add(edges[i]);
-                                toRemove.Add(edges[j]);
-                            }
-                        }
-                    }
-                }
-
-                items.RemoveAll(i => toRemove.Contains(i));
-
-                return resultPairs;
-            }
-            public static List<EdgeTouch> FindCommonEdges(List<CornerTouch> corners)
-            {
-                List<EdgeTouch> result = new();
-                for (int i = 0; i < corners.Count; i++)
-                {
-                    var c1 = corners[i];
-                    for (int j = i + 1; j < corners.Count; j++)
-                    {
-                        var c2 = corners[j];
-
-                        if (c1.commonVertex == c2.commonVertex)
-                            continue;
-
-                        LineSegment fe1 = c1.edge1;
-                        LineSegment fe2 = c1.edge2;
-
-                        LineSegment se1 = c2.edge1;
-                        LineSegment se2 = c2.edge2;
-
-                        LineSegment? commonEdge = null;
-
-                        if (fe1 == se1 || fe1 == se2)
-                            commonEdge = fe1;
-                        else if (se1 == fe1 || se1 == fe2)
-                            commonEdge = se1;
-
-
-                        if (commonEdge != null)
-                        {
-                            result.Add(new(c1.commonVertex, commonEdge.Value));
-                            result.Add(new(c2.commonVertex, commonEdge.Value));
-                        }
-
-                    }
-                }
-                return result;
-            }
-        }
+        private static float Delta => FrameInfo.FixedDeltaTime;
 
         public Rigidbody(ModularObject owner = null) : base(owner) { }
         protected override void PostConstruct()
@@ -304,190 +213,154 @@ namespace Engine.Modules
             else
                 UsedCollider = Owner.AddModule<Collider>();
 
-            _onEndUpdate = FrameEvents.EndUpdate.Add(EndUpdate, EndUpdateOrders.Rigidbody);
-            UsedCollider.Disposing += Dispose;
+            Updater.Register(this);
         }
-        
-        public void AddForce(Vector2 force) => forces += force / Delta;
 
-        private void EndUpdate()
+        public void AddForce(Vector2 force) => forces += force;
+
+        private void ApplyForces()
         {
-            ApplyGravity();
-            velocity += forces / Mass * Delta;
+            if (BodyType == BodyType.Static)
+                return;
+
+            velocity += forces / Mass * Delta * VelocityScale;
             forces = Vector2.Zero;
-
-            foreach (var item in UsedCollider.Intersections.Where(i => i.Mode == ColliderMode.Physical || i.Mode == ColliderMode.Static))
-            {
-                if (item.IsDisposed)
-                    continue;
-
-                if (item.Owner.TryGetModule(out Rigidbody otherRb))
-                    HandlePhysical(this, otherRb);
-                else
-                    HandleOthers(this, item);
-            }
-
-            ApplyWindage();
-
-            Owner.Position += velocity;
-            Owner.RotationDeg += Angle = AngularVelocity;
         }
+        private void ApplyVelocity() => Owner.Position += velocity;
+        private void ApplyGravity() => AddForce(Gravity * GravityScale * Delta);
 
-        public static void HandlePhysical(Rigidbody first, Rigidbody second)
+        private void Batch()
         {
-            List<EdgeTouch> touches = GetTouches(second.UsedCollider, first.UsedCollider);
-            List<EdgeTouch> otherTouches = GetTouches(first.UsedCollider, second.UsedCollider);
-
-            List<CornerTouch> cornerTouches = CornerTouch.ExtractFrom(touches);
-            List<CornerTouch> otherCornerTouches = CornerTouch.ExtractFrom(otherTouches);
-
-            if (cornerTouches.Count > 1)
-                touches = touches.Concat(CornerTouch.FindCommonEdges(cornerTouches)).ToList();
-            else if(cornerTouches.Count == 1)
-                touches = touches.Concat(EdgeTouch.FromSingleCorner(cornerTouches, CornerTouch.ExtractFrom(GetTouches(first.UsedCollider, second.UsedCollider)))).ToList();
-
-            EdgeTouch.Merge(touches, second.UsedCollider.polygon.GetEdges());
-            EdgeTouch.Merge(otherTouches, first.UsedCollider.polygon.GetEdges());
-            EdgeTouch.Adjust(touches, otherTouches, first.UsedCollider.polygon, second.UsedCollider.polygon);
-
-            touches = touches.Concat(otherTouches
-                .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
-                .ToList()).ToList();
-
-            if (touches.Count < 1)
+            if (UsedCollider == null)
                 return;
             
+            suppresedPhysics.Clear();
+
+            foreach (var item in UsedCollider.Intersections)
+            {
+                if (!item.Owner.TryGetModule<Rigidbody>(out var itemRb))
+                    continue;
+
+                var batch = Contact.Batch(this, itemRb);
+
+                if (!contactBatches.Contains(batch))
+                    contactBatches.Enqueue(batch);
+            }
+        }
+        
+        private void UpdatePhysics()
+        {
+            //iterating collided objects
+            while (contactBatches.Count > 0) 
+            {
+                var batch = contactBatches.Dequeue();
+
+                if (!suppresedPhysics.Contains(batch.OtherRigidbody))
+                    HandleCollision(batch);
+            }
+        }
+        private static void HandleCollision(Contact.ContactBatch batch)
+        {
+            List<Contact> totalContacts = batch.ThisContacts.Concat(batch.OtherContacts).ToList();
+
+            Rigidbody thisRb = batch.ThisRigidbody;
+            Rigidbody otherRb = batch.OtherRigidbody;
+            
+            if (thisRb.BodyType == BodyType.Static && otherRb.BodyType == BodyType.Static)
+                return;
+
             Vector2 impulse = Vector2.Zero;
             int touchCount = 0;
-            foreach (var item in touches)
-            {
-                Vector2 touchNormal = item.edge.Normal;
 
-                float velocityAlongNormal = Vector2.Dot(second.velocity - first.velocity, touchNormal);
+            for (int i = 0; i < totalContacts.Count; i++)
+            {
+                bool isOtherCheck = i >= batch.ThisContacts.Count;
+                Contact item = totalContacts[i];
+
+                Vector2 normal = item.Normal;
+
+                if (isOtherCheck)
+                    normal = -normal;
+
+                float velocityAlongNormal = Vector2.Dot(otherRb.velocity - thisRb.velocity, normal);
+
                 if (velocityAlongNormal > 0)
                     continue;
 
-                impulse += GetImpulse(touchNormal, velocityAlongNormal, first, second);
+                Vector2 normalImpulse = GetImpulse(normal, velocityAlongNormal, thisRb, otherRb);
+
+                impulse += normalImpulse;
                 touchCount++;
             }
 
-            if (impulse == Vector2.Zero || touchCount == 0)
-                return;
+            if (touchCount > 0)
+            {
+                if (thisRb.BodyType == BodyType.Dynamic)
+                {
+                    thisRb.velocity -= impulse / touchCount;
+                }
+                if (otherRb.BodyType == BodyType.Dynamic)
+                {
+                    otherRb.velocity += impulse / touchCount;
+                }
+            }
 
-            first.velocity -= impulse / touchCount / first.Mass;
-            second.velocity += impulse / touchCount / second.Mass;
+            ResolveCollision(batch);
+            otherRb.SuppressCheck(thisRb);
         }
-        private static void HandleOthers(Rigidbody rb, Collider other)
+        
+        private static void ResolveCollision(Contact.ContactBatch batch)
         {
-            List<EdgeTouch> touches = GetTouches(rb.UsedCollider, other);
-            List<EdgeTouch> otherTouches = GetTouches(other, rb.UsedCollider);
-            
-            List<CornerTouch> corners = CornerTouch.ExtractFrom(touches);
-            List<CornerTouch> otherCorners = CornerTouch.ExtractFrom(otherTouches);
+            Vector2 mtv = batch.ThisRigidbody.UsedCollider.GetMTV(batch.OtherRigidbody.UsedCollider);
+            Rigidbody rb;
 
-            if (corners.Count > 1)
-                touches = touches.Concat(CornerTouch.FindCommonEdges(corners)).ToList();
+            if (batch.ThisRigidbody.BodyType == BodyType.Dynamic)
+            {
+                rb = batch.ThisRigidbody;
+                mtv = -mtv;
+            }
             else
             {
-                if (corners.Count == 1)
-                    otherTouches = otherTouches.Concat(EdgeTouch.FromSingleCorner(corners, otherCorners)).ToList();
-                if (otherCorners.Count == 1)
-                    touches = touches.Concat(EdgeTouch.FromSingleCorner(otherCorners, corners)).ToList();
+                rb = batch.OtherRigidbody;
             }
 
-            EdgeTouch.Merge(touches, other.polygon.GetEdges());
-            EdgeTouch.Merge(otherTouches, rb.UsedCollider.polygon.GetEdges());
-            EdgeTouch.Adjust(touches, otherTouches, rb.UsedCollider.polygon, other.polygon);
-           
-            List<EdgeTouch> allTouches = touches.Concat(otherTouches
-                .Select(t => new EdgeTouch(t.vertex, new LineSegment(t.edge.End, t.edge.Start)))
-                .ToList()).ToList();
+            mtv.Round();
+            var mtvLength = mtv.Length();
 
-            if (allTouches.Count < 1)
-                return;
-
-            Vector2 impulse = Vector2.Zero;
-            int touchCount = 0;
-            foreach (var item in allTouches)
+            if (mtvLength >= 2f)
             {
-                Vector2 touchNormal = item.edge.Normal;
-
-                float velocityAlongNormal = Vector2.Dot(rb.velocity, touchNormal);
-                if (velocityAlongNormal > ZeroThreshold)
-                    continue;
-
-                impulse += GetSingleImpulse(touchNormal, velocityAlongNormal, rb); ;
-                touchCount++;
+                rb.Owner.Position += mtv / 2;
+                rb.Owner.Position = rb.Owner.Position.SignCeiled();
+                
+                rb.UsedCollider.UpdateShape();
             }
-
-            if (impulse.Length() < ZeroThreshold || touchCount == 0)
-                return;
-
-            rb.velocity += impulse / touchCount / rb.Mass;
         }
+        private void SuppressCheck(Rigidbody rb) => suppresedPhysics.Add(rb);
 
         private static Vector2 GetImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody first, Rigidbody second)
         {
-            float e = Math.Max(second.Bounciness, first.Bounciness);
-
+            float e = Math.Max(first.Bounciness, second.Bounciness);
             float j = -(1 + e) * velocityAlongNormal;
-            j /= 1 / first.Mass + 1 / second.Mass;
+
+            if (first.BodyType == BodyType.Static)
+            {
+                j /= 1 / second.Mass;
+            }
+            else if (second.BodyType == BodyType.Static)
+            {
+                j /= 1 / first.Mass;
+            }
+            else
+            {
+                j /= 1 / first.Mass + 1 / second.Mass;
+            }
 
             return j * touchNormal;
-        }
-        private static Vector2 GetSingleImpulse(Vector2 touchNormal, float velocityAlongNormal, Rigidbody rb)
-        {
-            float e = rb.Bounciness;
-            float j = -(1 + e) * velocityAlongNormal;
-            j /= 1 / rb.Mass;
-
-            return j * touchNormal;
-        }
-        
-        private void ApplyGravity() => AddForce(Gravity * Mass * GravityScale * Delta);
-        private void ApplyWindage()
-        {
-            float deltaFrict = (Windage / Mass) * Delta;
-            float frictionThreshold = 0.001f;
-
-            if (velocity.AbsX() > frictionThreshold)
-                velocity.X += velocity.X < 0 ? deltaFrict : -deltaFrict;
-            else velocity.X = 0;
-
-            if (velocity.AbsY() > frictionThreshold)
-                velocity.Y += velocity.Y < 0 ? deltaFrict : -deltaFrict;
-            else velocity.Y = 0;
-
-            velocity.X = (float)Math.Round(velocity.X, 3);
-            velocity.Y = (float)Math.Round(velocity.Y, 3);
-
-            if(maxVelocity.X > 0 && velocity.X > maxVelocity.X)
-                velocity.X = maxVelocity.X;
-            if (maxVelocity.Y > 0 && velocity.Y > maxVelocity.Y)
-                velocity.Y = maxVelocity.Y;
-        }
-
-        private static List<EdgeTouch> GetPointsOnEdges(List<LineSegment> edges, List<Vector2> vertices) => 
-            (from e in edges 
-            from v in vertices
-            where e.IsPointBetween(v, Tolerance)
-            select new EdgeTouch(v, e)).ToList();
-        private static List<EdgeTouch> GetTouches(Collider edgesColl, Collider verticesColl)
-        {
-            List<LineSegment> edges = edgesColl.polygon.GetEdges()
-                .Select(e => new LineSegment(e.Start.Rounded(), e.End.Rounded()))
-                .ToList();
-
-            List<Vector2> vertices = verticesColl.polygon.Vertices
-                .Select(v => (v + verticesColl.polygon.position).Rounded())
-                .ToList();
-
-            return GetPointsOnEdges(edges, vertices);
         }
         
         protected override void PostDispose()
         {
-            FrameEvents.EndUpdate.Remove(_onEndUpdate);
+            Updater.Unregister(this);
         }
     }
 }

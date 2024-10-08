@@ -1,4 +1,5 @@
-﻿using GlobalTypes.Collections;
+﻿using Engine.Modules;
+using GlobalTypes.Collections;
 using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -16,9 +17,9 @@ namespace GlobalTypes.InputManagement
         public static Vector2 Axis => axis;
         public static Vector2 UnitAxis => axis.Normalized();
 
-        public static event Action<Key> KeyPressed;
-        public static event Action<Key> KeyHolded;
-        public static event Action<Key> KeyReleased;
+        public static event Action<Key> OnKeyPress;
+        public static event Action<Key> OnKeyHold;
+        public static event Action<Key> OnKeyRelease;
 
         private static ref KeyboardState KeyState => ref FrameInfo.KeyState;
         private static ref MouseState MouseState => ref FrameInfo.MouseState;
@@ -50,15 +51,15 @@ namespace GlobalTypes.InputManagement
             foreach (var key in pressed)
             {
                 if (!wasPressed.Contains(key))
-                    KeyPressed?.Invoke(key);
+                    OnKeyPress?.Invoke(key);
                 else
-                    KeyHolded?.Invoke(key);
+                    OnKeyHold?.Invoke(key);
             }
 
             foreach (var key in wasPressed)
             {
                 if (!pressed.Contains(key))
-                    KeyReleased?.Invoke(key);
+                    OnKeyRelease?.Invoke(key);
             }
 
             wasPressed.Clear();
@@ -72,7 +73,7 @@ namespace GlobalTypes.InputManagement
         private static void UpdateAxis()
         {
             axis.X = (IsKeyDown(RightKey.Key) ? 1 : 0) - (IsKeyDown(LeftKey.Key) ? 1 : 0);
-            axis.Y = (IsKeyDown(UpKey.Key) ? 1 : 0) - (IsKeyDown(DownKey.Key) ? 1 : 0);
+            axis.Y = (IsKeyDown(DownKey.Key) ? 1 : 0) - (IsKeyDown(UpKey.Key) ? 1 : 0);
         }
         private static void UpdateAxisKeys()
         {
@@ -262,11 +263,6 @@ namespace GlobalTypes.InputManagement
         {
             if (binding == null)
                 throw new ArgumentNullException("Key binding is null.");
-        }
-
-        internal static void Bind(Key jumpKey, KeyPhase press, object jump)
-        {
-            throw new NotImplementedException();
         }
     }
 }

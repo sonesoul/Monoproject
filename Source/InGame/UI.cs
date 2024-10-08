@@ -4,7 +4,6 @@ using Engine.Drawing;
 using GlobalTypes;
 using System;
 using Monoproject;
-using SharpDX.Direct3D9;
 using InGame.GameObjects;
 using System.Linq;
 
@@ -14,23 +13,27 @@ namespace InGame
     public static class UI
     {
         public static string CustomInfo { get; set; }
-        public static SpriteFont Silk { get; private set; }
-        public static SpriteFont SilkBold { get; private set; }
-        public static bool DrawDebug { get; set; }
+        public static SpriteFont Silk { get; set; }
+        public static SpriteFont SilkBold { get; set; }
+
+        public static string SilkName => "Silkscreen";
+        public static string SilkBoldName => "SilkscreenBold";
+
+        public static bool DrawDebug { get; set; } = true;
         public static bool UseCustomCursor 
         {
             get => IsUsingCustomCursor;
             set => Main.Instance.IsMouseVisible = !value;
         }
         private static bool IsUsingCustomCursor => !Main.Instance.IsMouseVisible;
-        private static string playerCombos => string.Join("\n", Level.GetObject<Player>()?.Combos.Select((c, i) => $"{i + 1} {c}"));
-
+       
         private static InterfaceDrawer drawer;
         private static SpriteBatch spriteBatch;
+        
         private static void Load()
         {
-            Silk = InstanceInfo.Content.Load<SpriteFont>("Silkscreen");
-            SilkBold = InstanceInfo.Content.Load<SpriteFont>("SilkScreenBold");
+            Silk = InstanceInfo.Content.Load<SpriteFont>(SilkName);
+            SilkBold = InstanceInfo.Content.Load<SpriteFont>(SilkBoldName);
         }
         private static void Init()
         {
@@ -39,6 +42,7 @@ namespace InGame
 
             drawer.AddDrawAction(DrawInfo, DrawMouse);
         }
+
         public static void DrawInfo()
         {
             spriteBatch.DrawString(Silk,

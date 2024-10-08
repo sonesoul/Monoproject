@@ -22,7 +22,7 @@ namespace InGame.GameObjects
             private static readonly List<ComboVisual> comboDisplays = new();
             private static Vector2 comboStartPosition = new(10, 10);
             private static float comboSpacing = 30f;
-
+            
             public class ComboVisual
             {
                 public Combo Combo { get; set; }
@@ -68,6 +68,9 @@ namespace InGame.GameObjects
             }
             private static void Draw()
             {
+                if (!DrawVisuals)
+                    return;
+
                 foreach (var display in comboDisplays)
                 {
                     Color color = Color.White * display.Alpha;
@@ -100,22 +103,20 @@ namespace InGame.GameObjects
             }
         }
 
+        public static bool DrawVisuals { get; set; } = false;
+
         public string Tag => nameof(Player);
         public bool IsInitialized { get; private set; } = false;
         public bool IsDestructed { get; private set; } = true;
 
         public bool CanMove { get; set; } = true;
-        public bool CanJump { get; set; } = true;
         public bool CanCombinate { get; set; } = false;
         public bool CanRollCombos { get; set; } = true;
 
         public float JumpPower { get; set; } = 9.5f;
-        public float MoveSpeed { get; set; } = 6;
+        public float MoveSpeed { get; set; } = 4;
 
         public IReadOnlyList<Combo> Combos => combos;
-
-        public Key JumpKey { get; set; } = Input.AxisCulture.Up;
-
 
         private readonly List<Key> pressedKeys = new();
         
@@ -123,8 +124,7 @@ namespace InGame.GameObjects
         private Rigidbody rigidbody;
 
         private OrderedAction _onUpdate;
-        private KeyBinding _onJumpPress;
-
+        
         private StepTask _comboRollTask = null;
 
         private readonly List<Combo> combos = new();
@@ -147,24 +147,21 @@ namespace InGame.GameObjects
             List<ObjectModule> modules = AddModules(
             new Collider()
             {
-                polygon = Polygon.Rectangle(30, 30)
+                Shape = Polygon.Rectangle(30, 30)
             },
             new Rigidbody()
             {
                 maxVelocity = new(50, 50),
-                GravityScale = 3
             });
 
             collider = modules[0] as Collider;
             rigidbody = modules[1] as Rigidbody;
             
             _onUpdate = FrameEvents.Update.Append(Update);
-            _onJumpPress = Input.Bind(JumpKey, KeyPhase.Press, Jump);
-
 
             _comboRollTask ??= new(RollCombos, true);
             
-            Input.KeyPressed += OnKeyPressed;
+            Input.OnKeyPress += OnKeyPressed;
         }
 
         public void Destruct() => Destroy();
@@ -216,15 +213,7 @@ namespace InGame.GameObjects
         {
             if (CanMove)
             {
-                Position = Position.WhereX(x => x + Input.Axis.X * MoveSpeed);
-            }
-        }
-        private void Jump()
-        {
-            if (CanJump)
-            {
-                rigidbody.velocity.Y = 0;
-                rigidbody.AddForce(new Vector2(0, -JumpPower));
+                rigidbody.velocity = Input.Axis * MoveSpeed;
             }
         }
 
@@ -264,12 +253,10 @@ namespace InGame.GameObjects
             base.PostDestroy();
 
             FrameEvents.Update.Remove(_onUpdate);
-            Input.Unbind(_onJumpPress);
-            Input.KeyPressed -= OnKeyPressed;
+            Input.OnKeyPress -= OnKeyPressed;
 
             rigidbody = null;
             collider = null;
-            _onJumpPress = null;
             _comboRollTask.Break();
         }
     }

@@ -23,6 +23,13 @@ namespace Engine.Drawing
 
             spriteBatch = drawer.SpriteBatch;
         }
+        public ShapeDrawer()
+        {
+            pixel = new Texture2D(InstanceInfo.GraphicsDevice, 1, 1);
+            pixel.SetData(new[] { Color.White });
+
+            spriteBatch = InstanceInfo.SpriteBatch;
+        }
         public void DrawRectangle(Rectangle rect, Color color)
         {
             Rectangle[] rects = new Rectangle[4];

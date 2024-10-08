@@ -6,4 +6,10 @@
         Trigger,
         Static
     }
+    public enum BodyType
+    {
+        Dynamic,
+        Kinematic,
+        Static,
+    }
 }

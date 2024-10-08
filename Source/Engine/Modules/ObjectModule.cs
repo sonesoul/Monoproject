@@ -6,8 +6,8 @@ namespace Engine.Modules
     public abstract class ObjectModule : IDisposable
     {
         private ModularObject _owner;
-        public event Action Disposing;
-        public event Action<ModularObject> OwnerChanged;
+        public event Action OnDispose;
+        public event Action<ModularObject> OnOwnerChange;
         public bool IsDisposed { get; private set; }  
         public bool IsConstructed { get; private set; }  
         public ModularObject Owner => _owner;
@@ -46,7 +46,7 @@ namespace Engine.Modules
             if (_owner != null && !_owner.ContainsModule(this))
                 _owner.AddModule(this);
 
-            OwnerChanged?.Invoke(_owner);
+            OnOwnerChange?.Invoke(_owner);
         }
         public void AssignOwner(ModularObject newOwner) => _owner = newOwner;
 
@@ -67,14 +67,14 @@ namespace Engine.Modules
 
             if (disposing)
             {
-                Disposing?.Invoke();
+                OnDispose?.Invoke();
                 SetOwner(null);
             }
             else
                 _owner = null;
             
-            Disposing = null;
-            OwnerChanged = null;
+            OnDispose = null;
+            OnOwnerChange = null;
 
             PostDispose();
         }

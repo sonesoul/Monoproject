@@ -13,6 +13,7 @@ using GlobalTypes.InputManagement;
 
 namespace GlobalTypes
 {
+    [Obsolete]
     public static class OLDMonoconsole
     {
         public static Key ToggleKey => Key.OemTilde;

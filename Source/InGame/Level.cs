@@ -33,8 +33,11 @@ namespace InGame
                        new StringObject(IngameDrawer.Instance, "", UI.Silk,
                            new Collider()
                            {
-                                Mode = ColliderMode.Static,
-                                polygon = Polygon.Rectangle(37, 37)
+                               Shape = Polygon.Rectangle(37, 37)
+                           },
+                           new Rigidbody()
+                           {
+                               BodyType = BodyType.Static
                            })
                        {
                             Position = pos

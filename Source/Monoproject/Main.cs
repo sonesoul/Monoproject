@@ -15,6 +15,7 @@ using InGame;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Engine.Modules;
 
 namespace Monoproject
 {
@@ -48,7 +49,7 @@ namespace Monoproject
                 PreferredBackBufferHeight = 720,
                 SynchronizeWithVerticalRetrace = true
             };
-
+            
             Window.AllowUserResizing = false;
             IsFixedTimeStep = false;
             Content.RootDirectory = "Content";
@@ -74,6 +75,8 @@ namespace Monoproject
                 await Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[new Random().Next(colors.Count)]);
             };
 
+            Monoconsole.HideButtons = false;
+            Monoconsole.HideFromTaskbar = false;
             Monoconsole.New();
             Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}");
         }

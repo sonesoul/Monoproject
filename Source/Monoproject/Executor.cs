@@ -22,11 +22,15 @@ namespace GlobalTypes
         private static class SettingsCommands
         {
             public static Dictionary<string, Action<string>> Commands => _commands;
-            private readonly static Dictionary<string, Action<string>> _commands = new() 
+            private readonly static Dictionary<string, Action<string>> _commands = new()
             {
                 { "writeexec", static arg => SetProp(arg, nameof(WriteExecuted), typeof(Monoconsole)) },
                 { "isfpsfixed", static arg => SetProp(arg, nameof(Main.Instance.IsFixedTimeStep), Main.Instance) },
-                { "drawdebug", static arg => SetProp(arg, nameof(UI.DrawDebug), typeof(UI))},
+                { "drawdebug", static arg =>
+                {
+                    SetProp(arg, nameof(UI.DrawDebug), typeof(UI));
+                    SetProp(arg, nameof(Player.DrawVisuals), typeof(Player));
+                }},
                 { "customcur", CustomCurCommand },
             };
             private static void SetProp(string arg, string propname, Type t, object obj = null)
@@ -85,8 +89,43 @@ namespace GlobalTypes
                 { "writeinput", static _ => ToggleWriteInput() },
                 { "level", LevelCommand },
                 { "combo", ComboCommand },
+
+                { "dot", DotCommand },
+                { "normalize", NormalizeCommand },
+                { "length", LengthCommand },
+                { "lengthsqrd", LengthSquaredCommand },
             };
-            
+
+            private static void NormalizeCommand(string arg)
+            {
+                WriteInfo($"{GetVector(arg).Normalized()}");
+            }
+
+            private static void LengthSquaredCommand(string arg)
+            {
+                WriteInfo($"{GetVector(arg).LengthSquared()}");
+            }
+
+            private static void LengthCommand(string arg)
+            {
+                WriteInfo($"{GetVector(arg).Length()}");
+            }
+
+            private static void DotCommand(string arg)
+            {
+                SubInput(arg, out var strVector1, out var strVector2);
+                Vector2 v1 = GetVector(strVector1);
+                Vector2 v2 = GetVector(strVector2);
+                WriteInfo($"{v1.Dot(v2)}");
+            }
+
+            private static Vector2 GetVector(string arg)
+            {
+                string[] splitted = arg.Split(';');
+
+                return new Vector2(float.Parse(splitted[0]), float.Parse(splitted[1]));
+            }
+
             private readonly static Ruler ruler = new();
             private readonly static KeyBinding[] rulerBindings =
             {
@@ -122,9 +161,15 @@ namespace GlobalTypes
             }
             private static void FpsCommand(string arg)
             {
+                if (string.IsNullOrEmpty(arg))
+                {
+                    WriteInfo(FrameInfo.FPS.ToString());
+                    return;
+                }
+
                 float fps = float.Parse(arg);
                 Main.Instance.TargetElapsedTime = TimeSpan.FromSeconds(1.0 / fps);
-                WriteInfo($"Set to: {fps}");
+                WriteInfo($"Target FPS set to: {fps}");
             }
             private static void StopwatchCommand(string arg)
             {
@@ -156,13 +201,13 @@ namespace GlobalTypes
 
                 if (!writeInputEnabled)
                 {
-                    Input.KeyPressed += WriteKey;
+                    Input.OnKeyPress += WriteKey;
                     writeInputEnabled = true;
                     WriteInfo("Enabled");
                 }
                 else
                 {
-                    Input.KeyPressed -= WriteKey;
+                    Input.OnKeyPress -= WriteKey;
                     writeInputEnabled = false;
                     WriteInfo("Disabled");
                 }
@@ -731,7 +776,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 {
                     if (command == "batchfile end")
                     {
-                        BatchReceive -= Append;
+                        OnBatchReceive -= Append;
                         IsBatchBegun = false;
 
                         return;
@@ -752,7 +797,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     case "begin":
 
                         IsBatchBegun = true;
-                        BatchReceive += Append;
+                        OnBatchReceive += Append;
 
                         break;
 
@@ -801,12 +846,12 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         {
                             FromString(batchQueue.Dequeue());
                         }
-                        BatchReceive -= Append;
+                        OnBatchReceive -= Append;
                     }
                 }
 
                 IsBatchBegun = true;
-                BatchReceive += Append;
+                OnBatchReceive += Append;
             }
 
             public static int VarParseArg(string arg)
@@ -844,7 +889,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             .Concat(SettingsCommands.Commands)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        public static event Action<string> BatchReceive;
+        public static event Action<string> OnBatchReceive;
         private readonly static Queue<string> batchQueue = new();
 
 
@@ -857,7 +902,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             if (IsBatchBegun)
             {
-                BatchReceive?.Invoke(input);
+                OnBatchReceive?.Invoke(input);
                 return;
             }
 
