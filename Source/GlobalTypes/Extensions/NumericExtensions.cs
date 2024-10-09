@@ -26,11 +26,11 @@ namespace GlobalTypes.Extensions
 
             string finalSize;
             if (sizeGb >= 1)
-                finalSize = $"{sizeGb:F4} GB";
+                finalSize = $"{sizeGb:F2} GB";
             else if (sizeMb >= 1)
-                finalSize = $"{sizeMb:F4} MB";
+                finalSize = $"{sizeMb:F2} MB";
             else if (sizeKb >= 1)
-                finalSize = $"{sizeKb:F4} KB";
+                finalSize = $"{sizeKb:F2} KB";
             else
                 finalSize = $"{sizeBytes} b";
             return finalSize.ToString();

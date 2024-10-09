@@ -140,6 +140,8 @@ namespace Engine.Modules
                 UsedCollider = Owner.AddModule<Collider>();
 
             Updater.Register(this);
+
+            UsedCollider.OnDispose += () => UsedCollider = null;
         }
 
         public void AddForce(Vector2 force) => forces += force;
@@ -176,6 +178,9 @@ namespace Engine.Modules
         
         private void UpdatePhysics()
         {
+            if (UsedCollider == null)
+                return;
+
             //iterating collided objects
             while (contactBatches.Count > 0) 
             {

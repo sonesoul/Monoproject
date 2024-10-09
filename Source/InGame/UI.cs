@@ -45,15 +45,52 @@ namespace InGame
 
         public static void DrawInfo()
         {
-            spriteBatch.DrawString(Silk,
-                (DrawDebug ? 
-                $"{FrameInfo.FPS} / {FrameInfo.DeltaTime}\n" +
-                $"{GC.GetTotalMemory(false).ToSizeString()}\n" : 
-                "") +
-                
-                /*$"{playerCombos}\n" +*/
-                CustomInfo,
-                new Vector2(5, 10), Color.White, 0, new Vector2(0, 0), 1, SpriteEffects.None, 0);
+            Vector2 fpsPos = new(1, 1);
+            float size = 0.7f;
+
+            spriteBatch.DrawString(
+                Silk,
+                $"|fps: {FrameInfo.FPS}",
+                fpsPos, 
+                Color.White,
+                0, 
+                Vector2.Zero,
+                size, 
+                SpriteEffects.None, 
+                0);
+
+            spriteBatch.DrawString(
+                Silk,
+                $"|ft: {FrameInfo.DeltaTime * 1000:00}ms",
+                fpsPos.WhereX(x => x + 70),
+                Color.White,
+                0,
+                Vector2.Zero,
+                size,
+                SpriteEffects.None,
+                0);
+
+            spriteBatch.DrawString(
+               Silk,
+               $"|ram: {GC.GetTotalMemory(false).ToSizeString():00}",
+               fpsPos.WhereX(x => x + 150),
+               Color.White,
+               0,
+               Vector2.Zero,
+               size,
+               SpriteEffects.None,
+               0);
+
+            spriteBatch.DrawString(
+                Silk,
+                CustomInfo ?? "",
+                new Vector2(5, 10),
+                Color.White, 
+                0, 
+                new Vector2(0, 0),
+                1f, 
+                SpriteEffects.None,
+                0);
         }
         public static void DrawMouse()
         {

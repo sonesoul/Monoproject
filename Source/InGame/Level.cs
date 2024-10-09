@@ -82,6 +82,12 @@ namespace InGame
             }
 
             levelObjects.Clear();
+            
+            foreach (var item in _platforms)
+            {
+                item.Destroy();
+            }
+            _platforms.Clear();
         }
 
         public static StorageFiller NewFiller(ComboStorage storage)

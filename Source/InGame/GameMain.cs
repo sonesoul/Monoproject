@@ -37,6 +37,17 @@ namespace InGame
             int height = InstanceInfo.WindowHeight;
             int offset = 9;
 
+            //top
+            _ = new StringObject(ingameDrawer, "", UI.Silk,
+                new Collider()
+                {
+                    Shape = Polygon.Rectangle(width, 20),
+                },
+                new Rigidbody()
+                {
+                    BodyType = BodyType.Static,
+                }).Position = new(width / 2, -offset);
+
             //bottom
             _ = new StringObject(ingameDrawer, "", UI.Silk, 
                 new Collider()

@@ -11,99 +11,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace InGame.GameObjects
 {
     public class Player : StringObject, ILevelObject
     {
-        [Init(nameof(Init))]
-        private static class PlayerVisual
-        {
-            private static readonly List<ComboVisual> comboDisplays = new();
-            private static Vector2 comboStartPosition = new(10, 10);
-            private static float comboSpacing = 30f;
-            
-            public class ComboVisual
-            {
-                public Combo Combo { get; set; }
-                public Vector2 Position { get; set; }
-                public Vector2 TargetPosition { get; set; }
-
-                public float Alpha { get; set; } = 1f;
-                public bool IsDisappearing { get; set; } = false;
-
-                public ComboVisual(Combo combo, Vector2 position)
-                {
-                    Combo = combo;
-                    Position = position;
-                    TargetPosition = position;
-                }
-            }
-
-            private static void Init()
-            {
-                InterfaceDrawer.Instance.AddDrawAction(Draw);
-                FrameEvents.Update.Append(Update);
-            }
-
-            private static void Update()
-            {
-                for (int i = comboDisplays.Count - 1; i >= 0; i--)
-                {
-                    var display = comboDisplays[i];
-
-                    if (display.IsDisappearing)
-                    {
-                        display.Alpha -= 0.10f;
-                        if (display.Alpha <= 0)
-                        {
-                            comboDisplays.RemoveAt(i);
-                            UpdateTargetPositions();
-                            continue;
-                        }
-                    }
-
-                    display.Position = Vector2.Lerp(display.Position, display.TargetPosition, 0.2f);
-                }
-            }
-            private static void Draw()
-            {
-                if (!DrawVisuals)
-                    return;
-
-                foreach (var display in comboDisplays)
-                {
-                    Color color = Color.White * display.Alpha;
-                    InstanceInfo.SpriteBatch.DrawString(UI.Silk, display.Combo.ToString(), display.Position, color);
-                }
-            }
-
-            public static void AddComboVisual(Combo combo)
-            {
-                Vector2 position = comboStartPosition + new Vector2(0, comboDisplays.Count * comboSpacing);
-                comboDisplays.Add(new ComboVisual(combo, position));
-            }
-            public static void RemoveComboVisual(Combo combo)
-            {
-                var display = comboDisplays.FirstOrDefault(c => c.Combo == combo);
-                if (display != null)
-                {
-                    display.IsDisappearing = true;
-                }
-
-                UpdateTargetPositions();
-            }
-
-            private static void UpdateTargetPositions()
-            {
-                for (int i = 0; i < comboDisplays.Count; i++)
-                {
-                    comboDisplays[i].TargetPosition = comboStartPosition + new Vector2(0, i * comboSpacing);
-                }
-            }
-        }
-
-        public static bool DrawVisuals { get; set; } = false;
+        public static bool DrawVisuals { get; set; } = true;
 
         public string Tag => nameof(Player);
         public bool IsInitialized { get; private set; } = false;
@@ -118,6 +32,8 @@ namespace InGame.GameObjects
 
         public IReadOnlyList<Combo> Combos => combos;
 
+        public static event Action<Combo> OnComboAdd, OnComboRemove;
+
         private readonly List<Key> pressedKeys = new();
         
         private Collider collider;
@@ -126,10 +42,11 @@ namespace InGame.GameObjects
         private OrderedAction _onUpdate;
         
         private StepTask _comboRollTask = null;
+        private Vector2 targetPosition;
 
         private readonly List<Combo> combos = new();
         private readonly int poolSize = 4;
-
+        
         public Player() : base(IngameDrawer.Instance, "#", UI.Silk) 
         {
             CharColor = Color.Green;
@@ -162,6 +79,18 @@ namespace InGame.GameObjects
             _comboRollTask ??= new(RollCombos, true);
             
             Input.OnKeyPress += OnKeyPressed;
+            Input.Bind(Key.MouseRight, KeyPhase.Hold, Move);
+
+            IngameDrawer.Instance.AddDrawAction(() =>
+            {
+                if ((targetPosition - Position).Length() > 5)
+                    ShapeDrawer.DrawLine(
+                        Position,
+                        targetPosition,
+                        IngameDrawer.Instance,
+                        Color.WhiteSmoke);
+            });
+            targetPosition = Position;
         }
 
         public void Destruct() => Destroy();
@@ -178,22 +107,25 @@ namespace InGame.GameObjects
             if (combos.Count > poolSize)
                 RemoveCombo(combos[0]);
 
-            PlayerVisual.AddComboVisual(combo);
+            OnComboAdd?.Invoke(combo);
         }
         public void RemoveCombo(Combo combo)
         {
             combos.Remove(combo);
-            PlayerVisual.RemoveComboVisual(combo);
+            OnComboRemove?.Invoke(combo);
         }
-        public void RemoveComboAt(int index)
-        {
-            Combo combo = combos[index];
-            RemoveCombo(combo);
-        }
+        public void RemoveComboAt(int index) => RemoveCombo(combos[index]);
 
         private void Update()
         {
-            Move();
+            if ((targetPosition - Position).Length() < 5)
+            {
+                rigidbody.velocity = Vector2.Zero;
+            }
+            else if (CanMove)
+            {
+                rigidbody.velocity = (targetPosition - Position).Normalized() * MoveSpeed;
+            }
         }
 
         private IEnumerator RollCombos()
@@ -209,14 +141,16 @@ namespace InGame.GameObjects
             }
         }
 
+        
         private void Move()
         {
-            if (CanMove)
+            Vector2 mousePos = FrameInfo.MousePosition;
+
+            if (!collider.ContainsPoint(mousePos))
             {
-                rigidbody.velocity = Input.Axis * MoveSpeed;
+                targetPosition = mousePos;
             }
         }
-
         private void OnKeyPressed(Key key)
         {
             char keyChar = (char)key;
