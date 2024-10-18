@@ -30,7 +30,7 @@ namespace InGame
             { '#', static (pos) =>
                 {
                    _platforms.Add(
-                       new StringObject(IngameDrawer.Instance, "", UI.Silk,
+                       new StringObject("", UI.Silk, true,
                            new Collider()
                            {
                                Shape = Polygon.Rectangle(37, 37)

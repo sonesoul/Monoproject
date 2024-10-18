@@ -20,9 +20,6 @@ namespace InGame.GameObjects
         private static SpriteFont BracketsFont => UI.Silk;
         private static SpriteFont LetterFont => UI.SilkBold;
 
-        private static IngameDrawer Drawer => IngameDrawer.Instance;
-        private static SpriteBatch SpriteBatch => Drawer.SpriteBatch;
-
         private Vector2 letterOrigin;
         private readonly List<Combo> pushedCombos = new();
 
@@ -30,7 +27,7 @@ namespace InGame.GameObjects
         {
             Size = storageSize.Clamp(1, 99);
 
-            Drawer.AddDrawAction(Draw);
+            Drawer.Register(Draw);
 
             RollRequirement();
         }
@@ -52,45 +49,39 @@ namespace InGame.GameObjects
             return false;
         }
 
-        private void Draw()
+        private void Draw(DrawContext context)
         {
             //letter
-            SpriteBatch.DrawString(
+            context.String(
                 LetterFont,
                 Requirement.ToString(),
                 Position,
                 Color.White,
                 0,
                 letterOrigin,
-                1,
-                SpriteEffects.None,
-                0);
+                1);
 
             Vector2 origin = BracketsFont.MeasureString("[") / 2;
-
-            SpriteBatch.DrawString(
+            
+            context.String(
                 BracketsFont,
                 "[",
                 Position.WhereX(x => x - 15),
                 Color.White,
                 0,
                 origin,
-                new Vector2(1.4f, 2),
-                SpriteEffects.None,
-                0);
+                new Vector2(1.4f, 2));
 
             origin = BracketsFont.MeasureString("]") / 2;
 
-            SpriteBatch.DrawString(
+            context.String(
                 BracketsFont,
                 "]",
                 Position.WhereX(x => x + 14),
                 Color.White,
                 0,
                 origin,
-                new Vector2(1.4f, 2),
-                SpriteEffects.None,
-                0);
+                new Vector2(1.4f, 2));
         }
         private void RollRequirement()
         {
@@ -100,7 +91,7 @@ namespace InGame.GameObjects
 
         protected override void PostDestroy()
         {
-            Drawer.RemoveDrawAction(Draw);
+            Drawer.Unregister(Draw);
         }
     }
 }

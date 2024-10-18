@@ -36,9 +36,6 @@ namespace InGame.GameObjects
 
         private Collider collider;
 
-        private IngameDrawer drawer;
-        private SpriteBatch spriteBatch;
-
         private Vector2 smoothDistance = new(0, -50);
         private float smoothSpeed = 3;
 
@@ -51,9 +48,6 @@ namespace InGame.GameObjects
             Size = size;
 
             Clear();
-
-            drawer = IngameDrawer.Instance;
-            spriteBatch = drawer.SpriteBatch;
         }
 
         public void Init()
@@ -68,7 +62,7 @@ namespace InGame.GameObjects
                 Shape = Polygon.Rectangle(textOrigin.X * 2, 30)
             });
 
-            drawer.AddDrawAction(Draw);
+            Drawer.Register(Draw, true);
 
             moveTask = new(Move);
             moveBackTask = new(MoveBack);
@@ -169,18 +163,16 @@ namespace InGame.GameObjects
             moveBackTask.Start();
         }
 
-        private void Draw()
+        private void Draw(DrawContext context)
         {
-            spriteBatch.DrawString(
+            context.String(
                 Font,
                 text,
                 Position + drawOffset,
                 TextColor,
                 0,
                 textOrigin,
-                new Vector2(1f, 1f),
-                SpriteEffects.None,
-                0
+                new Vector2(1f, 1f)
             );
         }
 
@@ -188,7 +180,7 @@ namespace InGame.GameObjects
 
         protected override void PostDestroy()
         {
-            drawer.RemoveDrawAction(Draw);
+            Drawer.Unregister(Draw);
 
             collider.OnOverlapEnter -= OnTriggerEnter;
             collider.OnOverlapExit -= OnTriggerExit;

@@ -1,5 +1,4 @@
 ﻿using GlobalTypes;
-using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Monoproject;
@@ -10,7 +9,7 @@ using System.Linq;
 namespace Engine.Drawing
 {
     [Init(nameof(Init), InitOrders.FrameDrawing)]
-    public static class NEWDrawer
+    public static class Drawer
     {
         private class DrawTask
         {
@@ -42,7 +41,7 @@ namespace Engine.Drawing
             drawContext = new(spriteBatch, graphics);
         }
 
-        public static void Register(DrawAction action, int layer = -1, bool matrixDepend = true)
+        public static void Register(DrawAction action, bool matrixDepend = true, int layer = -1)
         {
             if (dynamicActions.Any(a => a.Action == action) || staticActions.Any(a => a.Action == action))
             {
@@ -78,6 +77,14 @@ namespace Engine.Drawing
 
         private static void DrawForEach(IEnumerable<DrawTask> actions)
         {
+            foreach (var action in actions)
+            {
+                action?.Action?.Invoke(drawContext);
+            }
+
+            return;
+
+            //artifacts
             var groups = actions.GroupBy(a => a.Layer);
 
             foreach (var group in groups)
@@ -90,8 +97,6 @@ namespace Engine.Drawing
         {
             SpriteBatch batch = spriteBatch;
             
-            Erase();
-
             batch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
             DrawDynamic();
             batch.End();
@@ -100,7 +105,7 @@ namespace Engine.Drawing
             DrawStatic();
             batch.End();
         }
-        private static void Erase() => graphics.Clear(BackgroundColor);
+        public static void Erase() => graphics.Clear(BackgroundColor);
 
         private static int FirstLarger(DrawTask task, List<DrawTask> tasks)
         {
@@ -140,6 +145,13 @@ namespace Engine.Drawing
         {
             SpriteBatch.DrawString(font, str, position, color, rotation, origin, scale, SpriteEffects.None, 0);
         }
+
+        public void String(SpriteFont font, string str, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects spriteEffects = SpriteEffects.None)
+        {
+            SpriteBatch.DrawString(font, str, position, color, rotation, origin, scale, spriteEffects, 0);
+        }
+
+
         public void Char(SpriteFont font, char character, Vector2 position, Color color, float rotation = 0, Vector2 origin = default, float scale = 1)
         {
             String(font, character.ToString(), position, color, rotation, origin, scale);
@@ -178,6 +190,27 @@ namespace Engine.Drawing
             Vector2 origin = new(0, 0.5f);
 
             SpriteBatch.Draw(Pixel, rect, null, color, angle, origin, SpriteEffects.None, 0);
+        }
+    }
+
+    public static class Camera
+    {
+        private static Vector2 _position = Vector2.Zero;
+        private static float _zoom = 1f;
+
+        public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
+        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameInfo.DeltaTime;
+        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameInfo.DeltaTime;
+
+        public static float Zoom
+        {
+            get => _zoom;
+            set => _zoom = Math.Max(0, value);
+        }
+        public static Vector2 Position
+        {
+            get => _position;
+            set => _position = value;
         }
     }
 }

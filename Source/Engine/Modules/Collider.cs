@@ -26,16 +26,13 @@ namespace Engine.Modules
         private Rectangle bounds;
         private Polygon shape = Polygon.Rectangle(50, 50);
         private Color shapeDrawColor = Color.Lime;
-
-        private ShapeDrawer shapeDrawer;
-        
         private List<Vector2> Vertices => Shape.Vertices;
 
         public Collider(ModularObject owner = null) : base(owner) { }
         protected override void PostConstruct()
         {
-            shapeDrawer = new(InstanceInfo.GraphicsDevice, InstanceInfo.SpriteBatch);
-            IngameDrawer.Instance.AddDrawAction(DrawShape, DrawBounds);
+            Drawer.Register(DrawShape, true);
+            Drawer.Register(DrawBounds, true);
             Updater.Register(this);
         }
         
@@ -59,7 +56,7 @@ namespace Engine.Modules
 
         public bool ContainsPoint(Vector2 point) => Shape.ContainsPoint(point);
 
-        private void DrawShape()
+        private void DrawShape(DrawContext context)
         {
             UpdateShape();
             
@@ -68,15 +65,14 @@ namespace Engine.Modules
             for (int i = 1; i < Vertices.Count; i++)
             {
                 next = Vertices[i] + Owner.IntegerPosition;
-                shapeDrawer.DrawLine(current, next, shapeDrawColor);
+                context.Line(current, next, shapeDrawColor);
                 current = next;
             }
 
 
-            shapeDrawer.DrawLine(current, Vertices[0] + Owner.IntegerPosition, shapeDrawColor);
-            
+            context.Line(current, Vertices[0] + Owner.IntegerPosition, shapeDrawColor);
         }
-        private void DrawBounds()
+        private void DrawBounds(DrawContext context)
         {
             //shapeDrawer.DrawRectangle(Bounds, Color.Gray);
         }
@@ -155,8 +151,8 @@ namespace Engine.Modules
         {
             Updater.Unregister(this);
             
-            IngameDrawer.Instance.RemoveDrawAction(DrawBounds);
-            IngameDrawer.Instance.RemoveDrawAction(DrawShape);
+            Drawer.Unregister(DrawBounds);
+            Drawer.Unregister(DrawShape);
             
             collisions.Clear();
             previousCollisions.Clear();

@@ -9,6 +9,7 @@ using System.Diagnostics;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
 using Engine.Types.Interfaces;
+using GlobalTypes;
 
 namespace Engine
 {
@@ -150,7 +151,7 @@ namespace Engine
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
-    public class CharObject : ModularObject, IRenderable
+    public class CharObject : ModularObject
     {
         public char Character { get; set; }
         public Vector2 Offset { get; set; } = Vector2.Zero;
@@ -160,28 +161,27 @@ namespace Engine
         public SpriteEffects SpriteEffects { get; set; }
         public SpriteFont Font { get; set; }
 
-        public IDrawer Drawer { get; private set; }
         public bool CanDraw { get; set; } = true;
 
-        public CharObject(IDrawer drawer, char character, SpriteFont font)
+        public CharObject(char character, SpriteFont font, bool matrixDepend)
         {
-            drawer.AddDrawAction(Draw);
+            Drawing.Drawer.Register(Draw, matrixDepend: matrixDepend);
             Font = font;
 
             Character = character;
             Origin = Font.MeasureString(character.ToString()) / 2;
         }
-        public CharObject(IDrawer drawer, char character, SpriteFont font, params ObjectModule[] modules) : this(drawer, character, font)
+        public CharObject(char character, SpriteFont font, bool matrixDepend, params ObjectModule[] modules) : this(character, font, matrixDepend)
         {
             foreach (var module in modules)
                 AddModule(module);
         }
 
-        public void Draw()
+        public void Draw(DrawContext context)
         {
             if (CanDraw)
             {
-                Drawer.SpriteBatch.DrawString(
+                context.String(
                     Font,
                     Character.ToString(),
                     Position,
@@ -189,20 +189,19 @@ namespace Engine
                     RotationRad,
                     Origin,
                     Scale,
-                    SpriteEffects,
-                    0);
+                    SpriteEffects);
             }
         }
 
         protected override void PostDestroy()
         {
-            Drawer.RemoveDrawAction(Draw);
+            Drawing.Drawer.Unregister(Draw);
         }
         public override string ToString() => Character.ToString();
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
-    public class StringObject : ModularObject, IRenderable
+    public class StringObject : ModularObject
     {
         public string Content
         {
@@ -215,7 +214,7 @@ namespace Engine
         }
         public Vector2 Scale { get; set; } = Vector2.One;
         public Vector2 Origin { get; set; }
-        public Vector2 OriginOffset { get; set; } = Vector2.Zero;//new(-0.5f, 1);
+        public Vector2 OriginOffset { get; set; } = Vector2.Zero;
         public Color CharColor
         {
             get => charColor; set
@@ -225,31 +224,30 @@ namespace Engine
             }
         }
         public SpriteFont Font { get; set; }
+        public SpriteEffects SpriteEffects { get; set; }
+        public bool MatrixDepend { get; set; }
 
         public float Spacing { get => Font.Spacing; set => Font.Spacing = value; }
         public bool CanDraw { get; set; } = true;
         public int Length => characters.Count;
-        public IDrawer Drawer { get; private set; }
 
         private string content;
         private Color charColor = Color.White;
         private RenderTarget2D textTexture;
-        private readonly SpriteBatch spriteBatch;
         private readonly List<CharObject> characters = new();
 
-        public StringObject(IDrawer drawer, string content, SpriteFont font) : base()
+        public StringObject(string content, SpriteFont font, bool matrixDepend) : base()
         {
-            spriteBatch = drawer.SpriteBatch;
-            
+            MatrixDepend = matrixDepend;
+
             Origin = font.MeasureString(content) / 2;
-            
-            Drawer = drawer;
-            drawer.AddDrawAction(Draw);
+
+            Drawer.Register(Draw, matrixDepend: matrixDepend);
 
             Font = font;
             Content = content;
         }
-        public StringObject(IDrawer drawer, string text, SpriteFont font, params ObjectModule[] modules) : this(drawer, text, font)
+        public StringObject(string text, SpriteFont font, bool matrixDepend, params ObjectModule[] modules) : this(text, font, matrixDepend)
         {
             foreach (var module in modules) 
                 AddModule(module);
@@ -261,14 +259,14 @@ namespace Engine
             (characters[index1], characters[index2]) = (characters[index2], characters[index1]);
         }
 
-        public virtual void Draw()
+        public virtual void Draw(DrawContext context)
         {
             if (!CanDraw) 
                 return;
 
             foreach (var charObj in characters)
             {
-                spriteBatch.DrawString(
+                context.String(
                     charObj.Font,
                     charObj.Character.ToString(),
                     IntegerPosition + charObj.Position,
@@ -276,8 +274,7 @@ namespace Engine
                     charObj.RotationRad,
                     Origin + OriginOffset,
                     Scale * charObj.Scale,
-                    SpriteEffects.None,
-                    0);
+                    SpriteEffects);
             }
         }
 
@@ -290,7 +287,7 @@ namespace Engine
 
             foreach (char character in Content)
             {
-                CharObject c = new(Drawer, character, Font)
+                CharObject c = new(character, Font, MatrixDepend)
                 {
                     Position = startPosition + position,
                     Color = CharColor,
@@ -310,6 +307,8 @@ namespace Engine
             if (textSize.Both() <= 0)
                 return;
 
+            var spriteBatch = InstanceInfo.SpriteBatch;
+
             textTexture = new RenderTarget2D(spriteBatch.GraphicsDevice, (int)textSize.X, (int)textSize.Y);
 
             spriteBatch.GraphicsDevice.SetRenderTarget(textTexture);
@@ -326,7 +325,7 @@ namespace Engine
 
         protected override void PostDestroy()
         {
-            Drawer.RemoveDrawAction(Draw);
+            Drawer.Unregister(Draw);
         }
         public override string ToString() => Content;
     }

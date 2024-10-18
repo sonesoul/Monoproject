@@ -18,7 +18,7 @@ namespace InGame
 
             Input.Bind(Key.T, KeyPhase.Press, () =>
             {
-                new StringObject(IngameDrawer.Instance, "?", UI.Silk)
+                new StringObject("?", UI.Silk, true)
                 {
                     Position = FrameInfo.MousePosition,
                 }.AddModule<Rigidbody>();
@@ -32,13 +32,12 @@ namespace InGame
 
         private void CreateWalls()
         {
-            IngameDrawer ingameDrawer = IngameDrawer.Instance;
             int width = InstanceInfo.WindowWidth;
             int height = InstanceInfo.WindowHeight;
             int offset = 9;
 
             //top
-            _ = new StringObject(ingameDrawer, "", UI.Silk,
+            _ = new StringObject("", UI.Silk, true,
                 new Collider()
                 {
                     Shape = Polygon.Rectangle(width, 20),
@@ -49,7 +48,7 @@ namespace InGame
                 }).Position = new(width / 2, -offset);
 
             //bottom
-            _ = new StringObject(ingameDrawer, "", UI.Silk, 
+            _ = new StringObject("", UI.Silk, true,
                 new Collider()
                 {
                     Shape = Polygon.Rectangle(width, 20),
@@ -60,7 +59,7 @@ namespace InGame
                 }).Position = new(width / 2, height + offset);
 
             //right
-            _ = new StringObject(ingameDrawer, "", UI.Silk,
+            _ = new StringObject("", UI.Silk, true,
                 new Collider()
                 {
                     Shape = Polygon.Rectangle(20, height),
@@ -71,7 +70,7 @@ namespace InGame
                 }).Position = new(width + offset, height / 2);
 
             //left
-            _ = new StringObject(ingameDrawer, "", UI.Silk, 
+            _ = new StringObject("", UI.Silk, true, 
                 new Collider()
                 {
                     Shape = Polygon.Rectangle(20, height),

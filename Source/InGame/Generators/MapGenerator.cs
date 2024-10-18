@@ -21,7 +21,7 @@ namespace InGame.Generators
             { '#', (pos) => 
                 {
                     _ =
-                    new StringObject(IngameDrawer.Instance, "", UI.Silk, new Collider()
+                    new StringObject("", UI.Silk, true, new Collider()
                     {
                         Shape = Polygon.Rectangle(37, 37)
                     },

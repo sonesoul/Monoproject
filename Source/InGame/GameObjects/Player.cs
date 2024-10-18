@@ -47,7 +47,7 @@ namespace InGame.GameObjects
         private readonly List<Combo> combos = new();
         private readonly int poolSize = 4;
         
-        public Player() : base(IngameDrawer.Instance, "#", UI.Silk) 
+        public Player() : base("#", UI.Silk, true) 
         {
             CharColor = Color.Green;
             Scale = new(2, 2);
@@ -81,13 +81,12 @@ namespace InGame.GameObjects
             Input.OnKeyPress += OnKeyPressed;
             Input.Bind(Key.MouseRight, KeyPhase.Hold, Move);
 
-            IngameDrawer.Instance.AddDrawAction(() =>
+            Drawer.Register(context =>
             {
                 if ((targetPosition - Position).Length() > 5)
-                    ShapeDrawer.DrawLine(
+                    context.Line(
                         Position,
                         targetPosition,
-                        IngameDrawer.Instance,
                         Color.WhiteSmoke);
             });
             targetPosition = Position;

@@ -39,7 +39,7 @@ namespace InGame.Visuals
 
         private static void Init()
         {
-            InterfaceDrawer.Instance.AddDrawAction(DrawCombos);
+            Drawer.Register(DrawCombos, false);
             FrameEvents.Update.Append(Update);
 
             Player.OnComboAdd += AddCombo;
@@ -66,7 +66,7 @@ namespace InGame.Visuals
                 display.Position = Vector2.Lerp(display.Position, display.TargetPosition, 0.2f);
             }
         }
-        private static void DrawCombos()
+        private static void DrawCombos(DrawContext context)
         {
             if (!CanDraw)
                 return;
@@ -74,7 +74,7 @@ namespace InGame.Visuals
             foreach (var display in comboDisplays)
             {
                 Color color = Color.White * display.Alpha;
-                InstanceInfo.SpriteBatch.DrawString(UI.Silk, display.Combo.ToString(), display.Position, color);
+                context.String(UI.Silk, display.Combo.ToString(), display.Position, color);
             }
         }
 

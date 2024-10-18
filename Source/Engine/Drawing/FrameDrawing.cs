@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace Engine.Drawing
 {
+    [Obsolete]
     public interface IDrawer
     {
         public void DrawAll();
@@ -15,7 +16,8 @@ namespace Engine.Drawing
         public GraphicsDevice GraphicsDevice { get; }
         public int Layer { get; }
     }
-    public abstract class Drawer : IDrawer
+    [Obsolete]
+    public abstract class OLDDrawer : IDrawer
     {
         protected SpriteBatch _spriteBatch;
         protected GraphicsDevice _graphicsDevice;
@@ -60,12 +62,13 @@ namespace Engine.Drawing
         public abstract int Layer { get; }
     }
 
-    public class InterfaceDrawer : Drawer
+    [Obsolete]
+    public class OLDInterfaceDrawer : OLDDrawer
     {
-        private static InterfaceDrawer _instance;
-        private InterfaceDrawer(SpriteBatch batch, GraphicsDevice device) => Init(batch, device);
+        private static OLDInterfaceDrawer _instance;
+        private OLDInterfaceDrawer(SpriteBatch batch, GraphicsDevice device) => Init(batch, device);
 
-        public static InterfaceDrawer CreateInstance(SpriteBatch batch = null, GraphicsDevice device = null)
+        public static OLDInterfaceDrawer CreateInstance(SpriteBatch batch = null, GraphicsDevice device = null)
         {
             if (_instance == null)
             {
@@ -78,14 +81,15 @@ namespace Engine.Drawing
             }
             return _instance;
         }
-        public static InterfaceDrawer Instance => _instance;
+        public static OLDInterfaceDrawer Instance => _instance;
         public override int Layer => 0;
     }
-    public class IngameDrawer : Drawer
+    [Obsolete]
+    public class OLDIngameDrawer : OLDDrawer
     {
-        private static IngameDrawer _instance;
-        private IngameDrawer(SpriteBatch batch, GraphicsDevice device) => Init(batch, device);
-        public static IngameDrawer CreateInstance(SpriteBatch batch = null, GraphicsDevice device = null)
+        private static OLDIngameDrawer _instance;
+        private OLDIngameDrawer(SpriteBatch batch, GraphicsDevice device) => Init(batch, device);
+        public static OLDIngameDrawer CreateInstance(SpriteBatch batch = null, GraphicsDevice device = null)
         {
             if (_instance == null)
             {
@@ -99,7 +103,7 @@ namespace Engine.Drawing
             return _instance;
         }
 
-        public static IngameDrawer Instance => _instance;
+        public static OLDIngameDrawer Instance => _instance;
         public override int Layer => 1;
     }
 }

@@ -5,6 +5,7 @@ using System;
 
 namespace Engine.Drawing
 {
+    [Obsolete]
     public class ShapeDrawer
     {
         private Texture2D pixel;
@@ -65,6 +66,7 @@ namespace Engine.Drawing
             drawer.SpriteBatch.Draw(pixel, rect, null, color, angle, origin, SpriteEffects.None, 0);
         }
     }
+
     public class Ruler
     {
         public bool IsActive { get; private set; } = false;
@@ -85,7 +87,7 @@ namespace Engine.Drawing
             if (!IsActive)
             {
                 IsActive = true;
-                IngameDrawer.Instance.AddDrawAction(Draw);
+                Drawer.Register(Draw, false);
             }
         }
         public void Hide()
@@ -93,15 +95,14 @@ namespace Engine.Drawing
             if (IsActive) 
             {
                 IsActive = false;
-                IngameDrawer.Instance.RemoveDrawAction(Draw);
+                Drawer.Unregister(Draw);
             }
         }
 
-        public void Draw()
+        public void Draw(DrawContext context)
         {
-            ShapeDrawer.DrawLine(Start, End, IngameDrawer.Instance, LineColor, Thickness);
+            context.Line(Start, End, LineColor, Thickness);
             
-            SpriteBatch batch = IngameDrawer.Instance.SpriteBatch;
             SpriteFont font = InGame.UI.Silk;
 
             string startText = $"({Start.X}, {Start.Y})";
@@ -109,16 +110,14 @@ namespace Engine.Drawing
             string distanceText = $"{startText} - {endText}\nD: [{((int)Distance)}]";
             Vector2 dm = font.MeasureString(distanceText) * InfoSize;
 
-            batch.DrawString(
+            context.String(
                 font,
                 distanceText,
                 InfoPosition - dm / 2,
                 InfoColor,
                 0,
                 Vector2.Zero,
-                Vector2.One * InfoSize,
-                SpriteEffects.None,
-                1);
+                Vector2.One * InfoSize);
         }
     }
 }

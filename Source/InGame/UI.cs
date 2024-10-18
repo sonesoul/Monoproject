@@ -27,9 +27,6 @@ namespace InGame
         }
         private static bool IsUsingCustomCursor => !Main.Instance.IsMouseVisible;
        
-        private static InterfaceDrawer drawer;
-        private static SpriteBatch spriteBatch;
-        
         private static void Load()
         {
             Silk = InstanceInfo.Content.Load<SpriteFont>(SilkName);
@@ -37,62 +34,52 @@ namespace InGame
         }
         private static void Init()
         {
-            drawer = InterfaceDrawer.Instance;
-            spriteBatch = InstanceInfo.SpriteBatch;
-
-            drawer.AddDrawAction(DrawInfo, DrawMouse);
+            Drawer.Register(DrawInfo, matrixDepend: false);
+            Drawer.Register(DrawMouse, matrixDepend: false);
         }
 
-        public static void DrawInfo()
+        public static void DrawInfo(DrawContext context)
         {
             Vector2 fpsPos = new(1, 1);
             float size = 0.7f;
 
-            spriteBatch.DrawString(
+            //total infos
+            context.String(
                 Silk,
                 $"|fps: {FrameInfo.FPS}",
                 fpsPos, 
                 Color.White,
                 0, 
                 Vector2.Zero,
-                size, 
-                SpriteEffects.None, 
-                0);
-
-            spriteBatch.DrawString(
+                size);
+            context.String(
                 Silk,
                 $"|ft: {FrameInfo.DeltaTime * 1000:00}ms",
                 fpsPos.WhereX(x => x + 70),
                 Color.White,
                 0,
                 Vector2.Zero,
-                size,
-                SpriteEffects.None,
-                0);
-
-            spriteBatch.DrawString(
+                size);
+            context.String(
                Silk,
                $"|ram: {GC.GetTotalMemory(false).ToSizeString():00}",
                fpsPos.WhereX(x => x + 150),
                Color.White,
                0,
                Vector2.Zero,
-               size,
-               SpriteEffects.None,
-               0);
+               size);
 
-            spriteBatch.DrawString(
+            //custom info
+            context.String(
                 Silk,
                 CustomInfo ?? "",
                 new Vector2(5, 10),
                 Color.White, 
                 0, 
                 new Vector2(0, 0),
-                1f, 
-                SpriteEffects.None,
-                0);
+                1f);
         }
-        public static void DrawMouse()
+        public static void DrawMouse(DrawContext context)
         {
             if (!IsUsingCustomCursor) 
                 return;
@@ -104,16 +91,15 @@ namespace InGame
             Vector2 mouseOrigin = Silk.MeasureString(mouse);
             mouseOrigin.Y /= 2;
             mouseOrigin.X = 0;
-            spriteBatch.DrawString(
+
+            context.String(
                 Silk,
                 mouse,
                 new(curPoint.X - 3, curPoint.Y),
                 Color.White,
                 45f.AsRad(),
                 mouseOrigin, 
-                1.3f, 
-                SpriteEffects.None,
-                0);
+                1.3f);
         }
     }
 }

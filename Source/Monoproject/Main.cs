@@ -32,8 +32,6 @@ namespace Monoproject
 
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private InterfaceDrawer _interfaceDrawer;
-        private IngameDrawer _ingameDrawer;
         private GameMain _gameInstance;
 
         public Main()
@@ -91,8 +89,7 @@ namespace Monoproject
             base.Initialize();
 
             _spriteBatch = new(GraphicsDevice);
-            _ingameDrawer = IngameDrawer.CreateInstance(_spriteBatch, GraphicsDevice);
-            _interfaceDrawer = InterfaceDrawer.CreateInstance(_spriteBatch, GraphicsDevice);
+           
             InstanceInfo.UpdateVariables();
             
             InitAttribute.Invoke();
@@ -120,25 +117,14 @@ namespace Monoproject
         protected override void Draw(GameTime gameTime)
         {
             FrameInfo.UpdateGameTime(gameTime);
-            
-            GraphicsDevice.Clear(BackgroundColor);
-            
+
+            Drawer.Erase();
+
             FrameEvents.PreDraw.Trigger();
-            DrawFrame();
+            Drawer.DrawAll();
             FrameEvents.PostDraw.Trigger();
 
             base.Draw(gameTime);
-        }
-        
-        private void DrawFrame()
-        {
-            _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
-            _ingameDrawer.DrawAll();
-            _spriteBatch.End();
-
-            _spriteBatch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp);
-            _interfaceDrawer.DrawAll();
-            _spriteBatch.End();
         }
                  
         public void PostToMainThread(Action action)
@@ -154,27 +140,6 @@ namespace Monoproject
                     DialogBox.ShowException(ex);
                 }
             }, null);
-        }
-    }
-
-    public static class Camera
-    {
-        private static Vector2 _position = Vector2.Zero;
-        private static float _zoom = 1f;
-
-        public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
-        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameInfo.DeltaTime;
-        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameInfo.DeltaTime;
-
-        public static float Zoom 
-        {
-            get => _zoom; 
-            set => _zoom = Math.Max(0, value); 
-        }
-        public static Vector2 Position
-        {
-            get => _position;
-            set => _position = value;
         }
     }
 }
