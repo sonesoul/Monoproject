@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace GlobalTypes.Collections
 {
-    public class OrderedList<T> : IOrderedCollection<T, OrderedItem<T>>
+    public class OrderedList<T> : IOrderedCollection<T, OrderedItem<T>>, IEnumerable<T>
     {
         public int Count => _items.Count;
         public T this[int index] => _items[index].Value;
@@ -23,11 +24,7 @@ namespace GlobalTypes.Collections
         }
         public void Add(OrderedItem<T> orderedObj)
         {
-            int index =
-                _items.BinarySearch(orderedObj, Comparer<OrderedItem<T>>.Create((x, y) => x.Order.CompareTo(y.Order)));
-
-            if (index < 0)
-                index = ~index;
+            int index = FirstLarger(orderedObj.Order, _items.Select(i => i.Order).ToList());
 
             _items.Insert(index, orderedObj);
         }
@@ -46,5 +43,38 @@ namespace GlobalTypes.Collections
         {
             return string.Join(", ", _items.Select(i => i.Value));
         }
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                yield return _items[i].Value;
+            }
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                yield return _items[i].Value;
+            }
+        }
+
+        public static int FirstLarger(int order, List<int> orders)
+        {
+            int index = orders.BinarySearch(order);
+
+            if (index >= 0)
+            {
+                while (index < orders.Count && orders[index] == order)
+                {
+                    index++;
+                }
+                return index;
+            }
+            else
+            {
+                return ~index;
+            }
+        }
+
     }
 }

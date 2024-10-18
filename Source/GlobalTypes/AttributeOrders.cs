@@ -2,10 +2,10 @@
 {
     public static class InitOrders
     {
-        public const int FrameInfo = -3;
-        public const int Input = -2;
-        public const int UI = -1;
-        public const int StepTaskManager = 0;
+        public const int FrameInfo = -7;
+        public const int Input = -6;
+        public const int FrameDrawing = -5;
+        public const int UI = -4;
     }
     public static class LoadOrders
     {

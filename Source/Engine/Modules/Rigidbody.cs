@@ -11,7 +11,7 @@ namespace Engine.Modules
     {
         Dynamic,
         Kinematic,
-        Static,
+        Static
     }
 
     public partial class Rigidbody : ObjectModule

@@ -3,15 +3,16 @@ using GlobalTypes.Events;
 using System;
 using GlobalTypes.Collections;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace GlobalTypes
 {
     public class StepTask
     {
-        [Init(nameof(Init), InitOrders.StepTaskManager)]
+        [Init(nameof(Init))]
         private static class StepTaskManager
         {
-            private readonly static OrderedList<StepTask> tasks = new();
+            private readonly static List<StepTask> tasks = new();
             private static void Init()
             {
                 FrameEvents.Update.Add(() => Update(), UpdateOrders.StepTaskManager);
@@ -40,11 +41,8 @@ namespace GlobalTypes
                 }
             }
 
-            public static OrderedItem<StepTask> Append(StepTask task) => tasks.Append(task);
-            public static void Add(OrderedItem<StepTask> orderedTask) => tasks.Add(orderedTask);
-            public static void RemoveFirst(StepTask task) => tasks.RemoveFirst(task);
-            public static void Remove(OrderedItem<StepTask> orderedTask) => tasks.Remove(orderedTask);
-            public static bool Contains(StepTask task) => tasks.Contains(task);
+            public static void Register(StepTask orderedTask) => tasks.Add(orderedTask);
+            public static void Unregister(StepTask orderedTask) => tasks.Remove(orderedTask);
         }
 
         public bool IsRunning => item != null && !IsPaused;
@@ -55,7 +53,7 @@ namespace GlobalTypes
         public event Action OnComplete;
 
         private IEnumerator workingTask;
-        private OrderedItem<StepTask>? item = null;
+        private StepTask item = null;
 
         public StepTask(Func<IEnumerator> task, bool run = false)
         {
@@ -64,10 +62,12 @@ namespace GlobalTypes
             if (run)
                 Start();
         }
+        
         public void Start()
         {
             workingTask = Task() ?? throw new ArgumentNullException(nameof(Task), "Action can't be null.");
-            item = StepTaskManager.Append(this);
+            item = this;
+            StepTaskManager.Register(item);
         }
         public void Restart()
         {
@@ -94,9 +94,9 @@ namespace GlobalTypes
 
         public void Break()
         {
-            if (item.HasValue)
+            if (item != null)
             {
-                StepTaskManager.Remove(item.Value);
+                StepTaskManager.Unregister(item);
                 item = null;
             }
         }

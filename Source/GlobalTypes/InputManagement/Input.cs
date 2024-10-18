@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace GlobalTypes.InputManagement
 {
-    [Init(nameof(Init), InitOrders.Input)]
+    [Init(nameof(Init))]
     public static class Input
     {
         public static AxisCulture AxisCulture { get; private set; } = AxisCulture.Arrows;
