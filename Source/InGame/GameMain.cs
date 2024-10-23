@@ -51,23 +51,23 @@ namespace InGame
             _ = new StringObject("", UI.Silk, true,
                 new Collider()
                 {
-                    Shape = Polygon.Rectangle(width, 20),
+                    Shape = Polygon.Rectangle(width + 1, 20),
                 }, 
                 new Rigidbody()
                 {
                     BodyType = BodyType.Static,
-                }).Position = new(width / 2, height + offset);
+                }).Position = new(width / 2 - 1, height + offset + 1f);
 
             //right
             _ = new StringObject("", UI.Silk, true,
                 new Collider()
                 {
-                    Shape = Polygon.Rectangle(20, height),
+                    Shape = Polygon.Rectangle(20, height + 1),
                 }, 
                 new Rigidbody()
                 {
                     BodyType = BodyType.Static,
-                }).Position = new(width + offset, height / 2);
+                }).Position = new(width + offset + 1, height / 2);
 
             //left
             _ = new StringObject("", UI.Silk, true, 

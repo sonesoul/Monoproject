@@ -1,7 +1,6 @@
 ﻿using GlobalTypes;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Monoproject;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -81,16 +80,6 @@ namespace Engine.Drawing
             {
                 action?.Action?.Invoke(drawContext);
             }
-
-            return;
-
-            //artifacts
-            var groups = actions.GroupBy(a => a.Layer);
-
-            foreach (var group in groups)
-            {
-                group.PForEach(a => a?.Action?.Invoke(drawContext));
-            }
         }
 
         public static void DrawAll()
@@ -156,6 +145,10 @@ namespace Engine.Drawing
         {
             String(font, character.ToString(), position, color, rotation, origin, scale);
         }
+        public void Char(SpriteFont font, char character, Vector2 position, Color color, float rotation = 0, Vector2 origin = default, Vector2 scale = default, SpriteEffects spriteEffects = SpriteEffects.None)
+        {
+            String(font, character.ToString(), position, color, rotation, origin, scale, spriteEffects);
+        }
 
         public void HollowRect(Rectangle rect, Color color, int boundThickness = 1)
         {
@@ -195,13 +188,6 @@ namespace Engine.Drawing
 
     public static class Camera
     {
-        private static Vector2 _position = Vector2.Zero;
-        private static float _zoom = 1f;
-
-        public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
-        public static void Move(Vector2 direction, float speed) => _position += direction * speed * FrameInfo.DeltaTime;
-        public static void ZoomIn(float amount, float speed) => _zoom += amount * speed * FrameInfo.DeltaTime;
-
         public static float Zoom
         {
             get => _zoom;
@@ -212,5 +198,13 @@ namespace Engine.Drawing
             get => _position;
             set => _position = value;
         }
+     
+        private static float _zoom = 1f;
+        private static Vector2 _position = Vector2.Zero;
+
+        public static Vector2 ScreenToWorld(Vector2 screenPosition) => Vector2.Transform(screenPosition, Matrix.Invert(GetViewMatrix()));
+        public static Vector2 WorldToScreen(Vector2 worldPositon) => Vector2.Transform(worldPositon, GetViewMatrix());
+
+        public static Matrix GetViewMatrix() => Matrix.CreateTranslation(new(-_position, 0)) * Matrix.CreateScale(_zoom, _zoom, 1);
     }
 }

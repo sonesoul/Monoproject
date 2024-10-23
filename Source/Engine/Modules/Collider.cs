@@ -17,6 +17,10 @@ namespace Engine.Modules
         public Rectangle Bounds => bounds;
         public IReadOnlyList<Collider> Intersections => collisions;
         public bool Intersects => collisions.Count > 0;
+        
+        public bool IsShapeVisible { get; set; }
+        public Color BaseColor { get; set; } = Color.LightGreen;
+        public Color IntersectColor { get; set; } = Color.LightGreen;
 
         public event Action<Collider> OnOverlapEnter, OnOverlapStay, OnOverlapExit;
         
@@ -25,7 +29,7 @@ namespace Engine.Modules
 
         private Rectangle bounds;
         private Polygon shape = Polygon.Rectangle(50, 50);
-        private Color shapeDrawColor = Color.Lime;
+        
         private List<Vector2> Vertices => Shape.Vertices;
 
         public Collider(ModularObject owner = null) : base(owner) { }
@@ -60,17 +64,7 @@ namespace Engine.Modules
         {
             UpdateShape();
             
-            Vector2 current = Vertices[0] + Owner.IntegerPosition;
-            Vector2 next;
-            for (int i = 1; i < Vertices.Count; i++)
-            {
-                next = Vertices[i] + Owner.IntegerPosition;
-                context.Line(current, next, shapeDrawColor);
-                current = next;
-            }
-
-
-            context.Line(current, Vertices[0] + Owner.IntegerPosition, shapeDrawColor);
+            context.HollowPoly(Shape.WorldVertices, (collisions.Count > 0) ? IntersectColor : BaseColor, 1);
         }
         private void DrawBounds(DrawContext context)
         {
@@ -123,15 +117,6 @@ namespace Engine.Modules
 
             previousCollisions.Clear();
             previousCollisions.AddRange(collisions);
-
-            if (collisions.Count > 0)
-            {
-                shapeDrawColor = Color.Red;
-            }
-            else
-            {
-                shapeDrawColor = Color.LightGreen;
-            }
         }
         
         private bool IsInProximity(Collider other, float distance)

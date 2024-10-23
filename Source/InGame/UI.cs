@@ -41,11 +41,11 @@ namespace InGame
         public static void DrawInfo(DrawContext context)
         {
             Vector2 fpsPos = new(1, 1);
-            float size = 0.7f;
+            float size = 0.6f;
 
             //total infos
             context.String(
-                Silk,
+                SilkBold,
                 $"|fps: {FrameInfo.FPS}",
                 fpsPos, 
                 Color.White,
@@ -53,17 +53,17 @@ namespace InGame
                 Vector2.Zero,
                 size);
             context.String(
-                Silk,
-                $"|ft: {FrameInfo.DeltaTime * 1000:00}ms",
-                fpsPos.WhereX(x => x + 70),
+                SilkBold,
+                $"|time: {FrameInfo.DeltaTime * 1000:00}ms",
+                fpsPos.WhereX(x => (x + 120) * size),
                 Color.White,
                 0,
                 Vector2.Zero,
                 size);
             context.String(
-               Silk,
+               SilkBold,
                $"|ram: {GC.GetTotalMemory(false).ToSizeString():00}",
-               fpsPos.WhereX(x => x + 150),
+               fpsPos.WhereX(x => (x + 285) * size),
                Color.White,
                0,
                Vector2.Zero,

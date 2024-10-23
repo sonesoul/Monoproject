@@ -28,7 +28,6 @@ namespace GlobalTypes
                 { "drawdebug", static arg =>
                 {
                     SetProp(arg, nameof(UI.DrawDebug), typeof(UI));
-                    SetProp(arg, nameof(Player.DrawVisuals), typeof(Player));
                 }},
                 { "customcur", CustomCurCommand },
             };
@@ -87,8 +86,7 @@ namespace GlobalTypes
                 { "captwin", static arg => CaptureWindow(string.IsNullOrEmpty(arg) ? 1 : int.Parse(arg)) },
                 { "writeinput", static _ => ToggleWriteInput() },
                 { "level", LevelCommand },
-                { "combo", ComboCommand },
-
+               
                 { "dot", DotCommand },
                 { "normalize", NormalizeCommand },
                 { "length", LengthCommand },
@@ -135,29 +133,6 @@ namespace GlobalTypes
             private static bool writeInputEnabled = false;
             private readonly static Stopwatch stopwatch = new();
 
-            private static void ComboCommand(string arg)
-            {
-                SubInput(arg, out var subCommand, out var subArg);
-                var player = Level.GetObject<Player>();
-
-                switch (subCommand)
-                {
-                    case "add":
-
-                        player.AddCombo(Combo.NewRandom());
-
-                        break;
-                    case "remove":
-                        
-                        Combo combo = player.Combos[int.Parse(subArg)];
-                        player.RemoveCombo(combo);
-
-                        break;
-                    default:
-                        LogInvalidArg(subCommand, nameof(subCommand));
-                        break;
-                }
-            }
             private static void FpsCommand(string arg)
             {
                 if (string.IsNullOrEmpty(arg))

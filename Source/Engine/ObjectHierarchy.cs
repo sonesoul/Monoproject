@@ -8,8 +8,8 @@ using Engine.Modules;
 using System.Diagnostics;
 using GlobalTypes.Collections;
 using GlobalTypes.Events;
-using Engine.Types.Interfaces;
 using GlobalTypes;
+using Engine.Types.Interfaces;
 
 namespace Engine
 {
@@ -151,7 +151,7 @@ namespace Engine
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
-    public class CharObject : ModularObject
+    public class CharObject : ModularObject, IRenderable
     {
         public char Character { get; set; }
         public Vector2 Offset { get; set; } = Vector2.Zero;
@@ -161,7 +161,7 @@ namespace Engine
         public SpriteEffects SpriteEffects { get; set; }
         public SpriteFont Font { get; set; }
 
-        public bool CanDraw { get; set; } = true;
+        public bool IsVisible { get; set; } = true;
 
         public CharObject(char character, SpriteFont font, bool matrixDepend)
         {
@@ -179,7 +179,7 @@ namespace Engine
 
         public void Draw(DrawContext context)
         {
-            if (CanDraw)
+            if (IsVisible)
             {
                 context.String(
                     Font,
@@ -201,7 +201,7 @@ namespace Engine
     }
 
     [DebuggerDisplay("{ToString(),nq}")]
-    public class StringObject : ModularObject
+    public class StringObject : ModularObject, IRenderable
     {
         public string Content
         {
@@ -228,8 +228,9 @@ namespace Engine
         public bool MatrixDepend { get; set; }
 
         public float Spacing { get => Font.Spacing; set => Font.Spacing = value; }
-        public bool CanDraw { get; set; } = true;
         public int Length => characters.Count;
+
+        public bool IsVisible { get; set; } = true;
 
         private string content;
         private Color charColor = Color.White;
@@ -261,21 +262,21 @@ namespace Engine
 
         public virtual void Draw(DrawContext context)
         {
-            if (!CanDraw) 
-                return;
-
-            foreach (var charObj in characters)
+            if (IsVisible)
             {
-                context.String(
-                    charObj.Font,
-                    charObj.Character.ToString(),
-                    IntegerPosition + charObj.Position,
-                    charObj.Color,
-                    charObj.RotationRad,
-                    Origin + OriginOffset,
-                    Scale * charObj.Scale,
-                    SpriteEffects);
-            }
+                foreach (var charObj in characters)
+                {
+                    context.Char(
+                        charObj.Font,
+                        charObj.Character,
+                        IntegerPosition + charObj.Position,
+                        charObj.Color,
+                        charObj.RotationRad,
+                        Origin + OriginOffset,
+                        Scale * charObj.Scale,
+                        SpriteEffects);
+                }
+            } 
         }
 
         private void SliceString()
@@ -291,7 +292,7 @@ namespace Engine
                 {
                     Position = startPosition + position,
                     Color = CharColor,
-                    CanDraw = false
+                    IsVisible = true,
                 };
                 characters.Add(c);
 

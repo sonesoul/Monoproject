@@ -146,8 +146,7 @@ namespace InGame.GameObjects
                 return;
 
             player.CanCombinate = true;
-            player.CanRollCombos = false;
-
+            
             moveBackTask?.Break();
             moveTask.Start();
         }
@@ -157,8 +156,7 @@ namespace InGame.GameObjects
                 return;
 
             player.CanCombinate = false;
-            player.CanRollCombos = true;
-
+            
             moveTask?.Break();
             moveBackTask.Start();
         }

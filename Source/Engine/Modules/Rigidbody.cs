@@ -117,7 +117,7 @@ namespace Engine.Modules
         public float Windage { get; set; } = 0.3f;
 
         public Vector2 VelocityScale { get; set; } = new(1, 1);
-        public Vector2 GravityScale { get; set; } = new(0, 0);
+        public Vector2 GravityScale { get; set; } = new(3, 3);
         public Vector2 MaxVelocity { get; set; } = new(-1, -1);
 
         public Collider UsedCollider { get; set; }
@@ -261,9 +261,10 @@ namespace Engine.Modules
             if (mtvLength >= 2f)
             {
                 rb.Owner.Position += mtv / 2;
-                rb.Owner.Position = rb.Owner.Position.SignCeiled();
+                rb.Owner.Position = rb.Owner.Position.Rounded();
                 
                 rb.UsedCollider.UpdateShape();
+                
             }
         }
         private void SuppressUpdate(Rigidbody rb) => suppresedPhysics.Add(rb);

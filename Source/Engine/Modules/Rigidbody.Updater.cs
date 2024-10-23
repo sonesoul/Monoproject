@@ -45,7 +45,6 @@ namespace Engine.Modules
             {
                 List<Rigidbody> handled = new();
                 var sorted = bodies.OrderByDescending(b => GetPriority(b)).ToList();
-
                 foreach (var body in sorted)
                 {
                     if (handled.Contains(body) || !body.UsedCollider.Intersects)
@@ -79,7 +78,10 @@ namespace Engine.Modules
                     priority += 1000;
 
                 priority += (int)(rb.velocity.Length());
-
+                priority += 10 * rb.UsedCollider.Intersections
+                    .Where(i => i.Owner.ContainsModule<Rigidbody>())
+                    .Where(i => i.Owner.GetModule<Rigidbody>().BodyType == BodyType.Static)
+                    .Count();
 
                 return priority;
             }
