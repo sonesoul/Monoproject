@@ -68,60 +68,27 @@ namespace GlobalTypes
 
             private readonly static Dictionary<string, Action<string>> _commands = new()
             {
+                //console control
                 { "new", static _ => New() },
                 { "clear", static _ => Console.Clear() },
-                { "color", ColorCommand },
-                { "size", SizeCommand },
-                { "position", PositionCommand },
+                { "color", Color },
+                { "size", Size },
+                { "position", Position },
 
+                //game control
                 { "f1", static _ => Main.Instance.Exit() },
                 { "ram", static _ => Ram() },
                 { "rem", static _ => Rem()},
                 { "gccollect", static _ => GC.Collect()},
                 { "throw", static _ => throw new()},
-                { "fps", FpsCommand},
+                { "fps", Fps},
 
-                { "stopwatch", StopwatchCommand },
-                { "ruler", RulerCommand },
-                { "captwin", static arg => CaptureWindow(string.IsNullOrEmpty(arg) ? 1 : int.Parse(arg)) },
-                { "writeinput", static _ => ToggleWriteInput() },
-                { "level", LevelCommand },
-               
-                { "dot", DotCommand },
-                { "normalize", NormalizeCommand },
-                { "length", LengthCommand },
-                { "lengthsqrd", LengthSquaredCommand },
+                //utilities
+                { "stopwatch", Stopwatch },
+                { "ruler", Ruler },
+                { "captwin", CaptureWindow },
+                { "level", Level },
             };
-
-            private static void NormalizeCommand(string arg)
-            {
-                WriteInfo($"{GetVector(arg).Normalized()}");
-            }
-
-            private static void LengthSquaredCommand(string arg)
-            {
-                WriteInfo($"{GetVector(arg).LengthSquared()}");
-            }
-
-            private static void LengthCommand(string arg)
-            {
-                WriteInfo($"{GetVector(arg).Length()}");
-            }
-
-            private static void DotCommand(string arg)
-            {
-                SubInput(arg, out var strVector1, out var strVector2);
-                Vector2 v1 = GetVector(strVector1);
-                Vector2 v2 = GetVector(strVector2);
-                WriteInfo($"{v1.Dot(v2)}");
-            }
-
-            private static Vector2 GetVector(string arg)
-            {
-                string[] splitted = arg.Split(';');
-
-                return new Vector2(float.Parse(splitted[0]), float.Parse(splitted[1]));
-            }
 
             private readonly static Ruler ruler = new();
             private readonly static KeyBinding[] rulerBindings =
@@ -133,7 +100,7 @@ namespace GlobalTypes
             private static bool writeInputEnabled = false;
             private readonly static Stopwatch stopwatch = new();
 
-            private static void FpsCommand(string arg)
+            private static void Fps(string arg)
             {
                 if (string.IsNullOrEmpty(arg))
                 {
@@ -145,11 +112,9 @@ namespace GlobalTypes
                 Main.Instance.TargetElapsedTime = TimeSpan.FromSeconds(1.0 / fps);
                 WriteInfo($"Target FPS set to: {fps}");
             }
-            private static void StopwatchCommand(string arg)
+            private static void Stopwatch(string arg)
             {
-                SubInput(arg, out var subCommand, out var subarg);
-
-                switch (subCommand)
+                switch (arg)
                 {
                     case "start":
                         stopwatch.Start();
@@ -166,33 +131,15 @@ namespace GlobalTypes
                         break;
                 }
             }
-            private static void ToggleWriteInput()
+           
+            private static void CaptureWindow(string arg)
             {
-                static void WriteKey(Key key)
-                {
-                    UI.CustomInfo = key.ToString();
-                }
+                int scaleFactor = 1;
 
-                if (!writeInputEnabled)
+                if (!string.IsNullOrEmpty(arg))
                 {
-                    Input.OnKeyPress += WriteKey;
-                    writeInputEnabled = true;
-                    WriteInfo("Enabled");
+                    scaleFactor = int.Parse(arg);
                 }
-                else
-                {
-                    Input.OnKeyPress -= WriteKey;
-                    writeInputEnabled = false;
-                    WriteInfo("Disabled");
-                }
-            }
-
-            private static void CaptureWindow(int scaleFactor = 1)
-            {
-                if (scaleFactor > 5)
-                    scaleFactor = 5;
-                else if (scaleFactor < 1)
-                    scaleFactor = 1;
 
                 GraphicsDevice graphics = InstanceInfo.GraphicsDevice;
                 InstanceInfo.WindowSize.ToPoint().Deconstruct(out int width, out int height);
@@ -234,6 +181,8 @@ namespace GlobalTypes
                     fs.Dispose();
                 }
                 Main.Instance.PostToMainThread(() => GC.Collect());
+
+                WriteInfo(path);
             }
 
             //please don't ask me what is that
@@ -296,7 +245,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     $"GC2: [{GC.CollectionCount(2)}]").Wait();
             }
 
-            public static void ColorCommand(string arg)
+            public static void Color(string arg)
             {
                 switch (arg)
                 {
@@ -332,7 +281,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         break;
                 }
             }
-            public static void SizeCommand(string arg)
+            public static void Size(string arg)
             {
                 SubInput(arg, out var width, out var height);
 
@@ -342,7 +291,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 if(int.TryParse(height, out int newHeight))
                     Console.WindowHeight = newHeight;
             }
-            public static void PositionCommand(string arg)
+            public static void Position(string arg)
             {
                 string[] sizes = SplitInput(arg);
 
@@ -352,7 +301,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 }
             }
 
-            public static void RulerCommand(string arg)
+            public static void Ruler(string arg)
             {
                 if(!string.IsNullOrEmpty(arg))
                 {
@@ -422,24 +371,29 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     }
                 }   
             }
-            public static void LevelCommand(string arg)
+            public static void Level(string arg)
             {
                 SubInput(arg, out var subCommand, out var subArg);
 
-                switch (subCommand)
+                switch (arg)
                 {
                     case "new":
-                        
-                        Level.New();
+
+                        InGame.Level.Load();
                         
                         break;
                     case "clear":
-                        
-                        Level.Clear();
+
+                        InGame.Level.Clear();
                         
                         break;
+                    case "load":
+
+                        InGame.Level.Load();
+
+                        break;
                     default:
-                        LogInvalidArg(subCommand, nameof(subCommand));
+                        LogInvalidArg(arg, nameof(arg));
                         break;
                 }
             }
@@ -450,31 +404,17 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             private readonly static Dictionary<string, Action<string>> _commands = new()
             {
-                { "run", Execute },
                 { "async", static arg => System.Threading.Tasks.Task.Run(() => ExecuteAsync(arg)) },
-                { "unsafe", static arg => ExecuteOnThread(Main.Instance.SyncContext, arg, (ex) => DialogBox.ShowException(ex)) },
                 { "on", RunOn },
-                { "if", If },
                 { "for", For },
-                { "while", While },
                 { "wait", Wait },
                 { "batch", Batch },
                 { "batchbegin", static _ => BatchControl() },
                 { "batchfile", BatchFileControl },
 
-                { "varset", VarSet },
-                { "vardel", VarDel },
-                { "varall", static _ => VarAll() },
-                { "varinc", static arg => VarCollection[arg]++ },
-                { "vardec", static arg => VarCollection[arg]-- },
-                { "varrandom", VarRandom },
-
                 { "writel", CustomWriteLine },
                 { "write", CustomWrite },
             };
-
-            private static Dictionary<string, int> VarCollection { get; set; } = new();
-            private static Dictionary<string, Func<string, bool>> VarConditions { get; set; } = new();
 
             private static void RunOn(string arg)
             {
@@ -494,58 +434,36 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     case "postdraw":
                         FrameEvents.PostDraw.AppendSingle(() => Execute(command));
                         break;
+                    case "main":
+                        ExecuteOnThread(Main.Instance.SyncContext, command, (ex) => DialogBox.ShowException(ex));
+                        break;
+                    case "this":
+                        Execute(command);
+                        break;
                 }
             }
 
             private static void CustomWriteLine(string arg)
             {
-                if (TryVarParseArg(arg, out int varValue))
-                    WriteLine(varValue, ConsoleColor.Cyan).Wait();
-                else
-                    WriteLine(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], ForeColor).Wait();
+                WriteLine(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], ForeColor).Wait();
             }
             private static void CustomWrite(string arg)
             {
-                if (TryVarParseArg(arg, out int varValue))
-                    Write(varValue, ConsoleColor.Cyan).Wait();
-                else
-                    Write(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], ForeColor).Wait();
+                Write(arg[(arg.IndexOf('"') + 1)..arg.LastIndexOf('"')], ForeColor).Wait();
             }
 
             private static void For(string arg)
             {
                 SubInput(arg, out var countArg, out var command);
 
-                int count = VarParseArg(countArg);
-                bool isVar = VarCollection.ContainsKey(countArg);
-
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < float.Parse(countArg); i++)
                 {
-                    if (isVar)
-                        count = VarCollection[countArg];
-
                     Execute(command);
                 }
             }
-            private static void While(string arg)
-            {
-                (string condition, string action) = arg.Partition(':');
-
-                action = action[1..].Trim();
-                while (IsConditionTrue(condition))
-                    Execute(action);
-            }
             private static void Wait(string arg)
             {
-                float time = 0f;
-                if (VarCollection.TryGetValue(arg, out int intTime))
-                {
-                    time = intTime;
-                }
-                else
-                {
-                    time = float.Parse(arg);
-                }
+                float time = float.Parse(arg);
 
                 System.Threading.Tasks.Task.Delay((int)(1000f * time)).Wait();
             }
@@ -576,150 +494,6 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
                 result.Add(arg.Substring(start).Trim());
                 result.ForEach(i => Execute(i));
-            }
-            
-            private static void If(string arg)
-            {
-                int colonIndex = arg.IndexOf(':');
-                string condition = arg[..colonIndex].Trim();
-
-                char openBracket = '(';
-                char closeBracket = ')';
-
-                bool isconditionTrue = IsConditionTrue(condition);
-
-                int startIfAction = arg.IndexOf(openBracket, colonIndex) + 1;
-                int endIfAction = FindClosingBracket(arg, startIfAction - 1, openBracket, closeBracket);
-                string ifAction = arg.Substring(startIfAction, endIfAction - startIfAction).Trim();
-
-                if (isconditionTrue)
-                    Execute(ifAction);
-                else
-                {
-                    int elseIndex = arg.IndexOf("else", endIfAction);
-                    if (elseIndex != -1)
-                    {
-                        int startElseAction = arg.IndexOf(openBracket, elseIndex) + 1;
-                        int endElseAction = FindClosingBracket(arg, startElseAction - 1, openBracket, closeBracket);
-                        string elseAction = arg.Substring(startElseAction, endElseAction - startElseAction).Trim();
-                        Execute(elseAction);
-                    }
-                    
-                }
-            }
-            private static bool EvaluateCondition(string condition)
-            {
-                string[] parts = condition.Split(' ');
-                if (parts.Length < 2)
-                    throw new ArgumentException("Invalid condition.");
-
-                string varCommand = parts[0];
-                string comparison = parts[1];
-                
-                if (VarConditions.TryGetValue(varCommand, out var func))
-                    return func.Invoke(comparison);
-                
-                throw new ArgumentException($"Can't find variable condition: \"{varCommand}\"");
-            }
-            private static bool IsConditionTrue(string condition)
-            {
-                string[] conditions = condition.Split(new[] { "&&", "||" }, StringSplitOptions.None);
-                string[] operators = condition.Where(c => c == '&' || c == '|').Select(c => c.ToString()).Distinct().ToArray();
-
-                bool result = EvaluateCondition(conditions[0].Trim());
-
-                for (int i = 1; i < conditions.Length; i++)
-                {
-                    bool nextCondition = EvaluateCondition(conditions[i].Trim());
-
-                    if (operators[i - 1] == "&")
-                    {
-                        result &= nextCondition;
-                    }
-                    else if (operators[i - 1] == "|")
-                    {
-                        result |= nextCondition;
-                    }
-                }
-                return result;
-            }
-            private static int FindClosingBracket(string input, int openBracketIndex, char openBracket = '(', char closeBracket = ')')
-            {
-                int level = 1;
-
-                for (int i = openBracketIndex + 1; i < input.Length; i++)
-                {
-                    if (input[i] == openBracket) level++;
-                    else if (input[i] == closeBracket)
-                    {
-                        level--;
-                        if (level == 0)
-                            return i;
-                    }
-                }
-
-                throw new ArgumentException("No matching closing bracket found.");
-            }
-
-            private static void VarSet(string arg)
-            {
-                SubInput(arg, out string name, out string toSet);
-                int intValue;
-                try
-                {
-                    intValue = VarParseArg(toSet);
-                }
-                catch
-                {
-                    toSet.Partition(' ', out string first, out string second);
-                    if (first == "random")
-                    {
-                        intValue = new Random().Next(VarParseArg(second));
-                    }
-                    else
-                        throw;
-                }
-                
-                if (VarCollection.ContainsKey(name))
-                {
-                    VarCollection[name] = intValue;
-                }
-                else
-                {
-                    VarCollection.Add(name, intValue);
-
-                    VarConditions.Add($"{name}==", arg => VarCollection[name] == VarParseArg(arg));
-                    VarConditions.Add($"{name}!=", arg => VarCollection[name] != VarParseArg(arg));
-                    VarConditions.Add($"{name}>=", arg => VarCollection[name] >= VarParseArg(arg));
-                    VarConditions.Add($"{name}<=", arg => VarCollection[name] <= VarParseArg(arg));
-                    VarConditions.Add($"{name}>", arg => VarCollection[name] > VarParseArg(arg));
-                    VarConditions.Add($"{name}<", arg => VarCollection[name] < VarParseArg(arg));
-                }
-            }
-            private static void VarDel(string varname)
-            {
-                VarConditions.Remove($"{varname}==");
-                VarConditions.Remove($"{varname}!=");
-                VarConditions.Remove($"{varname}>=");
-                VarConditions.Remove($"{varname}<=");
-                VarConditions.Remove($"{varname}>");
-                VarConditions.Remove($"{varname}<");
-
-                VarCollection.Remove(varname);
-            }
-            private static void VarWritel(string varname) => WriteLine(VarCollection[varname], ConsoleColor.Cyan);
-            private static void VarAll()
-            {
-                foreach (var item in VarCollection)
-                {
-                    VarWritel(item.Key);
-                }
-            }
-            private static void VarRandom(string arg)
-            {
-                SubInput(arg, out string name, out string max);
-
-                VarCollection[name] = new Random().Next(VarParseArg(max));
             }
             
             private static void BatchFileControl(string arg)
@@ -826,33 +600,6 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
                 IsBatchBegun = true;
                 OnBatchReceive += Append;
-            }
-
-            public static int VarParseArg(string arg)
-            {
-                arg = arg.Trim();
-                int num;
-
-                if (VarCollection.TryGetValue(arg, out num))
-                    return num;
-                else if (int.TryParse(arg, out num))
-                    return num;
-
-
-                throw new ArgumentException($"Variable \"{arg}\" not found and \"{arg}\" can't be cast to int.");
-            }
-            public static bool TryVarParseArg(string arg, out int num)
-            {
-                try
-                {
-                    num = VarParseArg(arg);
-                    return true;
-                }
-                catch
-                {
-                    num = -1;
-                    return false;
-                }
             }
         }
 

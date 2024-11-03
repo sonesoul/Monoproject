@@ -114,6 +114,22 @@ namespace Engine.Drawing
             }
         }
     }
+    public struct DrawOptions
+    {
+        public SpriteFont font = InGame.UI.Silk;
+
+        public Color color = Color.White;
+        public Vector2 position = Vector2.Zero;
+        public Vector2 origin = Vector2.Zero;
+        public Vector2 scale = Vector2.One;
+        public float rotationDeg = 0;
+        public SpriteEffects spriteEffects = SpriteEffects.None;
+
+        public DrawOptions()
+        {
+            
+        }
+    }
     public class DrawContext
     {
         public SpriteBatch SpriteBatch { get; private set; }
@@ -134,22 +150,28 @@ namespace Engine.Drawing
         {
             SpriteBatch.DrawString(font, str, position, color, rotation, origin, scale, SpriteEffects.None, 0);
         }
-
         public void String(SpriteFont font, string str, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects spriteEffects = SpriteEffects.None)
         {
             SpriteBatch.DrawString(font, str, position, color, rotation, origin, scale, spriteEffects, 0);
         }
-
-
-        public void Char(SpriteFont font, char character, Vector2 position, Color color, float rotation = 0, Vector2 origin = default, float scale = 1)
+        public void String(SpriteFont font, string str, Vector2 position)
         {
-            String(font, character.ToString(), position, color, rotation, origin, scale);
+            SpriteBatch.DrawString(font, str, position, Color.White);
         }
-        public void Char(SpriteFont font, char character, Vector2 position, Color color, float rotation = 0, Vector2 origin = default, Vector2 scale = default, SpriteEffects spriteEffects = SpriteEffects.None)
+        public void String(string str, in DrawOptions options)
         {
-            String(font, character.ToString(), position, color, rotation, origin, scale, spriteEffects);
+            SpriteBatch.DrawString(
+                options.font, 
+                str, 
+                options.position, 
+                options.color, 
+                options.rotationDeg.AsRad(), 
+                options.origin,
+                options.scale,
+                options.spriteEffects, 
+                0);
         }
-
+        
         public void HollowRect(Rectangle rect, Color color, int boundThickness = 1)
         {
             Rectangle[] rects = new Rectangle[4];

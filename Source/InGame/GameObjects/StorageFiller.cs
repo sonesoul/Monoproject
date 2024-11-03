@@ -12,11 +12,8 @@ using System.Linq;
 
 namespace InGame.GameObjects
 {
-    public class StorageFiller : ModularObject, ILevelObject, IFillable
+    public class StorageFiller : ModularObject, ILevelObject, IComboReader
     {
-        public string Tag => nameof(StorageFiller);
-        public bool IsInitialized { get; private set; } = false;
-
         public ComboStorage Storage { get; set; }
         public Color TextColor { get; set; } = Color.White;
 
@@ -24,6 +21,7 @@ namespace InGame.GameObjects
         public int Size { get; private set; }
 
         public bool IsFilled => textIndex >= Size;
+        public bool Activated { get; private set; }
 
         private StepTask moveTask;
         private StepTask moveBackTask;
@@ -48,38 +46,27 @@ namespace InGame.GameObjects
             Size = size;
 
             Clear();
-        }
-
-        public void Init()
-        {
-            if (IsInitialized)
-                return;
-
-            IsInitialized = true;
 
             collider = AddModule(new Collider()
             {
-                Shape = Polygon.Rectangle(textOrigin.X * 2, 30)
+                Shape = Polygon.Rectangle(textOrigin.X * 2, 30),
+                IsShapeVisible = false
             });
 
             Drawer.Register(Draw, true);
 
             moveTask = new(Move);
             moveBackTask = new(MoveBack);
-
-            collider.OnOverlapEnter += OnTriggerEnter;
-            collider.OnOverlapExit += OnTriggerExit;
         }
-        public void Destruct() => Destroy();
+
+        public void OnRemove() => Destroy();
 
         public bool Push()
         {
             if (IsFilled)
             {
                 bool isPushed = Storage.Push(new Combo(text));
-
                 Clear();
-
                 return isPushed;
             }
 
@@ -113,6 +100,29 @@ namespace InGame.GameObjects
             UpdateOrigin();
         }
 
+        public void Activate()
+        {
+            if (Activated)
+                return;
+
+            Activated = true;
+
+            moveBackTask?.Break();
+            moveTask.Start();
+        }
+        public void Deactivate() 
+        {
+            if (!Activated)
+                return;
+
+            Activated = false;
+
+            moveTask?.Break();
+            moveBackTask.Start();
+
+            Clear();
+        }
+
         private IEnumerator Move()
         {
             Vector2 end = smoothDistance;
@@ -140,38 +150,15 @@ namespace InGame.GameObjects
             drawOffset = Vector2.Zero;
         }
 
-        private void OnTriggerEnter(Collider c)
-        {
-            if (c.Owner is not Player player)
-                return;
-
-            player.CanCombinate = true;
-            
-            moveBackTask?.Break();
-            moveTask.Start();
-        }
-        private void OnTriggerExit(Collider c)
-        {
-            if (c.Owner is not Player player)
-                return;
-
-            player.CanCombinate = false;
-            
-            moveTask?.Break();
-            moveBackTask.Start();
-        }
-
         private void Draw(DrawContext context)
         {
-            context.String(
-                Font,
-                text,
-                Position + drawOffset,
-                TextColor,
-                0,
-                textOrigin,
-                new Vector2(1f, 1f)
-            );
+            context.String(text, new DrawOptions() 
+            { 
+                font = Font,
+                origin = textOrigin,
+                color = Color.White,
+                position = Position + drawOffset,
+            });
         }
 
         private void UpdateOrigin() => textOrigin = Font.MeasureString(text) / 2;
@@ -179,9 +166,6 @@ namespace InGame.GameObjects
         protected override void PostDestroy()
         {
             Drawer.Unregister(Draw);
-
-            collider.OnOverlapEnter -= OnTriggerEnter;
-            collider.OnOverlapExit -= OnTriggerExit;
         }
     }
 }

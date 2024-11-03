@@ -1,6 +1,7 @@
 ﻿using GlobalTypes.Collections;
 using GlobalTypes.Events;
 using GlobalTypes;
+using System.Linq;
 
 namespace Engine.Modules
 {
@@ -22,8 +23,32 @@ namespace Engine.Modules
 
                 _allColliders.LockRun(CheckIntersections);
             }
-            private static void CheckIntersections() => _allColliders.PForEach(c => c.CheckIntersections(_allColliders));
-            private static void UpdateShapes() => _allColliders.PForEach(c => c.UpdateShape());
+            private static void CheckIntersections()
+            {
+                _allColliders.PForEach(c =>
+                {
+                    if (c == null)
+                    {
+                        _allColliders.Remove(c);
+                        return;
+                    }
+
+                    c.CheckIntersections(_allColliders);
+                });
+            }
+            private static void UpdateShapes()
+            {
+                _allColliders.PForEach(c =>
+                {
+                    if (c == null)
+                    {
+                        _allColliders.Remove(c);
+                        return;
+                    }
+
+                    c.UpdateShape();
+                });
+            }
         }
 
     }

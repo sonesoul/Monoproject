@@ -9,9 +9,6 @@ namespace InGame.GameObjects
 {
     public class ComboStorage : ModularObject, ILevelObject
     {
-        public string Tag => nameof(ComboStorage);
-        public bool IsInitialized { get; private set; } = true;
-        
         public int Size { get; private set; }
 
         public char Requirement { get; private set; }
@@ -31,7 +28,7 @@ namespace InGame.GameObjects
 
             RollRequirement();
         }
-        public void Destruct() => Destroy();
+        public void OnRemove() => Destroy();
 
         public bool Push(Combo combo)
         {
@@ -41,7 +38,7 @@ namespace InGame.GameObjects
                 pushedCombos.Add(combo);
 
                 if (pushedCombos.Count >= Size)
-                    Level.New();
+                    Level.Load();
 
                 return true;
             }

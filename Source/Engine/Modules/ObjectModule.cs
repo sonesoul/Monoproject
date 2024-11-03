@@ -19,6 +19,8 @@ namespace Engine.Modules
 
             Construct(owner);
         }
+        ~ObjectModule() => DisposeAction(false);
+        
         public void Construct(ModularObject owner)
         {
             if (IsConstructed)
@@ -31,7 +33,6 @@ namespace Engine.Modules
             PostConstruct();
         }
         protected abstract void PostConstruct();
-        ~ObjectModule() => DisposeAction(false);
 
         public void SetOwner(ModularObject newOwner)
         {

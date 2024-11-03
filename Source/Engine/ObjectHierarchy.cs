@@ -37,6 +37,8 @@ namespace Engine
 
             for (int i = Modules.Count - 1; i >= 0; i--)
                 RemoveModule(modules[i], true);
+
+            OnModuleRemove = null;
             
             PostDestroy();
         }
@@ -163,9 +165,11 @@ namespace Engine
 
         public bool IsVisible { get; set; } = true;
 
+        private DrawOptions drawOptions;
+
         public CharObject(char character, SpriteFont font, bool matrixDepend)
         {
-            Drawing.Drawer.Register(Draw, matrixDepend: matrixDepend);
+            Drawer.Register(Draw, matrixDepend: matrixDepend);
             Font = font;
 
             Character = character;
@@ -203,12 +207,12 @@ namespace Engine
     [DebuggerDisplay("{ToString(),nq}")]
     public class StringObject : ModularObject, IRenderable
     {
-        public string Content
+        public string Text
         {
-            get => content;
+            get => text;
             set
             {
-                content = value;
+                text = value;
                 SliceString();
             }
         }
@@ -232,7 +236,7 @@ namespace Engine
 
         public bool IsVisible { get; set; } = true;
 
-        private string content;
+        private string text;
         private Color charColor = Color.White;
         private RenderTarget2D textTexture;
         private readonly List<CharObject> characters = new();
@@ -246,7 +250,7 @@ namespace Engine
             Drawer.Register(Draw, matrixDepend: matrixDepend);
 
             Font = font;
-            Content = content;
+            Text = content;
         }
         public StringObject(string text, SpriteFont font, bool matrixDepend, params ObjectModule[] modules) : this(text, font, matrixDepend)
         {
@@ -254,7 +258,7 @@ namespace Engine
                 AddModule(module);
         }
         
-        public CharObject SetChar(int index) => characters[index];
+        public CharObject GetChar(int index) => characters[index];
         public void SwapChars(int index1, int index2)
         {
             (characters[index1], characters[index2]) = (characters[index2], characters[index1]);
@@ -266,9 +270,9 @@ namespace Engine
             {
                 foreach (var charObj in characters)
                 {
-                    context.Char(
+                    context.String(
                         charObj.Font,
-                        charObj.Character,
+                        charObj.Character.ToString(),
                         IntegerPosition + charObj.Position,
                         charObj.Color,
                         charObj.RotationRad,
@@ -286,13 +290,13 @@ namespace Engine
 
             Vector2 startPosition = new(0, 0);
 
-            foreach (char character in Content)
+            foreach (char character in Text)
             {
                 CharObject c = new(character, Font, MatrixDepend)
                 {
                     Position = startPosition + position,
                     Color = CharColor,
-                    IsVisible = true,
+                    IsVisible = false,
                 };
                 characters.Add(c);
 
@@ -301,33 +305,10 @@ namespace Engine
             }
         }
 
-        private void BuildTexture()
-        {
-            Vector2 textSize = Font.MeasureString(Content);
-
-            if (textSize.Both() <= 0)
-                return;
-
-            var spriteBatch = InstanceInfo.SpriteBatch;
-
-            textTexture = new RenderTarget2D(spriteBatch.GraphicsDevice, (int)textSize.X, (int)textSize.Y);
-
-            spriteBatch.GraphicsDevice.SetRenderTarget(textTexture);
-            spriteBatch.GraphicsDevice.Clear(Color.Transparent);
-
-            spriteBatch.Begin();
-            spriteBatch.DrawString(Font, Content, Vector2.Zero, CharColor);
-            spriteBatch.End();
-
-            spriteBatch.GraphicsDevice.SetRenderTarget(null);
-
-            Origin = textSize / 2;
-        }
-
         protected override void PostDestroy()
         {
             Drawer.Unregister(Draw);
         }
-        public override string ToString() => Content;
+        public override string ToString() => Text;
     }
 }

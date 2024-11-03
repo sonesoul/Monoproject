@@ -42,8 +42,8 @@ namespace InGame.Visuals
             Drawer.Register(DrawCombos, false);
             FrameEvents.Update.Append(Update);
 
-            Player.OnComboAdd += AddCombo;
-            Player.OnComboRemove += RemoveCombo;
+            Player.OnComboPush += AddCombo;
+            Player.OnComboPop += RemoveCombo;
         }
 
         private static void Update()
@@ -80,8 +80,9 @@ namespace InGame.Visuals
 
         public static void AddCombo(Combo combo)
         {
-            Vector2 position = comboStartPosition + new Vector2(0, comboDisplays.Count * comboSpacing);
-            comboDisplays.Add(new ComboVisual(combo, position));
+            Vector2 position = comboStartPosition + new Vector2(0, 0 * comboSpacing); //comboDisplays.Count * comboSpacing);
+            comboDisplays.Insert(0, new ComboVisual(combo, position));
+            UpdateTargetPositions();
         }
         public static void RemoveCombo(Combo combo)
         {

@@ -7,7 +7,6 @@ namespace GlobalTypes.Collections
     public class LockCollection<T> : ILockCollection<T>
     {
         protected readonly ICollection<T> _collection;
-      
         protected readonly Queue<Action> changeQueue = new();
 
         public bool IsLocked { get; private set; } = false;
@@ -15,6 +14,8 @@ namespace GlobalTypes.Collections
 
         public int Count => _collection.Count;
         public bool IsReadOnly => _collection.IsReadOnly;
+
+        private readonly object _lock = new();
 
         public LockCollection(ICollection<T> source) => _collection = source;
 
@@ -40,10 +41,6 @@ namespace GlobalTypes.Collections
             ApplyChanges();
         }
         
-        public void SafeUnlock() => IsLocked = false;
-        public void SafeLock() => IsLocked = true;
-        public void SetLock(bool state) => IsLocked = state;
-
         private void ApplyChanges()
         {
             while (changeQueue.Count > 0)
@@ -73,10 +70,13 @@ namespace GlobalTypes.Collections
         
         public void SafeRun(Action action)
         {
-            if(IsLocked)
-                changeQueue.Enqueue(action);
-            else 
-                action?.Invoke();
+            lock (_lock)
+            {
+                if (IsLocked)
+                    changeQueue.Enqueue(action);
+                else
+                    action?.Invoke();
+            }
         }
 
         public void Add(T value) => SafeRun(() => _collection.Add(value));
@@ -108,12 +108,7 @@ namespace GlobalTypes.Collections
         public int Capacity
         {
             get => InternalList.Capacity;
-            set
-            {
-                if (value < InternalList.Count)
-                    throw new ArgumentOutOfRangeException(nameof(value), "Capacity cannot be less than the current count.");
-                InternalList.Capacity = value;
-            }
+            set => InternalList.Capacity = value;
         }
 
         public IReadOnlyList<T> Collection => InternalList;
@@ -126,7 +121,24 @@ namespace GlobalTypes.Collections
         
         public int IndexOf(T item) => InternalList.IndexOf(item);
         public int LastIndexOf(T item) => InternalList.LastIndexOf(item);
-        public void Insert(int index, T item) => SafeRun(() => InternalList.Insert(index, item));
+        public void Insert(int index, T item)
+        {
+            void Insert()
+            {
+                //an async bug there
+                try
+                {
+                    InternalList.Insert(index, item);
+                }
+                catch (Exception ex)
+                {
+                    Monoconsole.WriteLine(ex.Message);
+                }
+            }
+
+            SafeRun(Insert);
+           
+        }
         public void RemoveAt(int index) => SafeRun(() => InternalList.Remove(InternalList[index]));
 
         public T Find(Predicate<T> match) => InternalList.Find(match);

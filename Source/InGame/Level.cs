@@ -7,10 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine;
 using System;
-using Engine.Drawing;
 using Engine.Modules;
 using Engine.Types;
 using InGame.Generators;
+using InGame.TaskScripts;
 
 namespace InGame
 {
@@ -20,138 +20,154 @@ namespace InGame
         public static int StorageSize { get; private set; } = 5;
         public static int FillerSize { get; private set; } = 4;
 
-        public static Player PlayerInstance { get; private set; } = null;
-
+        public static TileSet Tiles { get; private set; }
+        public static List<StringObject> Platforms { get; private set; } = new();
+        public static List<Vector2> AbovePlatformTiles { get; private set; } = new();
+        public static List<Vector2> ReachableTiles { get; private set; } = new();
+        
         private readonly static List<ILevelObject> levelObjects = new();
-
-        private readonly static List<StringObject> _platforms = new();
-        private readonly static Dictionary<char, Action<Vector2>> mapPattern = new()
-        {
-            { '#', static (pos) =>
-                {
-                   _platforms.Add(
-                       new StringObject("", UI.Silk, true,
-                           new Collider()
-                           {
-                               Shape = Polygon.Rectangle(37, 37)
-                           },
-                           new Rigidbody()
-                           {
-                               BodyType = BodyType.Static
-                           })
-                       {
-                            Position = pos
-                       });
-                }
-            }
-        };
         
-        private readonly static Random random = new();
-        
-        public static void New()
-        {
-            Clear();
+        private static Color PlatformColor = new(255, 255, 255); //white
+        private static Color StorageColor = new(0, 0, 255); //blue
+        private static Color FillerColor = new(0, 255, 0); //green
 
+        private static Color AbovePlatformTileColor = new(255, 128, 128); //light pink
+        private static Color ReachableTileColor = new(255, 128, 0); //orange
+
+
+        public static void Load(int index = 0)
+        {
             FrameEvents.EndSingle.Append(() =>
             {
+                Clear();
+
                 Vector2 center = InstanceInfo.WindowSize / 2;
 
-                ComboStorage storage = new(StorageSize)
+                Build(index);
+                
+                foreach (var item in levelObjects)
                 {
-                    Position = center.WhereY(y => y = 200)
-                };
-                StorageFiller filler = new(storage, 4)
-                {
-                    Position = center.WhereY(y => y = 700)
-                };
+                    if (item is IPersistentObject persistent)
+                    {
+                        persistent.OnLoad();
+                    }
+                }
 
-                PlayerInstance ??= new();
-                PlayerInstance.Position = center;
-                PlayerInstance.Reset();
-                AddObjects(storage, filler, PlayerInstance);
-
-                NewPlatforms();
+                PointTouchTask task = new(5);
+                task.Start();
             });
         }
         public static void Clear()
         {
+            List<ILevelObject> toRemove = new();
+
             foreach (var item in levelObjects) 
             {
-                if (item is not Player)
-                    item.Destruct();
+                if (item is not IPersistentObject)
+                {
+                    item.OnRemove();
+                    item.Dispose();
+
+                    toRemove.Add(item);
+                }
             }
 
-            levelObjects.Clear();
+            foreach (var item in toRemove)
+            {
+                levelObjects.Remove(item);
+            }
             
-            foreach (var item in _platforms)
+            foreach (var item in Platforms)
             {
-                item.Destroy();
+                item.ForceDestroy();
             }
-            _platforms.Clear();
+            
+            Platforms.Clear();
+            Tiles = null;
+
+            AbovePlatformTiles.Clear();
+            ReachableTiles.Clear();
         }
 
-        public static StorageFiller NewFiller(ComboStorage storage)
+        public static void Build(int index)
         {
-            if (TryGetObject<StorageFiller>(out var old))
+            Vector2 storagePosition = new(-1);
+            int storagePosCount = 0;
+
+            Vector2 fillerPosition = new(-1);
+            int fillerPosCount = 0;
+            
+            Tiles = LevelGenerator.Load(index, new()
             {
-                old.Destruct();
-            }
-            StorageFiller newFiller = new(storage, 4);
-            AddObject(newFiller);
+                { PlatformColor, PlacePlatform },
 
-            return newFiller;
-        }
-        public static void NewPlatforms()
-        {
-            MapGenerator generator = new(mapPattern);
-            Vector2 windowSize = InstanceInfo.WindowSize;
+                { StorageColor, pos => 
+                {
+                    storagePosition += pos;
+                    storagePosCount++;
+                    return null;
+                } },
+                { FillerColor, pos => 
+                {
+                    fillerPosition += pos;
+                    fillerPosCount++;
+                    return null;
+                } },
+                
+                { AbovePlatformTileColor, pos => 
+                {
+                    AbovePlatformTiles.Add(pos);
+                    return null;
+                } },
+                { ReachableTileColor, pos => 
+                {
+                    ReachableTiles.Add(pos);
+                    return null;
+                } }
+            });
+             
+            if (storagePosition.Any() < 0)
+                throw new InvalidOperationException($"There must be a position for {nameof(ComboStorage)}.");
+            if (fillerPosition.Any() < 0)
+                throw new InvalidOperationException($"There must be a position for {nameof(StorageFiller)}.");
 
-            Rectangle screenSquare = new(Point.Zero, windowSize.MinSquare().ToPoint());
-
-            Grid<Vector2> grid = MapGenerator.SliceRect(new Point(20, 20), screenSquare, new(0, 0));
-
-            generator.Generate(
-                grid,
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "                    " +
-                "       ##           " +
-                "                    " +
-                "####                " +
-                "                    "
-            );
-
-        }
-        public static ComboStorage NewStorage()
-        {
-            if (TryGetObject<StorageFiller>(out var old))
+            ComboStorage storage = new(StorageSize)
             {
-                old.Destruct();
-            }
+                Position = storagePosition / storagePosCount
+            };
+            StorageFiller filler = new(storage, 4)
+            {
+                Position = fillerPosition / fillerPosCount
+            };
 
-            ComboStorage newStorage = new(StorageSize);
-            AddObject(newStorage);
+            AddObjects(storage, filler);
+        }
 
-            return newStorage;
+        private static object PlacePlatform(Vector2 position)
+        {
+            Collider collider = new()
+            {
+                Shape = Polygon.Rectangle(37, 37)
+            };
+            Rigidbody rigidbody = new()
+            {
+                BodyType = BodyType.Static
+            };
+
+            StringObject obj = new("", UI.Silk, true, collider, rigidbody)
+            {
+                Position = position
+            };
+
+            Platforms.Add(obj);
+
+            return obj;
         }
 
         public static void AddObject(ILevelObject levelObject)
         {
             levelObjects.Add(levelObject);
-            levelObject.Init();
+            levelObject.OnAdd();
         }
         public static void AddObjects(params ILevelObject[] levelObjects)
         {
@@ -162,46 +178,11 @@ namespace InGame
         public static void RemoveObject(ILevelObject levelObject)
         {
             levelObjects.Remove(levelObject);
-            levelObject.Destruct();
+            levelObject.OnRemove();
         }
+
         public static void ContainsObject(ILevelObject levelObject) => levelObjects.Contains(levelObject);
 
-        public static object GetObject(string tag) => GetObject<object>(tag);
-        public static T GetObject<T>(string tag) where T : class
-        {
-            return levelObjects.Where(i => i.IsTagEqual(tag))
-                .FirstOrDefault() as T;
-
-        }
-        public static T GetObject<T>() where T : class
-        {
-            return levelObjects.Where(i => i is T)
-                .FirstOrDefault() as T;
-        }
-        
-        public static bool TryGetObject<T>(string tag, out T obj) where T : class
-        {
-            obj = null;
-
-            if (levelObjects.Where(i => i.IsTagEqual(tag)).FirstOrDefault() is T found)
-            {
-                obj = found;
-                return true;
-            }
-
-            return false;
-        }
-        public static bool TryGetObject<T>(out T obj) where T : class
-        {
-            obj = null;
-
-            if (levelObjects.Where(i => i is T).FirstOrDefault() is T found)
-            {
-                obj = found;
-                return true;
-            }
-
-            return false;
-        }
+        public static T GetObject<T>() where T : class => levelObjects.Where(i => i is T).FirstOrDefault() as T;
     }
 }

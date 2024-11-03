@@ -17,15 +17,15 @@ namespace Engine.Modules
         public Rectangle Bounds => bounds;
         public IReadOnlyList<Collider> Intersections => collisions;
         public bool Intersects => collisions.Count > 0;
-        
-        public bool IsShapeVisible { get; set; }
+
+        public bool IsShapeVisible { get; set; } = true;
         public Color BaseColor { get; set; } = Color.LightGreen;
         public Color IntersectColor { get; set; } = Color.LightGreen;
 
         public event Action<Collider> OnOverlapEnter, OnOverlapStay, OnOverlapExit;
         
-        private readonly List<Collider> collisions = new();
-        private readonly List<Collider> previousCollisions = new();
+        private List<Collider> collisions = new();
+        private List<Collider> previousCollisions = new();
 
         private Rectangle bounds;
         private Polygon shape = Polygon.Rectangle(50, 50);
@@ -63,8 +63,8 @@ namespace Engine.Modules
         private void DrawShape(DrawContext context)
         {
             UpdateShape();
-            
-            context.HollowPoly(Shape.WorldVertices, (collisions.Count > 0) ? IntersectColor : BaseColor, 1);
+            if (IsShapeVisible)   
+                context.HollowPoly(Shape.WorldVertices, (collisions.Count > 0) ? IntersectColor : BaseColor, 1);
         }
         private void DrawBounds(DrawContext context)
         {
@@ -141,6 +141,9 @@ namespace Engine.Modules
             
             collisions.Clear();
             previousCollisions.Clear();
+
+            collisions = null;
+            previousCollisions = null;
         }
     }
 }

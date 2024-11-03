@@ -1,10 +1,12 @@
-﻿namespace InGame.Interfaces
+﻿using System;
+
+namespace InGame.Interfaces
 {
-    public interface ILevelObject : ITaggable
+    public interface ILevelObject : IDisposable
     {
-        public bool IsInitialized { get; }
-        
-        void Init() { }
-        void Destruct() { }
+        void OnAdd() { }
+        void OnRemove() { }
+
+        void IDisposable.Dispose() => GC.SuppressFinalize(this);
     }
 }

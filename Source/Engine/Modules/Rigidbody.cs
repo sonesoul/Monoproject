@@ -293,6 +293,13 @@ namespace Engine.Modules
         protected override void PostDispose()
         {
             Updater.Unregister(this);
+
+            contactBatches.Clear();
+            suppresedPhysics.Clear();
+
+            contactBatches = null;
+            suppresedPhysics = null;
+            UsedCollider = null;
         }
     }
 }

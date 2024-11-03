@@ -5,32 +5,31 @@ using Engine.Types;
 using GlobalTypes;
 using GlobalTypes.Events;
 using GlobalTypes.InputManagement;
+using InGame.GameObjects;
+using InGame.Generators;
+using SharpDX.MediaFoundation;
 
 namespace InGame
 {
     public class GameMain 
     {
+        private Player player;
         public GameMain()
         {
             FrameEvents.Update.Add(Update, UpdateOrders.GameMain);
             CreateWalls();
-            Level.New();
 
-            Input.Bind(Key.T, KeyPhase.Press, () =>
-            {
-                new StringObject("?", UI.Silk, true)
-                {
-                    Position = FrameInfo.MousePosition,
-                }.AddModule<Rigidbody>();
-            });
+            player = new();
+            Level.AddObject(player);
+
+            Level.Load();
         }
 
         private void Update()
         {
-            
         }
 
-        private void CreateWalls()
+        private static void CreateWalls()
         {
             int width = InstanceInfo.WindowWidth;
             int height = InstanceInfo.WindowHeight;

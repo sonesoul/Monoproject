@@ -8,46 +8,34 @@ using GlobalTypes.InputManagement;
 using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace InGame.GameObjects
 {
-    public class Player : StringObject, ILevelObject
+    public class Player : StringObject, IPersistentObject
     {
-        public string Tag => nameof(Player);
-        public bool IsInitialized { get; private set; } = false;
-        public bool IsDestructed { get; private set; } = true;
-
         public bool CanMove { get; set; } = true;
         public bool CanCombinate { get; set; } = false;
-        
+
         public float JumpPower { get; set; } = 9f;
         public float MoveSpeed { get; set; } = 4;
 
-        public static event Action<Combo> OnComboAdd, OnComboRemove;
+        public static event Action<Combo> OnComboPush, OnComboPop;
 
-        private readonly List<Key> pressedKeys = new();
+        private IComboReader currentReader = null;
+        private Stack<Combo> comboStack = new();
         
-        private Collider collider;
         private Rigidbody rigidbody;
+        private Collider collider;
 
         private OrderedAction _onUpdate;
-        
+
         public Player() : base("#", UI.Silk, true) 
         {
             CharColor = Color.Green;
             Scale = new(2, 2);
             OriginOffset = new(-0.5f, -1.5f);
-        }
-
-        public void Init()
-        {
-            if (IsInitialized)
-                return;
-
-            IsInitialized = true;
 
             List<ObjectModule> modules = AddModules(
             new Collider()
@@ -61,38 +49,88 @@ namespace InGame.GameObjects
 
             collider = modules[0] as Collider;
             rigidbody = modules[1] as Rigidbody;
-            
+
             _onUpdate = FrameEvents.Update.Append(Update);
-            
+
             Input.OnKeyPress += OnKeyPressed;
-            
+
             Input.Bind(Key.Up, KeyPhase.Press, () =>
             {
                 rigidbody.velocity.Y = 0;
                 rigidbody.velocity.Y -= JumpPower;
             });
+
+            collider.OnOverlapEnter += OnColliderEnter;
+            collider.OnOverlapExit += OnColliderExit;
+
+            
         }
 
-        public void Destruct() => Destroy();
-        public void Reset()
+        public void OnLoad()
         {
             if (rigidbody != null)
                 rigidbody.velocity = Vector2.Zero;
-        }
 
+            Position = Level.AbovePlatformTiles.RandomElement();
+        }
+        public void OnRemove() => Destroy();
+        
         private void Update()
         {
             rigidbody.velocity.X = Input.Axis.X * MoveSpeed;
+        }
+
+        public void PushCombo(Combo combo)
+        {
+            comboStack.Push(combo);
+            OnComboPush?.Invoke(combo);
+        }
+        public Combo PopCombo()
+        {
+            var combo = comboStack.Pop();
+            OnComboPop?.Invoke(combo);
+
+            return combo;
+        }
+        public Combo PeekCombo() => comboStack.Peek();
+
+
+        private void OnColliderEnter(Collider other)
+        {
+            if (other.Owner is IComboReader comboReader)
+            {
+                currentReader = comboReader;
+                comboReader.Activate();
+            }
+        }
+        private void OnColliderExit(Collider other)
+        {
+            if (other.Owner is IComboReader comboReader)
+            {
+                currentReader = null;
+                comboReader.Deactivate();
+            }
         }
 
         private void OnKeyPressed(Key key)
         {
             char keyChar = (char)key;
 
-            if (!Level.KeyPattern.Contains(keyChar))
+            if (!Level.KeyPattern.Contains(keyChar) || currentReader == null || comboStack.Count < 1)
                 return;
 
-            
+            Combo last = PeekCombo();
+
+            if (last.StartsWith(currentReader.CurrentCombo + keyChar))
+            {
+                currentReader.Append(keyChar);
+            }
+
+            if (currentReader.IsFilled)
+            {
+                PopCombo();
+                currentReader.Push();
+            }
         }
 
         protected override void PostDestroy()
@@ -101,9 +139,14 @@ namespace InGame.GameObjects
 
             FrameEvents.Update.Remove(_onUpdate);
             Input.OnKeyPress -= OnKeyPressed;
+            
+            comboStack.Clear();
 
+            OnComboPush = null;
+            OnComboPop = null;
+
+            comboStack = null;
             rigidbody = null;
-            collider = null;
         }
     }
 }
