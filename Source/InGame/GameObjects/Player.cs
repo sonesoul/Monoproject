@@ -16,6 +16,7 @@ namespace InGame.GameObjects
     public class Player : StringObject, IPersistentObject
     {
         public bool CanMove { get; set; } = true;
+        public bool CanJump { get; set; } = true;
         public bool CanCombinate { get; set; } = false;
 
         public float JumpPower { get; set; } = 9f;
@@ -54,11 +55,7 @@ namespace InGame.GameObjects
 
             Input.OnKeyPress += OnKeyPressed;
 
-            Input.Bind(Key.Up, KeyPhase.Press, () =>
-            {
-                rigidbody.velocity.Y = 0;
-                rigidbody.velocity.Y -= JumpPower;
-            });
+            Input.Bind(Key.Up, KeyPhase.Hold, Jump);
 
             collider.OnOverlapEnter += OnColliderEnter;
             collider.OnOverlapExit += OnColliderExit;
@@ -78,6 +75,17 @@ namespace InGame.GameObjects
         private void Update()
         {
             rigidbody.velocity.X = Input.Axis.X * MoveSpeed;
+        }
+
+        private void Jump()
+        {
+            if (CanJump)
+            {
+                rigidbody.velocity.Y = 0;
+                rigidbody.velocity.Y -= JumpPower;
+
+                CanJump = false;
+            }
         }
 
         public void PushCombo(Combo combo)
@@ -101,6 +109,15 @@ namespace InGame.GameObjects
             {
                 currentReader = comboReader;
                 comboReader.Activate();
+            }
+            else if (other.Owner.ContainsModule<Rigidbody>())
+            {
+                var mtv = collider.GetMTV(other);
+
+                if (mtv.Y > 0)
+                {
+                    CanJump = true;
+                }
             }
         }
         private void OnColliderExit(Collider other)

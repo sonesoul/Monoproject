@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace GlobalTypes.Collections
@@ -7,7 +8,7 @@ namespace GlobalTypes.Collections
     public class LockCollection<T> : ILockCollection<T>
     {
         protected readonly ICollection<T> _collection;
-        protected readonly Queue<Action> changeQueue = new();
+        protected readonly ConcurrentQueue<Action> changeQueue = new();
 
         public bool IsLocked { get; private set; } = false;
         public int ChangeCount => changeQueue.Count;
@@ -18,33 +19,38 @@ namespace GlobalTypes.Collections
         private readonly object _lock = new();
 
         public LockCollection(ICollection<T> source) => _collection = source;
-
-        /// <summary>
-        /// Locks the collection for a changes. Changes made while locked are applied when the collection is unlocked.
-        /// </summary>
+         
         public void Lock()
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Collection already locked.");
+            lock (_lock)
+            {
+                if (IsLocked)
+                    throw new InvalidOperationException("Collection already locked.");
 
-            IsLocked = true;
+                IsLocked = true;
+            }
         }
-        /// <summary>
-        /// Unlocks the collection. Applies changes that made while collection was locked.
-        /// </summary>
         public void Unlock()
         {
-            if (!IsLocked)
-                throw new InvalidOperationException("Collection already unlocked.");
+            lock (_lock)
+            {
+                if (!IsLocked)
+                    throw new InvalidOperationException("Collection already unlocked.");
 
-            IsLocked = false;
-            ApplyChanges();
+                IsLocked = false;
+                ApplyChanges();
+            }
         }
         
         private void ApplyChanges()
         {
             while (changeQueue.Count > 0)
-                changeQueue.Dequeue()();
+            {
+                if (changeQueue.TryDequeue(out var action))
+                {
+                    action?.Invoke();
+                }
+            }            
         }
         public void ClearChanges() => changeQueue.Clear();
 
@@ -84,16 +90,10 @@ namespace GlobalTypes.Collections
         {
             if (!Contains(value))
                 return false;
-            else
-            {
-                if (IsLocked)
-                    changeQueue.Enqueue(() => _collection.Remove(value));
-                else
-                    _collection.Remove(value);
 
-                return true;
-            }
-           
+            SafeRun(() => _collection.Remove(value));
+            
+            return true;
         }
         public void Clear() => SafeRun(() => _collection.Clear());
         public bool Contains(T item) => _collection.Contains(item);
@@ -123,21 +123,13 @@ namespace GlobalTypes.Collections
         public int LastIndexOf(T item) => InternalList.LastIndexOf(item);
         public void Insert(int index, T item)
         {
-            void Insert()
+            SafeRun(() =>
             {
-                //an async bug there
-                try
-                {
-                    InternalList.Insert(index, item);
-                }
-                catch (Exception ex)
-                {
-                    Monoconsole.WriteLine(ex.Message);
-                }
-            }
+                if (index > InternalList.Count)
+                    index = InternalList.Count - 1;
 
-            SafeRun(Insert);
-           
+                InternalList.Insert(index, item);
+            });  
         }
         public void RemoveAt(int index) => SafeRun(() => InternalList.Remove(InternalList[index]));
 
