@@ -1,6 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-
-namespace GlobalTypes.Events
+﻿namespace GlobalTypes.Events
 {
     public static class FrameEvents
     {

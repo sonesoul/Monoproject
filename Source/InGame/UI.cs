@@ -7,53 +7,60 @@ using Monoproject;
 
 namespace InGame
 {
-    [Init(nameof(Init), InitOrders.UI), Load(nameof(Load), LoadOrders.UI)]
     public static class UI
     {
         public static string CustomInfo { get; set; }
         public static SpriteFont Silk { get; set; }
         public static SpriteFont SilkBold { get; set; }
+        public static SpriteFont VCRFont { get; set; }
         
-        public static string SilkName => "Silkscreen";
-
-        public static string SilkBoldName => "SilkscreenBold";
-
-        public static bool DrawDebug { get; set; } = true;
-        public static bool UseCustomCursor 
+        public static bool IsPerfomanceVisible { get; set; } = true;
+        public static bool IsCursorCustom 
         {
-            get => IsUsingCustomCursor;
+            get => !Main.Instance.IsMouseVisible;
             set => Main.Instance.IsMouseVisible = !value;
         }
 
-
         private static DrawOptions drawOptions;
         
-        private static bool IsUsingCustomCursor => !Main.Instance.IsMouseVisible;
 
+        [Load(LoadOrders.UI)]
         private static void Load()
         {
-            Silk = InstanceInfo.Content.Load<SpriteFont>(SilkName);
-            SilkBold = InstanceInfo.Content.Load<SpriteFont>(SilkBoldName);
+            Silk = LoadFont("Silkscreen");
+            SilkBold = LoadFont("SilkscreenBold");
+            VCRFont = LoadFont("BetterVCR");
         }
+
+        [Init(InitOrders.UI)]
         private static void Init()
         {
             drawOptions = new()
             {
                 font = SilkBold,
-                scale = new Vector2(0.4f, 0.5f),
-                position = new(2, 1)
+                scale = new Vector2(0.45f, 0.5f),
+                position = new(2.5f, 1)
             };
 
-            Drawer.Register(DrawInfo, matrixDepend: false);
-            Drawer.Register(DrawMouse, matrixDepend: false);
+            Drawer.Register(context =>
+            {
+                DrawPerfomance(context);
+                DrawMouse(context);
+            }, 
+            matrixDepend: false);
         }
 
-        public static void DrawInfo(DrawContext context)
+        public static SpriteFont LoadFont(string fontName)
         {
-            if (!DrawDebug)
+            return MainContext.Content.Load<SpriteFont>($"Fonts/{fontName}");
+        }
+
+        private static void DrawPerfomance(DrawContext context)
+        {
+            if (!IsPerfomanceVisible)
                 return;
 
-            context.String($"|fps: {FrameInfo.FPS}  |time: {FrameInfo.DeltaTime * 1000:00}ms  |ram: {GC.GetTotalMemory(false).ToSizeString():00}", drawOptions);
+            context.String($"|FPS: {FrameState.FPS}|   |FTMS: {FrameState.DeltaTime * 1000:00}|   |MEM: {GC.GetTotalMemory(false).ToSizeString()}|", drawOptions);
 
             //custom info
             context.String(
@@ -62,12 +69,12 @@ namespace InGame
                 new Vector2(5, 10),
                 Color.White);
         }
-        public static void DrawMouse(DrawContext context)
+        private static void DrawMouse(DrawContext context)
         {
-            if (!IsUsingCustomCursor) 
+            if (!IsCursorCustom) 
                 return;
 
-            Vector2 curPoint = FrameInfo.MousePosition;
+            Vector2 curPoint = FrameState.MousePosition;
             
             string mouse = "<-";
 
@@ -80,7 +87,7 @@ namespace InGame
                 mouse,
                 new(curPoint.X - 3, curPoint.Y),
                 Color.White,
-                45f.AsRad(),
+                45f.Deg2Rad(),
                 mouseOrigin, 
                 1.3f);
         }

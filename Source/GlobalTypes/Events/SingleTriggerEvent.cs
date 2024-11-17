@@ -6,12 +6,10 @@ namespace GlobalTypes.Events
     {
         public void Trigger(T parameter)
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l =>
+            _listeners.For(l => 
             {
                 l.Action?.Invoke(parameter);
+
                 _listeners.Remove(l);
             });
         }
@@ -20,12 +18,10 @@ namespace GlobalTypes.Events
     {
         public void Trigger()
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l =>
+            _listeners.For(l =>
             {
-                l.Action();
+                l.Action?.Invoke();
+
                 _listeners.Remove(l);
             });
         }

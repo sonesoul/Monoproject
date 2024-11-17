@@ -2,11 +2,9 @@
 
 namespace InGame.Interfaces
 {
-    public interface ILevelObject : IDisposable
+    public interface ILevelObject
     {
         void OnAdd() { }
         void OnRemove() { }
-
-        void IDisposable.Dispose() => GC.SuppressFinalize(this);
     }
 }

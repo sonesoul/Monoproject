@@ -81,7 +81,7 @@ namespace InGame.GameObjects
 
             if (Level.KeyPattern.Contains(c) && !IsFilled)
             {
-                text = text.CharAt(textIndex++, c);
+                text = text.SetChar(textIndex++, c);
                 UpdateOrigin();
             }
         }
@@ -89,7 +89,7 @@ namespace InGame.GameObjects
         {
             if (textIndex > 0)
             {
-                text = text.CharAt(--textIndex, EmptyChar);
+                text = text.SetChar(--textIndex, EmptyChar);
                 UpdateOrigin();
             }
         }
@@ -131,7 +131,7 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, end, elapsed);
-                elapsed += FrameInfo.DeltaTime * smoothSpeed;
+                elapsed += FrameState.DeltaTime * smoothSpeed;
 
                 yield return null;
             }
@@ -143,7 +143,7 @@ namespace InGame.GameObjects
             while (elapsed < 1f)
             {
                 drawOffset = Vector2.Lerp(drawOffset, Vector2.Zero, elapsed);
-                elapsed += FrameInfo.DeltaTime * smoothSpeed;
+                elapsed += FrameState.DeltaTime * smoothSpeed;
 
                 yield return null;
             }

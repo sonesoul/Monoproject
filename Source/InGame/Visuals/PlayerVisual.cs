@@ -12,7 +12,6 @@ using Microsoft.Xna.Framework;
 
 namespace InGame.Visuals
 {
-    [Init(nameof(Init))]
     public static class PlayerVisual
     {
         private class ComboVisual
@@ -31,19 +30,34 @@ namespace InGame.Visuals
                 TargetPosition = position;
             }
         }
+
         public static bool CanDraw { get; set; } = true;
         
         private static readonly List<ComboVisual> comboDisplays = new();
         private static Vector2 comboStartPosition = new(10, 10);
         private static float comboSpacing = 30f;
 
+        private static Player playerInstance = null;
+
+        [Init]
         private static void Init()
         {
             Drawer.Register(DrawCombos, false);
             FrameEvents.Update.Append(Update);
 
-            Player.OnComboPush += AddCombo;
-            Player.OnComboPop += RemoveCombo;
+            Player.OnCreate += player =>
+            {
+                if (playerInstance != null)
+                {
+                    playerInstance.Combo.OnPush -= AddCombo;
+                    playerInstance.Combo.OnPop -= RemoveCombo;
+                }
+
+                playerInstance = player;
+
+                player.Combo.OnPush += AddCombo;
+                player.Combo.OnPop += RemoveCombo;
+            };
         }
 
         private static void Update()

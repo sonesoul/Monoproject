@@ -2,10 +2,11 @@
 using GlobalTypes.Events;
 using Microsoft.Xna.Framework.Input;
 using System;
+using GlobalTypes.InputManagement;
 
 namespace GlobalTypes
 {
-    public static class FrameInfo
+    public static class FrameState
     {
         public const float FixedDeltaTime = 1.0f / 60.0f;
 
@@ -19,10 +20,8 @@ namespace GlobalTypes
         public static ref KeyboardState KeyState => ref _keyState;
         public static ref MouseState MouseState => ref _mouseState;
 
-        public static Keys[] KeysDown => KeyState.GetPressedKeys();
+        public static Key[] KeysDown => Input.GetPressedKeys();
         public static Vector2 MousePosition => MouseState.Position.ToVector2();
-        public static int MouseX => MouseState.X;
-        public static int MouseY => MouseState.Y;
         public static int MouseScroll => MouseState.ScrollWheelValue;
 
         private static KeyboardState _keyState;

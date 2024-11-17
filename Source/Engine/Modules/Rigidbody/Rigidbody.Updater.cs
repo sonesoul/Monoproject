@@ -7,12 +7,12 @@ namespace Engine.Modules
 {
     public partial class Rigidbody
     {
-        [Init(nameof(Init))]
         private static class Updater
         {
             private static List<Rigidbody> bodies = new();
             private static Queue<Rigidbody> updateQueue = new();
 
+            [Init]
             private static void Init()
             {
                 FrameEvents.EndUpdate.Add(() =>

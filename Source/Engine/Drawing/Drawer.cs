@@ -7,7 +7,6 @@ using System.Linq;
 
 namespace Engine.Drawing
 {
-    [Init(nameof(Init), InitOrders.FrameDrawing)]
     public static class Drawer
     {
         private class DrawTask
@@ -22,6 +21,8 @@ namespace Engine.Drawing
             }
         }
 
+        public static int DrawCalls { get; private set; }
+
         private static SpriteBatch spriteBatch;
         private static GraphicsDevice graphics;
 
@@ -32,10 +33,11 @@ namespace Engine.Drawing
 
         public delegate void DrawAction(DrawContext spriteBatch);
 
+        [Init(InitOrders.Drawer)]
         private static void Init() 
         {
-            spriteBatch = InstanceInfo.SpriteBatch;
-            graphics = InstanceInfo.GraphicsDevice;
+            spriteBatch = MainContext.SpriteBatch;
+            graphics = MainContext.GraphicsDevice;
 
             drawContext = new(spriteBatch, graphics);
         }
@@ -76,16 +78,17 @@ namespace Engine.Drawing
 
         private static void DrawForEach(IEnumerable<DrawTask> actions)
         {
-            foreach (var action in actions)
+            foreach (var item in actions)
             {
-                action?.Action?.Invoke(drawContext);
+                item?.Action?.Invoke(drawContext);
             }
         }
 
         public static void DrawAll()
         {
             SpriteBatch batch = spriteBatch;
-            
+            DrawCalls = dynamicActions.Count + staticActions.Count;
+
             batch.Begin(blendState: BlendState.NonPremultiplied, samplerState: SamplerState.PointClamp, transformMatrix: Camera.GetViewMatrix());
             DrawDynamic();
             batch.End();
@@ -165,7 +168,7 @@ namespace Engine.Drawing
                 str, 
                 options.position, 
                 options.color, 
-                options.rotationDeg.AsRad(), 
+                options.rotationDeg.Deg2Rad(), 
                 options.origin,
                 options.scale,
                 options.spriteEffects, 

@@ -16,7 +16,7 @@ namespace Engine.Drawing
 
 
         public Color InfoColor { get; set; } = Color.White;
-        public Vector2 InfoPosition { get; set; } = InstanceInfo.WindowSize / 2;
+        public Vector2 InfoPosition { get; set; } = MainContext.WindowSize / 2;
         public float InfoSize { get; set; } = 1;
 
         public void Show()

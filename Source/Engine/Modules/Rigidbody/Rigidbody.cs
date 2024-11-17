@@ -129,7 +129,7 @@ namespace Engine.Modules
         private Queue<Contact.ContactBatch> contactBatches = new();
         private List<Rigidbody> suppresedPhysics = new();
 
-        private static float Delta => FrameInfo.FixedDeltaTime;
+        private static float Delta => FrameState.FixedDeltaTime;
 
         public Rigidbody(ModularObject owner = null) : base(owner) { }
         protected override void PostConstruct()

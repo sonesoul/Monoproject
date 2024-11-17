@@ -9,7 +9,7 @@ namespace GlobalTypes.Extensions
         public static string Times(this string str, int count)
            => string.Concat(Enumerable.Repeat(str, count));
 
-        public static string CharAt(this string str, int index, char newChar)
+        public static string SetChar(this string str, int index, char newChar)
         {
             char[] charArr = str.ToCharArray();
             charArr[index] = newChar;

@@ -1,4 +1,4 @@
-﻿namespace GlobalTypes.Collections
+﻿namespace GlobalTypes.Interfaces
 {
     public interface IOrderedCollection<TValue, TItem>
     {

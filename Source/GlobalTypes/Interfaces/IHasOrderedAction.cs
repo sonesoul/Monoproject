@@ -1,4 +1,4 @@
-﻿namespace GlobalTypes.Events
+﻿namespace GlobalTypes.Interfaces
 {
     public interface IHasOrderedAction<TAction> : Interfaces.IOrderable
     {

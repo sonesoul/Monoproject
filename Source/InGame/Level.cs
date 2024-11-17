@@ -5,10 +5,7 @@ using InGame.GameObjects;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using System.Linq;
-using Engine;
 using System;
-using Engine.Modules;
-using Engine.Types;
 using InGame.Generators;
 using InGame.TaskScripts;
 
@@ -20,28 +17,37 @@ namespace InGame
         public static int StorageSize { get; private set; } = 5;
         public static int FillerSize { get; private set; } = 4;
 
+        public static ILevelTask CurrentTask { get; private set; }
+
         public static TileSet Tiles { get; private set; }
-        public static List<StringObject> Platforms { get; private set; } = new();
         public static List<Vector2> AbovePlatformTiles { get; private set; } = new();
         public static List<Vector2> ReachableTiles { get; private set; } = new();
-        
+        public static Vector2 TileSize { get; private set; } = new(37, 37);
+
         private readonly static List<ILevelObject> levelObjects = new();
-        
+
+        #region Colors
         private static Color PlatformColor = new(255, 255, 255); //white
+
+        private static Color JumpPadColor = new(128, 128, 255); //light blue
+        private static Color StrongJumpPadColor = new(128, 255, 255); //cyan
+       
+        private static Color SpecialObjectColor = new(255, 255, 128);
+
         private static Color StorageColor = new(0, 0, 255); //blue
         private static Color FillerColor = new(0, 255, 0); //green
 
-        private static Color AbovePlatformTileColor = new(255, 128, 128); //light pink
-        private static Color ReachableTileColor = new(255, 128, 0); //orange
+        private static Color AbovePlatformZoneColor = new(255, 128, 128); //coral
+        private static Color ReachableZoneColor = new(255, 128, 0); //orange
+        #endregion
 
-
-        public static void Load(int index = 0)
+        public static void Load(int index = 1)
         {
             FrameEvents.EndSingle.Append(() =>
             {
                 Clear();
 
-                Vector2 center = InstanceInfo.WindowSize / 2;
+                Vector2 center = MainContext.WindowSize / 2;
 
                 Build(index);
                 
@@ -53,12 +59,15 @@ namespace InGame
                     }
                 }
 
-                PointTouchTask task = new(5);
-                task.Start();
+                CurrentTask = new PointTouchTask(1);
+                CurrentTask.Start();
             });
         }
         public static void Clear()
         {
+            CurrentTask?.Finish();
+            CurrentTask = null;
+
             List<ILevelObject> toRemove = new();
 
             foreach (var item in levelObjects) 
@@ -66,8 +75,7 @@ namespace InGame
                 if (item is not IPersistentObject)
                 {
                     item.OnRemove();
-                    item.Dispose();
-
+                    
                     toRemove.Add(item);
                 }
             }
@@ -77,16 +85,12 @@ namespace InGame
                 levelObjects.Remove(item);
             }
             
-            foreach (var item in Platforms)
-            {
-                item.ForceDestroy();
-            }
-            
-            Platforms.Clear();
             Tiles = null;
 
             AbovePlatformTiles.Clear();
             ReachableTiles.Clear();
+
+            GC.Collect();
         }
 
         public static void Build(int index)
@@ -101,6 +105,10 @@ namespace InGame
             {
                 { PlatformColor, PlacePlatform },
 
+                { JumpPadColor, PlaceJumpPad },
+                { StrongJumpPadColor, PlaceStrongJumpPad },
+                { SpecialObjectColor, PlaceSpecialObject },
+
                 { StorageColor, pos => 
                 {
                     storagePosition += pos;
@@ -114,12 +122,12 @@ namespace InGame
                     return null;
                 } },
                 
-                { AbovePlatformTileColor, pos => 
+                { AbovePlatformZoneColor, pos => 
                 {
                     AbovePlatformTiles.Add(pos);
                     return null;
                 } },
-                { ReachableTileColor, pos => 
+                { ReachableZoneColor, pos => 
                 {
                     ReachableTiles.Add(pos);
                     return null;
@@ -145,23 +153,27 @@ namespace InGame
 
         private static object PlacePlatform(Vector2 position)
         {
-            Collider collider = new()
-            {
-                Shape = Polygon.Rectangle(37, 37)
-            };
-            Rigidbody rigidbody = new()
-            {
-                BodyType = BodyType.Static
-            };
+            StaticPlatform platform = new(position);
+            AddObject(platform);
+            
+            return platform;
+        }
+        private static object PlaceJumpPad(Vector2 position)
+        {
+            JumpPad jumpPad = new(position);
+            AddObject(jumpPad);
 
-            StringObject obj = new("", UI.Silk, true, collider, rigidbody)
-            {
-                Position = position
-            };
-
-            Platforms.Add(obj);
-
-            return obj;
+            return jumpPad;
+        }
+        private static object PlaceStrongJumpPad(Vector2 position)
+        {
+            StrongJumpPad strongJumpPad = new(position);
+            AddObject(strongJumpPad);
+            return strongJumpPad;
+        }
+        private static object PlaceSpecialObject(Vector2 position)
+        {
+            return null;
         }
 
         public static void AddObject(ILevelObject levelObject)

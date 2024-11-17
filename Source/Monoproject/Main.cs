@@ -56,7 +56,7 @@ namespace Monoproject
             WindowThread.CurrentUICulture = new CultureInfo("en-US");
             WindowThread.CurrentCulture = new CultureInfo("en-US");
 
-            InstanceInfo.UpdateVariables();
+            MainContext.UpdateInfo();
 
             Monoconsole.Handler = input => Executor.FromString(input);
             Monoconsole.Opened += async () =>
@@ -78,11 +78,7 @@ namespace Monoproject
             Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}");
         }
 
-        protected override void LoadContent()
-        {
-            LoadAttribute.Invoke();
-            ILoadable.LoadAll();
-        }
+        protected override void LoadContent() => LoadAttribute.Invoke();
         protected override void Initialize()
         {
             //calls LoadContent
@@ -90,11 +86,10 @@ namespace Monoproject
 
             _spriteBatch = new(GraphicsDevice);
            
-            InstanceInfo.UpdateVariables();
+            MainContext.UpdateInfo();
             
             InitAttribute.Invoke();
-            IInitable.InitAll();
-
+            
             _gameInstance = new();
            
             Monoconsole.WriteInfo("init: " + GC.GetTotalMemory(false).ToSizeString());
@@ -106,8 +101,8 @@ namespace Monoproject
 
         protected override void Update(GameTime gameTime)
         {
-            FrameInfo.UpdateGameTime(gameTime);
-            FrameInfo.Update();
+            FrameState.UpdateGameTime(gameTime);
+            FrameState.Update();
 
             FrameEvents.Update.Trigger();
             FrameEvents.EndUpdate.Trigger();
@@ -116,7 +111,7 @@ namespace Monoproject
         }
         protected override void Draw(GameTime gameTime)
         {
-            FrameInfo.UpdateGameTime(gameTime);
+            FrameState.UpdateGameTime(gameTime);
 
             Drawer.Erase();
 

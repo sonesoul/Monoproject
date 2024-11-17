@@ -8,10 +8,7 @@ namespace GlobalTypes.Events
     {
         public void Trigger(T parameter)
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l => l.Action?.Invoke(parameter));
+            _listeners.For(l => l.Action?.Invoke(parameter));
         }
 
         public void AddSingle(OrderedAction<T> listener) => Add(ToSingleTrigger(listener));
@@ -45,10 +42,7 @@ namespace GlobalTypes.Events
     {
         public void Trigger()
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Trying to trigger an event while it is iterating.");
-
-            _listeners.LockForEach(l => l.Action?.Invoke());
+            _listeners.For(l => l.Action?.Invoke());
         }
 
         public void AddSingle(OrderedAction listener) => Add(ToSingleTrigger(listener));

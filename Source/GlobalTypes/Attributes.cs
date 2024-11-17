@@ -1,76 +1,52 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
 namespace GlobalTypes
 {
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
     public abstract class BaseInitAttribute : Attribute
     {
-        public string MethodName { get; }
         public int Order { get; }
 
-        protected BaseInitAttribute(string methodName, int order = 0)
+        protected BaseInitAttribute(int order = 0)
         {
-            MethodName = methodName;
             Order = order;
         }
 
         protected static void Invoke<TAttribute>() where TAttribute : BaseInitAttribute
         {
-            var methodsWithAttributes = Assembly.GetExecutingAssembly()
-                .GetTypes()
-                .SelectMany(t => t.GetCustomAttributes<TAttribute>(), (t, attr) => new { Type = t, Attribute = attr })
-                .OrderBy(item => item.Attribute.Order)
-                .ToList();
+            List<MethodInfo> methods =
+                Assembly.GetExecutingAssembly()
+            .GetTypes()
+            .SelectMany(t => t.GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
+            .Where(m => m.GetCustomAttributes<TAttribute>().Any()), (type, method) => new { Method = method, Attribute = method.GetCustomAttribute<TAttribute>() })
+            .OrderBy(item => item.Attribute.Order)
+            .Select(item => item.Method)
+            .ToList();
 
-            foreach (var item in methodsWithAttributes)
+            foreach (var item in methods)
             {
-                var type = item.Type;
-                var methodName = item.Attribute.MethodName;
-
-                var method = 
-                    type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
-                    ?? throw new InvalidOperationException($"Method '{methodName}' not found in class '{type.FullName}'.");
-
-                if (method.IsStatic)
-                    method.Invoke(null, null);
-                else
+                if (!item.IsStatic)
                 {
-                    var instance = Activator.CreateInstance(type);
-                    method.Invoke(instance, null);
+                    throw new InvalidOperationException(
+                        $"Method {item.Name} in {item.DeclaringType.Name} class must be static to use {typeof(TAttribute).Name} attribute.");
                 }
+
+                item.Invoke(null, null);
             }
         }
     }
 
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public class InitAttribute : BaseInitAttribute
     {
-        public InitAttribute(string methodName, int order = 0) : base(methodName, order) { }
-        private static bool inited = false;
-        public static void Invoke()
-        {
-            if (inited)
-                throw new InvalidOperationException("Can't initialize twice.");
-
-            Invoke<InitAttribute>();
-            inited = true;
-        }
+        public InitAttribute(int order = 0) : base(order) { }
+        public static void Invoke() => Invoke<InitAttribute>();
     }
-
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
     public class LoadAttribute : BaseInitAttribute
     {
-        public LoadAttribute(string methodName, int order = 0) : base(methodName, order) { }
-        private static bool loaded = false;
-        public static void Invoke()
-        {
-            if (loaded)
-                throw new InvalidOperationException("Can't load twice.");
-
-            Invoke<LoadAttribute>();
-            loaded = true;
-        }
+        public LoadAttribute(int order = 0) : base(order) { }
+        public static void Invoke() => Invoke<LoadAttribute>();
     }
 }

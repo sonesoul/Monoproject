@@ -31,8 +31,8 @@ namespace InGame
 
         private static void CreateWalls()
         {
-            int width = InstanceInfo.WindowWidth;
-            int height = InstanceInfo.WindowHeight;
+            int width = MainContext.WindowWidth;
+            int height = MainContext.WindowHeight;
             int offset = 9;
 
             //top

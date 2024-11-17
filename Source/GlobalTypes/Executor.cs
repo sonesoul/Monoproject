@@ -12,7 +12,6 @@ using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using GlobalTypes.InputManagement;
 using System.Diagnostics;
-using InGame.GameObjects;
 
 namespace GlobalTypes
 {
@@ -20,16 +19,11 @@ namespace GlobalTypes
     {
         private static class SettingsCommands
         {
-            public static Dictionary<string, Action<string>> Commands => _commands;
-            private readonly static Dictionary<string, Action<string>> _commands = new()
+            public static Dictionary<string, Action<string>> Commands { get; private set; } = new()
             {
                 { "writeexec", static arg => SetProp(arg, nameof(WriteExecuted), typeof(Monoconsole)) },
-                { "isfpsfixed", static arg => SetProp(arg, nameof(Main.Instance.IsFixedTimeStep), Main.Instance) },
-                { "drawdebug", static arg =>
-                {
-                    SetProp(arg, nameof(UI.DrawDebug), typeof(UI));
-                }},
-                { "customcur", CustomCurCommand },
+                { "drawperf", static arg => SetProp(arg, nameof(UI.IsPerfomanceVisible), typeof(UI))},
+                { "drawcur", CustomCurCommand },
             };
             private static void SetProp(string arg, string propname, Type t, object obj = null)
             {
@@ -39,51 +33,40 @@ namespace GlobalTypes
                 bool after = string.IsNullOrEmpty(arg) ? !before : bool.Parse(arg);
 
                 property.SetValue(obj, after);
-                WriteSet(after);
             }
-
-            private static void SetProp(string arg, string propname, object obj) => SetProp(arg, propname, obj.GetType(), obj);
-            private static void WriteSet(bool value) => WriteInfo(value ? "Enabled" : "Disabled");
 
             private static void CustomCurCommand(string arg)
             {
                 Main main = Main.Instance;
-                bool value = string.IsNullOrEmpty(arg) ? !UI.UseCustomCursor : bool.Parse(arg);
-
-                WriteSet(value);
+                bool value = string.IsNullOrEmpty(arg) ? !UI.IsCursorCustom : bool.Parse(arg);
 
                 void Toggle(object sender, EventArgs args)
                 {
-                    UI.UseCustomCursor = value;
+                    UI.IsCursorCustom = value;
                     main.Activated -= Toggle;
                 };
                 main.Activated -= Toggle;
                 main.Activated += Toggle;
             }
-
         }
         private static class GeneralExecution
         {
-            public static Dictionary<string, Action<string>> Commands => _commands;
-
-            private readonly static Dictionary<string, Action<string>> _commands = new()
+            public static Dictionary<string, Action<string>> Commands { get; private set; } = new()
             {
-                //console control
                 { "new", static _ => New() },
                 { "clear", static _ => Console.Clear() },
                 { "color", Color },
                 { "size", Size },
-                { "position", Position },
-
-                //game control
+                
                 { "f1", static _ => Main.Instance.Exit() },
                 { "ram", static _ => Ram() },
                 { "rem", static _ => Rem()},
                 { "gccollect", static _ => GC.Collect()},
                 { "throw", static _ => throw new()},
-                { "fps", Fps},
+                { "fps", static _ => WriteInfo(FrameState.FPS.ToString())},
+                { "perf", WritePerfomance },
 
-                //utilities
+                { "popup", ShowDialogBox},
                 { "stopwatch", Stopwatch },
                 { "ruler", Ruler },
                 { "captwin", CaptureWindow },
@@ -93,24 +76,23 @@ namespace GlobalTypes
             private readonly static Ruler ruler = new();
             private readonly static KeyBinding[] rulerBindings =
             {
-                new(Key.MouseLeft, KeyPhase.Hold, () => ruler.End = FrameInfo.MousePosition),
-                new(Key.MouseRight, KeyPhase.Hold, () => ruler.Start = FrameInfo.MousePosition),
-                new(Key.MouseMiddle, KeyPhase.Hold, () => ruler.InfoPosition = FrameInfo.MousePosition)
+                new(Key.MouseLeft, KeyPhase.Hold, () => ruler.End = FrameState.MousePosition),
+                new(Key.MouseRight, KeyPhase.Hold, () => ruler.Start = FrameState.MousePosition),
+                new(Key.MouseMiddle, KeyPhase.Hold, () => ruler.InfoPosition = FrameState.MousePosition)
             };
-            private static bool writeInputEnabled = false;
             private readonly static Stopwatch stopwatch = new();
 
-            private static void Fps(string arg)
+            private static void ShowDialogBox(string arg)
             {
-                if (string.IsNullOrEmpty(arg))
-                {
-                    WriteInfo(FrameInfo.FPS.ToString());
-                    return;
-                }
-
-                float fps = float.Parse(arg);
-                Main.Instance.TargetElapsedTime = TimeSpan.FromSeconds(1.0 / fps);
-                WriteInfo($"Target FPS set to: {fps}");
+                DialogBox.ShowMessage(arg, "Message");
+            } 
+            private static void WritePerfomance(string _)
+            {
+                WriteInfo(
+                    $"fps: {FrameState.FPS}\n" +
+                    $"time: {FrameState.DeltaTime * 1000:00}ms\n" +
+                    $"ram: {GC.GetTotalMemory(false).ToSizeString()}\n" +
+                    $"dc: {Drawer.DrawCalls}").Wait();
             }
             private static void Stopwatch(string arg)
             {
@@ -119,19 +101,17 @@ namespace GlobalTypes
                     case "start":
                         stopwatch.Start();
                         break;
-                    case "new":
-                        stopwatch.Restart();
+                    case "reset":
+                        stopwatch.Reset();
                         break;
                     case "stop":
                         stopwatch.Stop();
                         break;
                     case "info":
-                        TimeSpan elapsed = stopwatch.Elapsed;
-                        WriteInfo($"{elapsed.Minutes:00}:{elapsed.Seconds:00}.{elapsed.Milliseconds:000}");
+                        WriteInfo(stopwatch.Elapsed.ToString());
                         break;
                 }
             }
-           
             private static void CaptureWindow(string arg)
             {
                 int scaleFactor = 1;
@@ -141,8 +121,8 @@ namespace GlobalTypes
                     scaleFactor = int.Parse(arg);
                 }
 
-                GraphicsDevice graphics = InstanceInfo.GraphicsDevice;
-                InstanceInfo.WindowSize.ToPoint().Deconstruct(out int width, out int height);
+                GraphicsDevice graphics = MainContext.GraphicsDevice;
+                MainContext.WindowSize.ToPoint().Deconstruct(out int width, out int height);
 
                 int scaledWidth = width * scaleFactor;
                 int scaledHeight = height * scaleFactor;
@@ -257,33 +237,33 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                              .OrderBy(color => color.ToString(), StringComparer.OrdinalIgnoreCase).ToList();
 
                         foreach (var value in values)
+                        {
                             WriteLine(value, value).Wait();
+                        }
 
                         break;
                     case "reset":
+                        
                         Console.ResetColor();
-                        WriteInfo($"Color set to {ForeColor}");
+                        
                         break;
                     default:
+
                         if (!Enum.TryParse<ConsoleColor>(arg, true, out var color))
+                        {
                             WriteError($"Color \"{arg}\" not found");
+                        }
                         else
                         {
-                            if (color == ConsoleColor.Black)
-                            {
-                                WriteInfo("I can't see black text on my black console background. Suffer with me :3");
-                                return;
-                            }
-
                             ForeColor = color;
-                            WriteLine($"Color set to {color}", ForeColor);
                         }
+                        
                         break;
                 }
             }
             public static void Size(string arg)
             {
-                SubInput(arg, out var width, out var height);
+                Partition(arg, out var width, out var height);
 
                 if(int.TryParse(width, out int newWidth))
                     Console.WindowWidth = newWidth;
@@ -291,21 +271,12 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 if(int.TryParse(height, out int newHeight))
                     Console.WindowHeight = newHeight;
             }
-            public static void Position(string arg)
-            {
-                string[] sizes = SplitInput(arg);
-
-                if (sizes.Length > 1)
-                {
-                    Console.SetWindowPosition(int.Parse(sizes[0]), int.Parse(sizes[1]));
-                }
-            }
-
+           
             public static void Ruler(string arg)
             {
                 if(!string.IsNullOrEmpty(arg))
                 {
-                    SubInput(arg, out string subCommand, out string subArg);
+                    Partition(arg, out string subCommand, out string subArg);
 
                     static Color? GetColor(string name)
                     {
@@ -346,9 +317,6 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                             ruler.InfoSize = float.Parse(subArg);
 
                             break;
-                        default:
-                            LogInvalidArg(subCommand, nameof(subCommand));
-                            break;
                     }
                 }
                 else
@@ -373,44 +341,32 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             }
             public static void Level(string arg)
             {
-                SubInput(arg, out var subCommand, out var subArg);
+                Partition(arg, out var subCommand, out var subArg);
 
                 switch (arg)
                 {
                     case "new":
-
                         InGame.Level.Load();
-                        
                         break;
                     case "clear":
-
                         InGame.Level.Clear();
-                        
                         break;
                     case "load":
-
                         InGame.Level.Load();
-
-                        break;
-                    default:
-                        LogInvalidArg(arg, nameof(arg));
                         break;
                 }
             }
         }
         private static class ExecutionPipeline
         {
-            public static Dictionary<string, Action<string>> Commands => _commands;
-
-            private readonly static Dictionary<string, Action<string>> _commands = new()
+            public static Dictionary<string, Action<string>> Commands { get; private set; } = new()
             {
                 { "async", static arg => System.Threading.Tasks.Task.Run(() => ExecuteAsync(arg)) },
                 { "on", RunOn },
                 { "for", For },
                 { "wait", Wait },
                 { "batch", Batch },
-                { "batchbegin", static _ => BatchControl() },
-                { "batchfile", BatchFileControl },
+                { "script", Script },
 
                 { "writel", CustomWriteLine },
                 { "write", CustomWrite },
@@ -418,10 +374,11 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             private static void RunOn(string arg)
             {
-                SubInput(arg, out var eventType, out var command);
+                Partition(arg, out var eventType, out var command);
 
                 switch (eventType)
                 {
+                    //events
                     case "update":
                         FrameEvents.Update.AppendSingle(() => Execute(command));
                         break;
@@ -434,8 +391,10 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     case "postdraw":
                         FrameEvents.PostDraw.AppendSingle(() => Execute(command));
                         break;
+
+                    //threads
                     case "main":
-                        ExecuteOnThread(Main.Instance.SyncContext, command, (ex) => DialogBox.ShowException(ex));
+                        ExecuteOnThread(Main.Instance.SyncContext, command, ex => DialogBox.ShowException(ex));
                         break;
                     case "this":
                         Execute(command);
@@ -454,7 +413,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             private static void For(string arg)
             {
-                SubInput(arg, out var countArg, out var command);
+                Partition(arg, out var countArg, out var command);
 
                 for (int i = 0; i < float.Parse(countArg); i++)
                 {
@@ -496,7 +455,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 result.ForEach(i => Execute(i));
             }
             
-            private static void BatchFileControl(string arg)
+            private static void Script(string arg)
             {
                 static void Read(string path)
                 {
@@ -522,18 +481,17 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 }
                 static void Append(string command)
                 {
-                    if (command == "batchfile end")
+                    if (command == "end")
                     {
-                        OnBatchReceive -= Append;
-                        IsBatchBegun = false;
-
+                        CommandHandler = null;
+                        
                         return;
                     }
 
                     batchQueue.Enqueue(command);
                 }
 
-                SubInput(arg, out var subCommand, out var subArg);
+                Partition(arg, out var subCommand, out var subArg);
 
                 switch (subCommand)
                 {
@@ -544,8 +502,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         break;
                     case "begin":
 
-                        IsBatchBegun = true;
-                        OnBatchReceive += Append;
+                        CommandHandler = Append;
 
                         break;
 
@@ -560,10 +517,11 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                         try
                         {
                             File.WriteAllLines(subArg, lines);
+                            WriteInfo($"Success");
                         }
                         catch (Exception ex)
                         {
-                            WriteError($"An error occurred while writing to file: {ex.Message}");
+                            WriteError($"An error occurred: {ex.Message}");
                             lines.ForEach(l => batchQueue.Enqueue(l));
                         }
 
@@ -573,44 +531,18 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
                         batchQueue.Clear();
 
-                        break;
-                        
+                        break;  
                 }
-            }
-
-            private static void BatchControl()
-            {
-                static void Append(string command)
-                {
-                    if (command != "batchend")
-                    {
-                        batchQueue.Enqueue(command);
-                    }
-                    else
-                    {
-                        IsBatchBegun = false;
-
-                        while (batchQueue.Count > 0)
-                        {
-                            FromString(batchQueue.Dequeue());
-                        }
-                        OnBatchReceive -= Append;
-                    }
-                }
-
-                IsBatchBegun = true;
-                OnBatchReceive += Append;
             }
         }
 
-        public static bool IsBatchBegun { get; private set; } = false;
+        private static Action<string> CommandHandler { get; set; } = null;
         private static Dictionary<string, Action<string>> Commands
             => GeneralExecution.Commands
             .Concat(ExecutionPipeline.Commands)
             .Concat(SettingsCommands.Commands)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        public static event Action<string> OnBatchReceive;
         private readonly static Queue<string> batchQueue = new();
 
 
@@ -618,30 +550,31 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
         {
             input = input.Trim();
 
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
                 return;
 
-            if (IsBatchBegun)
+            if (CommandHandler == null)
             {
-                OnBatchReceive?.Invoke(input);
-                return;
+                HandleCommand(input);
             }
-
-            SubInput(input, out string command, out string arg);
+            else 
+            {
+                CommandHandler(input);
+            }
+        }
+        private static void HandleCommand(string input)
+        {
+            Partition(input, out string command, out string arg);
 
             if (!Commands.TryGetValue(command.ToLower(), out var action))
             {
-                WriteLine($"Unexpected command. Did you mean \"{FindClosestWord(input, Commands.Keys.ToArray())}\"?", ConsoleColor.Red).Wait();
+                WriteLine($"Unexpected command. Did you mean \"{FindClosestWord(command, Commands.Keys.ToArray())}\"?", ConsoleColor.Red).Wait();
                 return;
             }
 
             action?.Invoke(arg);
         }
 
-        private static void LogInvalidArg(string value, string name)
-        {
-            WriteLine($"Invalid argument -> \"{value}\" ({name})", ConsoleColor.Red).Wait();
-        }
 
         private static string FindClosestWord(string input, string[] candidates)
         {
@@ -684,22 +617,22 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
 
             return closest;
         }
-
-        private static void SubInput(string input, out string value1, out string value2)
+        private static void Partition(string input, out string firstWord, out string argument)
         {
+            input = input.Trim();
+
             int index = input.IndexOf(' ');
+            
             if (index != -1)
             {
-                value1 = input[..index].Trim();
-                value2 = input[index..].Trim();
+                firstWord = input[..index].Trim();
+                argument = input[index..].Trim();
             }
             else
             {
-                value1 = input.Trim();
-                value2 = "";
+                firstWord = input;
+                argument = "";
             }
-
         }
-        private static string[] SplitInput(string input, char splitter = ' ') => input.Split(splitter).Select(c => c.Trim()).ToArray();
     }
 }

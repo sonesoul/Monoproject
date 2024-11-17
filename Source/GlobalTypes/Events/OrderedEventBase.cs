@@ -1,22 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using GlobalTypes.Collections;
 using System.Linq;
+using GlobalTypes.Interfaces;
 
 namespace GlobalTypes.Events
 {
     public abstract class OrderedEventBase<TListener, TAction> : IOrderedCollection<TAction, TListener>
-        where TListener : struct, IHasOrderedAction<TAction> 
+        where TListener : IHasOrderedAction<TAction> 
         where TAction : Delegate
     {
         public int LastOrder => Count > 0 ? _listeners[Count - 1].Order : 0;
         public int FirstOrder => Count > 0 ? _listeners[0].Order : 0;
-        protected bool IsLocked => _listeners.IsLocked;
         public int Count => _listeners.Count;
        
-        public IReadOnlyList<TListener> Listeners => _listeners.Collection;
+        public IReadOnlyList<TListener> Listeners => _listeners;
 
-        protected readonly LockList<TListener> _listeners = new();
+        protected readonly List<TListener> _listeners = new();
 
         public TAction this[int index] => _listeners[index].Action;
 
@@ -52,21 +51,21 @@ namespace GlobalTypes.Events
 
         public void Remove(TListener listener) => _listeners.Remove(listener);
         public void RemoveAt(int index) => _listeners.Remove(_listeners[index]);
-        public void RemoveFirst(TAction method)
+        public void RemoveFirst(TAction action)
         {
-            var found = _listeners.Find(l => l.Action == method);
+            var found = _listeners.Find(l => l.Action == action);
 
             if(found.Action != null)
                 _listeners.Remove(found);
         }
-        public void RemoveLast(TAction method)
+        public void RemoveLast(TAction action)
         {
-            var found = _listeners.FindAll(l => l.Action == method).LastOrDefault();
+            var found = _listeners.FindAll(l => l.Action == action).LastOrDefault();
 
             if (found.Action != null)
                 _listeners.Remove(found);
         }
-
+        
         public TListener SetOrder(TListener listener, int newOrder)
         {
             Remove(listener);

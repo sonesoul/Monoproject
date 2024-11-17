@@ -5,7 +5,7 @@ using Monoproject;
 
 namespace GlobalTypes
 {
-    public static class InstanceInfo
+    public static class MainContext
     {
         public static GraphicsDevice GraphicsDevice { get; private set; }
         public static GraphicsDeviceManager GraphicsManager { get; private set; }
@@ -18,10 +18,10 @@ namespace GlobalTypes
 
         public static ContentManager Content { get; private set; }
  
-        public static void UpdateVariables()
+        public static void UpdateInfo()
         {
             Main main = Main.Instance;
-
+            
             Content = main.Content;
             GraphicsDevice = main.GraphicsDevice;
             GraphicsManager = main.GraphicsManager;

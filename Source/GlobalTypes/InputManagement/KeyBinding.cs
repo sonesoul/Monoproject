@@ -1,4 +1,4 @@
-﻿using GlobalTypes.Events;
+﻿using GlobalTypes.Interfaces;
 using System;
 
 namespace GlobalTypes.InputManagement
@@ -10,10 +10,9 @@ namespace GlobalTypes.InputManagement
 
         public KeyPhase TriggerPhase { get; set; }
         public Key Key { get; set; }
-        
-        public bool IsDown { get; set; } = false;
-        public bool IsUp => !IsDown;
-        public bool WasDown { get; set; } = false;
+
+        public bool IsDown { get; private set; }
+        private bool WasDown { get; set; } = false;
 
         public KeyBinding(Key key, KeyPhase keyPhase, Action action = null, int order = 0)
         {
@@ -21,6 +20,29 @@ namespace GlobalTypes.InputManagement
             TriggerPhase = keyPhase;
             Action = action;
             Order = order;
+        }
+
+        public void Update()
+        {
+            bool isDown = IsDown = Input.IsKeyDown(Key);
+
+            if (TriggerPhase == KeyPhase.Press)
+            {
+                if (!WasDown && isDown)
+                    Action?.Invoke();
+            }
+            else if (TriggerPhase == KeyPhase.Hold) 
+            {
+                if (WasDown && isDown)
+                    Action?.Invoke();
+            }
+            else if (TriggerPhase == KeyPhase.Release)
+            {
+                if (WasDown && !isDown)
+                    Action?.Invoke();
+            }
+
+            WasDown = isDown;
         }
     }
 }

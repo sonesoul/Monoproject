@@ -283,6 +283,7 @@ namespace Engine.Types
         }
 
         public static Polygon Rectangle(float width, float height) => new(RectangleVerts(width, height));
+        public static Polygon Rectangle(Vector2 size) => new(RectangleVerts(size.X, size.Y));
         public static Polygon RightTriangle(float width, float height) => new(RightTriangleVerts(width, height));
         #endregion
     }

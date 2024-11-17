@@ -10,7 +10,7 @@ namespace GlobalTypes
         public static T CreateInstance<T>(object[] args = null) where T : class
         {
             var type = typeof(T);
-            if (Activator.CreateInstance(type, args) is T instance)
+            if (CreateInstance(type, args) is T instance)
                 return instance;
 
             throw new InvalidOperationException($"Unable to create an instance of {type.FullName}");

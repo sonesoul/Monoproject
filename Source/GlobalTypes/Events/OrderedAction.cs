@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GlobalTypes.Interfaces;
+using System;
 
 namespace GlobalTypes.Events
 {

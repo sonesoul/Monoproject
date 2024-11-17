@@ -1,6 +1,4 @@
-﻿using Engine.Modules;
-using GlobalTypes.Collections;
-using GlobalTypes.Events;
+﻿using GlobalTypes.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -9,7 +7,6 @@ using System.Linq;
 
 namespace GlobalTypes.InputManagement
 {
-    [Init(nameof(Init))]
     public static class Input
     {
         public static AxisCulture AxisCulture { get; private set; } = AxisCulture.Arrows;
@@ -17,20 +14,19 @@ namespace GlobalTypes.InputManagement
         public static Vector2 Axis => axis;
         public static Vector2 UnitAxis => axis.Normalized();
 
-        public static event Action<Key> OnKeyPress;
-        public static event Action<Key> OnKeyHold;
-        public static event Action<Key> OnKeyRelease;
-
-        private static ref KeyboardState KeyState => ref FrameInfo.KeyState;
-        private static ref MouseState MouseState => ref FrameInfo.MouseState;
+        public static event Action<Key> OnKeyPress, OnKeyHold, OnKeyRelease;
+        
+        private static ref KeyboardState KeyState => ref FrameState.KeyState;
+        private static ref MouseState MouseState => ref FrameState.MouseState;
 
         private static Vector2 axis = Vector2.Zero;
         private static KeyBinding RightKey, LeftKey, UpKey, DownKey;
 
-        private readonly static LockList<KeyBinding> pressKeys = new(), holdKeys = new(), releaseKeys = new();
+        private readonly static List<KeyBinding> binds = new();
 
-        private static List<Key> wasPressed = new();
-
+        private readonly static List<Key> wasPressed = new();
+        
+        [Init(InitOrders.Input)]
         private static void Init()
         {
             AxisCulture.Deconstruct(out var up, out var down, out var left, out var right);
@@ -67,7 +63,7 @@ namespace GlobalTypes.InputManagement
 
 
             UpdateAxis();
-            CheckInput();
+            binds.For(b => b?.Update());
         }
 
         private static void UpdateAxis()
@@ -108,56 +104,21 @@ namespace GlobalTypes.InputManagement
             return pressedKeys.ToArray();
         }
 
-        private static void CheckInput()
-        {
-            pressKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = IsKeyDown(k.Key);
-
-                if (!k.WasDown && isDown)
-                    k.Action?.Invoke();
-
-                k.WasDown = isDown;
-            });
-            
-            holdKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = IsKeyDown(k.Key);
-
-                if (k.WasDown && isDown)
-                    k.Action?.Invoke();
-
-                k.WasDown = isDown;
-            });
-            
-            releaseKeys.LockForEach(k =>
-            {
-                bool isDown = k.IsDown = IsKeyDown(k.Key);
-                bool isUp = k.IsUp;
-
-                if (k.WasDown && isUp)
-                    k.Action?.Invoke();
-
-                k.WasDown = isDown;
-            });
-        }
-
         public static void Bind(KeyBinding binding)
         {
             ThrowIfBindingNull(binding);
 
-            var keyCollection = GetCollection(binding.TriggerPhase);
-            int index = keyCollection.ToList().FindIndex(k => k.Order > binding.Order);
+            int index = binds.ToList().FindIndex(k => k.Order > binding.Order);
 
             if (index == -1)
-                keyCollection.Add(binding);
+                binds.Add(binding);
             else
-                keyCollection.Insert(index, binding);
+                binds.Insert(index, binding);
         }
         public static void Bind(params KeyBinding[] bindings)
         {
-            foreach (var kl in bindings)
-                Bind(kl);
+            foreach (var b in bindings)
+                Bind(b);
         }
         public static KeyBinding Bind(Key key, KeyPhase phase, Action action = null, int order = 0)
         {
@@ -169,16 +130,16 @@ namespace GlobalTypes.InputManagement
 
         public static void BindSingle(KeyBinding binding)
         {
-            KeyBinding singleTriggerListener = new(binding.Key, binding.TriggerPhase, null, binding.Order);
+            KeyBinding bind = new(binding.Key, binding.TriggerPhase, null, binding.Order);
 
             void SelfRemove()
             {
                 binding.Action?.Invoke();
-                Unbind(singleTriggerListener);
+                Unbind(bind);
             };
 
-            singleTriggerListener.Action = SelfRemove;
-            Bind(singleTriggerListener);
+            bind.Action = SelfRemove;
+            Bind(bind);
         }
         public static void BindSingle(Key key, KeyPhase phase, Action action = null, int order = 0)
         {
@@ -189,7 +150,7 @@ namespace GlobalTypes.InputManagement
         {
             ThrowIfBindingNull(binding);
 
-            GetCollection(binding.TriggerPhase).Remove(binding);
+            binds.Remove(binding);
         }
         public static void Unbind(params KeyBinding[] bindings)
         {
@@ -197,12 +158,6 @@ namespace GlobalTypes.InputManagement
             {
                 Unbind(item);
             }
-        }
-        public static void SetEvent(KeyBinding binding, KeyPhase newPhase)
-        {
-            Unbind(binding);
-            binding.TriggerPhase = newPhase;
-            Bind(binding);
         }
         public static void SetOrder(KeyBinding binding, int newOrder)
         {
@@ -246,17 +201,6 @@ namespace GlobalTypes.InputManagement
         {
             AxisCulture = axisCulture;
             UpdateAxisKeys();
-        }
-
-        private static LockList<KeyBinding> GetCollection(KeyPhase phase)
-        {
-            return phase switch
-            {
-                KeyPhase.Press => pressKeys,
-                KeyPhase.Hold => holdKeys,
-                KeyPhase.Release => releaseKeys,
-                _ => throw new InvalidOperationException("Key collection not found.")
-            };
         }
 
         private static void ThrowIfBindingNull(KeyBinding binding)

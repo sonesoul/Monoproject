@@ -3,22 +3,20 @@ using Engine.Modules;
 using Engine.Types;
 using GlobalTypes;
 using InGame.GameObjects;
-using InGame.Generators;
 using InGame.Interfaces;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace InGame.TaskScripts
 {
-    public class PointTouchTask
+    public class PointTouchTask : ILevelTask
     {
-        public CharObject Obj { get; set; }
-        public bool IsStarted { get; set; }
+        public CharObject Obj { get; set; } = null;
+        
+        public int CycleCount { get; private set; }
 
         private List<Vector2> positions;
         private int touchesPerCycle;
@@ -26,18 +24,15 @@ namespace InGame.TaskScripts
         
         private StepTask currentTask = null;
 
+        public event Action OnCycleComplete;
+
         public PointTouchTask(int touchesPerCycle)
         {
             this.touchesPerCycle = touchesPerCycle;
         }
 
         public void Start()
-        {
-            if (IsStarted)
-                return;
-
-            IsStarted = true;
-            
+        { 
             positions = Level.AbovePlatformTiles.Concat(Level.ReachableTiles).ToList();
 
             var font = UI.SilkBold;
@@ -47,26 +42,27 @@ namespace InGame.TaskScripts
             {
                 Position = positions.RandomElement()
             };
-            
-            Collider collider = new();
-            collider.Shape = Polygon.Rectangle(textSize.X, textSize.Y);
-            collider.OnOverlapEnter += OnTriggerEnter;
-            collider.IsShapeVisible = false;
 
+            Collider collider = new()
+            {
+                Shape = Polygon.Rectangle(textSize.X, textSize.Y),
+                IsShapeVisible = false
+            };
+            collider.OnOverlapEnter += OnTriggerEnter;
+            
             Obj.AddModule(collider);
         }
         public void Finish()
         {
-            if (!IsStarted)
-                return;
-
-            IsStarted = false;
-
-            Obj.Destroy();
+            Obj?.Destroy();
+            Obj = null;
         }
 
         private void OnTriggerEnter(Collider other)
         {
+            if (Obj == null)
+                return;
+
             if (other.Owner is not Player)
                 return;
 
@@ -84,8 +80,10 @@ namespace InGame.TaskScripts
 
             if (touchCount >= touchesPerCycle)
             {
-                Level.GetObject<Player>().PushCombo(Combo.NewRandom());
+                Level.GetObject<Player>().Combo.Push(Combo.NewRandom());
                 touchCount = 0;
+                CycleCount++;
+                OnCycleComplete?.Invoke();
             }
         }
 
@@ -95,14 +93,17 @@ namespace InGame.TaskScripts
             float elapsed = 0f;
             Vector2 direction = end - start;
             
-            float angle = ((float)Math.Atan2(direction.Y, direction.X)).AsDeg();
+            float angle = ((float)Math.Atan2(direction.Y, direction.X)).Rad2Deg();
             Obj.RotationDeg = angle + 90;
              
             while (elapsed < 1)
             {
+                if (Obj == null)
+                    yield break;
+
                 Obj.Position = Vector2.Lerp(Obj.Position, end, elapsed);
 
-                elapsed += FrameInfo.DeltaTime * 2f;
+                elapsed += FrameState.DeltaTime * 2f;
                 yield return null;
             }
 

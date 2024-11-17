@@ -43,12 +43,12 @@ namespace InGame.Generators
             return pixelGrid;
         }
 
-        public static Texture2D LoadPicture(int index) => InstanceInfo.Content.Load<Texture2D>($"Levels/level_{index}");
+        public static Texture2D LoadPicture(int index) => MainContext.Content.Load<Texture2D>($"Levels/level_{index}");
         
         public static TileSet Load(int levelIndex, Dictionary<Color, Func<Vector2, object>> callbacks)
         {
             Texture2D levelPic = LoadPicture(levelIndex);
-            Point tileSize = InstanceInfo.WindowSize.ToPoint() / levelPic.Bounds.Size;
+            Point tileSize = MainContext.WindowSize.ToPoint() / levelPic.Bounds.Size;
 
             Color[,] colors = GetPixels(levelPic);
             Vector2[,] positions = Slice(levelPic.Bounds.Size, tileSize);
@@ -92,6 +92,7 @@ namespace InGame.Generators
     public class TileSet 
     {
         public Point TileSize { get; init; }
+
         public int XLast => tiles.GetLength(0) - 1;
         public int YLast => tiles.GetLength(1) - 1;
 

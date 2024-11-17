@@ -21,5 +21,15 @@ namespace GlobalTypes.Extensions
             return values.ElementAt(random.Next(values.Count()));
         }
         public static void PForEach<T>(this IEnumerable<T> values, Action<T> action) => Parallel.ForEach(values, action);
+
+        public static void For<T>(this IEnumerable<T> values, Action<T> action)
+        {
+            List<T> snapshot = values.ToList();
+
+            for (var i = 0; i < snapshot.Count; i++)
+            {
+                action(snapshot[i]);
+            }
+        }
     }
 }

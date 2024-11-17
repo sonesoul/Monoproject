@@ -44,7 +44,14 @@ namespace Monoproject
                 thread.Join();
             }
         }
-
+        public static void ShowMessage(string msg, string caption, MessageBoxIcon icon = MessageBoxIcon.Information)
+        {
+            MessageBox.Show(
+                    msg,
+                    caption,
+                    MessageBoxButtons.OK,
+                    icon);
+        }
         private static string GetCaption(Exception ex)
         {
             if(ex is AggregateException aggrEx)

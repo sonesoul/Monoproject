@@ -6,9 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Engine.Modules;
 using System.Diagnostics;
-using GlobalTypes.Collections;
 using GlobalTypes.Events;
-using GlobalTypes;
 using Engine.Types.Interfaces;
 
 namespace Engine
@@ -20,7 +18,7 @@ namespace Engine
         public Vector2 IntegerPosition => Position.IntCast();
 
         public float RotationDeg { get; set; } = 0;
-        public float RotationRad => RotationDeg.AsRad();
+        public float RotationRad => RotationDeg.Deg2Rad();
         
         public bool IsDestroyed { get; private set; } = false;
 
@@ -51,7 +49,7 @@ namespace Engine
         public IReadOnlyList<ObjectModule> Modules => modules;
         public event Action<ObjectModule> OnModuleRemove;
 
-        private readonly LockList<ObjectModule> modules = new();
+        private readonly List<ObjectModule> modules = new();
         
         private static ObjectModule InitModule(Type type, params object[] args) => (ObjectModule)Activator.CreateInstance(type, args: args);
 
@@ -165,8 +163,6 @@ namespace Engine
 
         public bool IsVisible { get; set; } = true;
 
-        private DrawOptions drawOptions;
-
         public CharObject(char character, SpriteFont font, bool matrixDepend)
         {
             Drawer.Register(Draw, matrixDepend: matrixDepend);
@@ -238,7 +234,6 @@ namespace Engine
 
         private string text;
         private Color charColor = Color.White;
-        private RenderTarget2D textTexture;
         private readonly List<CharObject> characters = new();
 
         public StringObject(string content, SpriteFont font, bool matrixDepend) : base()

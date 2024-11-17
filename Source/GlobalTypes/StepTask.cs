@@ -1,18 +1,17 @@
 using System.Collections;
 using GlobalTypes.Events;
 using System;
-using GlobalTypes.Collections;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 
 namespace GlobalTypes
 {
     public class StepTask
     {
-        [Init(nameof(Init))]
         private static class StepTaskManager
         {
             private readonly static List<StepTask> tasks = new();
+
+            [Init]
             private static void Init()
             {
                 FrameEvents.Update.Add(() => Update(), UpdateOrders.StepTaskManager);
@@ -106,12 +105,12 @@ namespace GlobalTypes
 
         #region WaitMethods
         
-        public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameInfo.DeltaTime));
+        public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameState.DeltaTime));
         public static IEnumerator WaitForRealSeconds(float seconds)
         {
-            TimeSpan start = FrameInfo.GameTime.TotalGameTime;
+            TimeSpan start = FrameState.GameTime.TotalGameTime;
 
-            while ((FrameInfo.GameTime.TotalGameTime - start).TotalSeconds < seconds)
+            while ((FrameState.GameTime.TotalGameTime - start).TotalSeconds < seconds)
             {
                 yield return null;
             }

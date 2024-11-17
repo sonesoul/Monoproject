@@ -61,7 +61,7 @@ namespace GlobalTypes.Extensions
         public static float Dot(this Vector2 a, Vector2 b) => Vector2.Dot(a, b);
         public static Vector2 RotateAround(this Vector2 v, Vector2 origin, float rotation)
         {
-            rotation = rotation.AsRad();
+            rotation = rotation.Deg2Rad();
 
             float cos = (float)Math.Cos(rotation);
             float sin = (float)Math.Sin(rotation);
