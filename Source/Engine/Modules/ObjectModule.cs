@@ -1,17 +1,20 @@
 ﻿using GlobalTypes.Events;
+using GlobalTypes.Interfaces;
 using System;
 
 namespace Engine.Modules
 {
-    public abstract class ObjectModule : IDisposable
+    public abstract class ObjectModule : IDestroyable
     {
-        private ModularObject _owner;
-        public event Action OnDispose;
-        public event Action<ModularObject> OnOwnerChange;
-        public bool IsDisposed { get; private set; }  
+        public bool IsDestroyed { get; set; }
         public bool IsConstructed { get; private set; }  
         public ModularObject Owner => _owner;
 
+        public event Action Destroyed;
+        public event Action<ModularObject> OwnerChanged;
+        
+        private ModularObject _owner;
+        
         public ObjectModule(ModularObject owner = null) 
         {
             if (owner == null)
@@ -19,8 +22,7 @@ namespace Engine.Modules
 
             Construct(owner);
         }
-        ~ObjectModule() => DisposeAction(false);
-        
+       
         public void Construct(ModularObject owner)
         {
             if (IsConstructed)
@@ -47,40 +49,29 @@ namespace Engine.Modules
             if (_owner != null && !_owner.ContainsModule(this))
                 _owner.AddModule(this);
 
-            OnOwnerChange?.Invoke(_owner);
+            OwnerChanged?.Invoke(_owner);
         }
         public void AssignOwner(ModularObject newOwner) => _owner = newOwner;
 
-        public void Dispose()
+        public void Destroy()
         {
-            FrameEvents.EndSingle.Add(() => DisposeAction(true), EndSingleOrders.Dispose); 
-            GC.SuppressFinalize(this);
-        }
-        public void ForceDispose() => DisposeAction(true);
-        protected virtual void DisposeAction(bool disposing)
-        {
-            if (IsDisposed)
+            if (IsDestroyed)
                 return;
 
-            IsDisposed = true;
-
-            PreDispose();
-
-            if (disposing)
-            {
-                OnDispose?.Invoke();
-                SetOwner(null);
-            }
-            else
-                _owner = null;
+            IsDestroyed = true;
             
-            OnDispose = null;
-            OnOwnerChange = null;
-
-            PostDispose();
+            FrameEvents.EndSingle.Add(ForceDestroy, EndSingleOrders.Dispose);
         }
 
-        protected virtual void PostDispose() { }
-        protected virtual void PreDispose() { }
+        public virtual void ForceDestroy()
+        {
+            SetOwner(null);
+            Destroyed?.Invoke();
+
+            _owner = null;
+
+            Destroyed = null;
+            OwnerChanged = null;
+        }
     }
 }

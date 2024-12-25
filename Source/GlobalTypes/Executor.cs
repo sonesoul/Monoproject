@@ -1,6 +1,5 @@
 ﻿using Engine.Drawing;
 using GlobalTypes.Events;
-using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +11,9 @@ using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using GlobalTypes.InputManagement;
 using System.Diagnostics;
+using InGame.Managers;
+using InGame.Overlays;
+using InGame.GameObjects;
 
 namespace GlobalTypes
 {
@@ -22,31 +24,16 @@ namespace GlobalTypes
             public static Dictionary<string, Action<string>> Commands { get; private set; } = new()
             {
                 { "writeexec", static arg => SetProp(arg, nameof(WriteExecuted), typeof(Monoconsole)) },
-                { "drawperf", static arg => SetProp(arg, nameof(UI.IsPerfomanceVisible), typeof(UI))},
-                { "drawcur", CustomCurCommand },
+                { "drawperf", static arg => SetProp(arg, nameof(PerfomanceOverlay.IsPerfomanceVisible), typeof(PerfomanceOverlay))},
             };
             private static void SetProp(string arg, string propname, Type t, object obj = null)
             {
                 var property = t.GetProperty(propname);
                 
                 bool before = (bool)property.GetValue(obj);
-                bool after = string.IsNullOrEmpty(arg) ? !before : bool.Parse(arg);
+                bool after = arg.HasContent() ? arg.ToBool() : !before;
 
                 property.SetValue(obj, after);
-            }
-
-            private static void CustomCurCommand(string arg)
-            {
-                Main main = Main.Instance;
-                bool value = string.IsNullOrEmpty(arg) ? !UI.IsCursorCustom : bool.Parse(arg);
-
-                void Toggle(object sender, EventArgs args)
-                {
-                    UI.IsCursorCustom = value;
-                    main.Activated -= Toggle;
-                };
-                main.Activated -= Toggle;
-                main.Activated += Toggle;
             }
         }
         private static class GeneralExecution
@@ -60,18 +47,145 @@ namespace GlobalTypes
                 
                 { "f1", static _ => Main.Instance.Exit() },
                 { "ram", static _ => Ram() },
-                { "rem", static _ => Rem()},
-                { "gccollect", static _ => GC.Collect()},
-                { "throw", static _ => throw new()},
+                { "rem", static _ => Rem() },
+                { "forcegc", static _ => GC.Collect() },
+                { "throw", static _ => throw new() },
                 { "fps", static _ => WriteInfo(FrameState.FPS.ToString())},
                 { "perf", WritePerfomance },
-
+                { "k+", static arg => Input.SetKey(Enum.Parse<Key>(arg, true), true)},
+                { "k-", static arg => Input.SetKey(Enum.Parse<Key>(arg, true), false)},
+                { "bind", BindCommand },
+                
                 { "popup", ShowDialogBox},
                 { "stopwatch", Stopwatch },
                 { "ruler", Ruler },
                 { "captwin", CaptureWindow },
-                { "level", Level },
+                { "level", LevelCommand },
+                { "timescale", static arg => FrameState.TimeScale = arg.ToFloat() },
+
+                { "game", GameCommand },
+                { "touch", TouchCommand },
+                { "help", arg => Tutorial.Toggle() },
             };
+
+            private static void TouchCommand(string arg)
+            {
+                Partition(arg, out var subCommand, out var subArg);
+
+                switch (subCommand)
+                {
+                    case "player":
+
+                        Partition(subArg, out var playerCommand, out var playerArg);
+
+                        Player player = Level.GetObject<Player>();
+
+                        switch (playerCommand)
+                        {
+                            case "wallet":
+
+                                Partition(playerArg, out var walletCommand, out var walletArg);
+
+                                switch (walletCommand)
+                                {
+                                    case "add":
+                                        player.BitWallet.Deposit(walletArg.ToInt());
+                                        break;
+                                    case "spend":
+                                        player.BitWallet.TrySpend(walletArg.ToInt());
+                                        break;
+                                }
+                                break;
+
+                            case "code":
+                                Partition(playerArg, out var codeCommand, out var codeArg);
+
+                                switch (codeCommand)
+                                {
+                                    case "push":
+                                        player.Codes.Push(new(codeArg));
+                                        break;
+                                    case "pop":
+                                        player.Codes.Pop();
+                                        break;
+                                    case "clear":
+                                        player.Codes.Clear();
+                                        break;
+                                }
+
+                                break;
+                        }
+
+                        break;
+                    case "filler":
+
+                        Partition(subArg, out var fillerCommand, out var fillerArg);
+                        StorageFiller filler = Level.GetObject<StorageFiller>();
+
+                        switch (fillerCommand)
+                        {
+                            case "setcode":
+                                filler.SetCode(new(fillerArg));
+                                break;
+                            case "mistake":
+                                filler.LockInput();
+                                break;
+                        }
+
+                        break;
+                    case "storage":
+                        Partition(subArg, out var storageCommand, out var storageArg);
+                        CodeStorage storage = Level.GetObject<CodeStorage>();
+
+                        switch (storageCommand)
+                        {
+                            case "push":
+                                storage.Push(new(storageArg));
+                                break;
+                            case "setreq":
+                                storage.SetRequirement(storageArg);
+                                break;
+                        }
+
+                        break;
+                }
+            }
+            private static void GameCommand(string arg)
+            {
+                Partition(arg, out var subCommand, out var subArg);
+
+                switch (subCommand)
+                {
+                    case "start":
+                        Session.Start();
+                        break;
+                    case "end":
+                        Session.End();
+                        break;
+                    case "freeze":
+                        SessionManager.Freeze();
+                        break;
+                    case "unfreeze":
+                        SessionManager.Unfreeze();
+                        break;
+                    case "main":
+                        Session.GoToMainMenu();
+                        break;
+                    case "over":
+                        SessionManager.Over();
+                        break;
+                    case "next":
+                        Session.NextLevel();
+                        break;
+                }
+            }
+
+            private static void BindCommand(string arg)
+            {
+                Partition(arg, out var key, out var command);
+
+                Input.Bind((Key)Enum.Parse(typeof(Key), key, true), KeyPhase.Press, () => Execute(command));
+            }
 
             private readonly static Ruler ruler = new();
             private readonly static KeyBinding[] rulerBindings =
@@ -90,7 +204,7 @@ namespace GlobalTypes
             {
                 WriteInfo(
                     $"fps: {FrameState.FPS}\n" +
-                    $"time: {FrameState.DeltaTime * 1000:00}ms\n" +
+                    $"time: {FrameState.DeltaTimeUnscaled * 1000:00}ms\n" +
                     $"ram: {GC.GetTotalMemory(false).ToSizeString()}\n" +
                     $"dc: {Drawer.DrawCalls}").Wait();
             }
@@ -116,13 +230,13 @@ namespace GlobalTypes
             {
                 int scaleFactor = 1;
 
-                if (!string.IsNullOrEmpty(arg))
+                if (arg.HasContent())
                 {
-                    scaleFactor = int.Parse(arg);
+                    scaleFactor = arg.ToInt();
                 }
 
-                GraphicsDevice graphics = MainContext.GraphicsDevice;
-                MainContext.WindowSize.ToPoint().Deconstruct(out int width, out int height);
+                GraphicsDevice graphics = Window.GraphicsDevice;
+                Window.Size.ToPoint().Deconstruct(out int width, out int height);
 
                 int scaledWidth = width * scaleFactor;
                 int scaledHeight = height * scaleFactor;
@@ -160,7 +274,7 @@ namespace GlobalTypes
 
                     fs.Dispose();
                 }
-                Main.Instance.PostToMainThread(() => GC.Collect());
+                Main.Instance.ForceGC();
 
                 WriteInfo(path);
             }
@@ -229,7 +343,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             {
                 switch (arg)
                 {
-                    case string s when string.IsNullOrEmpty(s):
+                    case string s when !s.HasContent():
 
                         var values = Enum.GetValues<ConsoleColor>()
                              .Cast<ConsoleColor>()
@@ -265,16 +379,16 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             {
                 Partition(arg, out var width, out var height);
 
-                if(int.TryParse(width, out int newWidth))
+                if (int.TryParse(width, out int newWidth))
                     Console.WindowWidth = newWidth;
                 
-                if(int.TryParse(height, out int newHeight))
+                if (int.TryParse(height, out int newHeight))
                     Console.WindowHeight = newHeight;
             }
            
             public static void Ruler(string arg)
             {
-                if(!string.IsNullOrEmpty(arg))
+                if(arg.HasContent())
                 {
                     Partition(arg, out string subCommand, out string subArg);
 
@@ -293,7 +407,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     {
                         case "thickness":
 
-                            ruler.Thickness = int.Parse(subArg);
+                            ruler.Thickness = subArg.ToInt();
 
                             break;
                         case "linecolor":
@@ -314,7 +428,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                             break;
                         case "infosize":
 
-                            ruler.InfoSize = float.Parse(subArg);
+                            ruler.InfoSize = subArg.ToFloat();
 
                             break;
                     }
@@ -325,7 +439,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     {
                         ruler.Show();
 
-                        Input.Bind(rulerBindings);
+                        Input.AddBinds(rulerBindings);
 
                         WriteInfo("Enabled");
                     }
@@ -339,20 +453,20 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                     }
                 }   
             }
-            public static void Level(string arg)
+            public static void LevelCommand(string arg)
             {
                 Partition(arg, out var subCommand, out var subArg);
 
-                switch (arg)
+                switch (subCommand)
                 {
-                    case "new":
-                        InGame.Level.Load();
+                    case "load":
+                        if (subArg.HasContent())
+                            Level.Load(subArg.ToInt());
+                        else
+                            Level.Load();
                         break;
                     case "clear":
-                        InGame.Level.Clear();
-                        break;
-                    case "load":
-                        InGame.Level.Load();
+                        Level.Clear();
                         break;
                 }
             }
@@ -367,37 +481,69 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 { "wait", Wait },
                 { "batch", Batch },
                 { "script", Script },
+                { "profile", static arg => Profile($"\"{arg}\"", () => Execute(arg)) },
 
                 { "writel", CustomWriteLine },
                 { "write", CustomWrite },
             };
+            private static void Profile(string taskname, Action action)
+            {
+                Stopwatch sw = Stopwatch.StartNew();
+                action?.Invoke();
+                sw.Stop();
 
+                WriteInfo($"{taskname}: {sw.Elapsed}");
+            }
             private static void RunOn(string arg)
             {
                 Partition(arg, out var eventType, out var command);
+
+                void Exec() => Execute(command);
+
+                Action handler = null;
 
                 switch (eventType)
                 {
                     //events
                     case "update":
-                        FrameEvents.Update.AppendSingle(() => Execute(command));
+                        FrameEvents.Update.AppendSingle(Exec);
                         break;
                     case "endupdate":
-                        FrameEvents.EndUpdate.AppendSingle(() => Execute(command));
+                        FrameEvents.EndUpdate.AppendSingle(Exec);
                         break;
                     case "predraw":
-                        FrameEvents.PreDraw.AppendSingle(() => Execute(command));
+                        FrameEvents.PreDraw.AppendSingle(Exec);
                         break;
                     case "postdraw":
-                        FrameEvents.PostDraw.AppendSingle(() => Execute(command));
+                        FrameEvents.PostDraw.AppendSingle(Exec);
+                        break;
+                    case "focused":
+
+                        handler = () =>
+                        {
+                            Exec();
+                            Window.Focused -= handler;
+                        };
+
+                        Window.Focused += handler;
+                        break;
+                    case "unfocused":
+
+                        handler = () =>
+                        {
+                            Exec();
+                            Window.Unfocused -= handler;
+                        };
+
+                        Window.Unfocused += handler;
                         break;
 
                     //threads
                     case "main":
-                        ExecuteOnThread(Main.Instance.SyncContext, command, ex => DialogBox.ShowException(ex));
+                        Main.Instance.PostToMainThread(Exec);
                         break;
                     case "this":
-                        Execute(command);
+                        Exec();
                         break;
                 }
             }
@@ -415,16 +561,14 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             {
                 Partition(arg, out var countArg, out var command);
 
-                for (int i = 0; i < float.Parse(countArg); i++)
+                for (int i = 0; i < countArg.ToFloat(); i++)
                 {
                     Execute(command);
                 }
             }
             private static void Wait(string arg)
             {
-                float time = float.Parse(arg);
-
-                System.Threading.Tasks.Task.Delay((int)(1000f * time)).Wait();
+                System.Threading.Tasks.Task.Delay((int)(1000f * arg.ToFloat())).Wait();
             }
             private static void Batch(string arg)
             {
@@ -460,7 +604,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
                 static void Read(string path)
                 {
                     string[] lines = File.ReadAllLines(path)
-                        .Where(l => !l.StartsWith('#') && !string.IsNullOrWhiteSpace(l))
+                        .Where(l => !l.StartsWith('#') && l.HasContent())
                         .ToArray();
 
 
@@ -550,7 +694,7 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
         {
             input = input.Trim();
 
-            if (string.IsNullOrWhiteSpace(input))
+            if (!input.HasContent())
                 return;
 
             if (CommandHandler == null)

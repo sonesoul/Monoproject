@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Engine.Types;
-using Microsoft.Xna.Framework;
 using Engine.Drawing;
 
 namespace Engine.Modules
@@ -15,10 +14,10 @@ namespace Engine.Modules
         public bool Intersects => collisions.Count > 0;
 
         public bool IsShapeVisible { get; set; } = true;
-        public Color BaseColor { get; set; } = Color.LightGreen;
-        public Color IntersectColor { get; set; } = Color.LightGreen;
+        public Color BaseColor { get; set; } = Palette.White;
+        public Color IntersectColor { get; set; } = Palette.White;
 
-        public event Action<Collider> OnOverlapEnter, OnOverlapStay, OnOverlapExit;
+        public event Action<Collider> ColliderEnter, ColliderStay, ColliderExit;
         
         private List<Collider> collisions = new();
         private List<Collider> previousCollisions = new();
@@ -32,13 +31,13 @@ namespace Engine.Modules
         protected override void PostConstruct()
         {
             Drawer.Register(DrawShape, true);
-            Drawer.Register(DrawBounds, true);
+           
             Updater.Register(this);
         }
         
         public bool IntersectsWith(Collider other)
         {
-            if (other == null || other.IsDisposed || other.Owner.IsDestroyed)
+            if (other == null || other.IsDestroyed || other.Owner.IsDestroyed)
                 return false;
 
             return Shape.IntersectsWith(other.Shape);
@@ -47,7 +46,7 @@ namespace Engine.Modules
         {
             mtv = Vector2.Zero;
 
-            if (other == null || other.IsDisposed || other.Owner.IsDestroyed)
+            if (other == null || other.IsDestroyed || other.Owner.IsDestroyed)
                 return false;
 
             return Shape.IntersectsWith(other.Shape, out mtv);
@@ -61,10 +60,6 @@ namespace Engine.Modules
             UpdateShape();
             if (IsShapeVisible)   
                 context.HollowPoly(Shape.WorldVertices, (collisions.Count > 0) ? IntersectColor : BaseColor, 1);
-        }
-        private void DrawBounds(DrawContext context)
-        {
-            //shapeDrawer.DrawRectangle(Bounds, Color.Gray);
         }
 
         public void UpdateShape()
@@ -92,23 +87,23 @@ namespace Engine.Modules
         {
             collisions.Clear();
 
-            foreach (var item in colliders.Where(c => IsInProximity(c, 2) && c != this && !IsDisposed))
+            foreach (var item in colliders.Where(c => IsInProximity(c, 2) && c != this && !IsDestroyed))
             {
                 if (IntersectsWith(item, out var mtv))
                 {
                     collisions.Add(item);
 
                     if (!previousCollisions.Contains(item))
-                        OnOverlapEnter?.Invoke(item);
+                        ColliderEnter?.Invoke(item);
                     else
-                        OnOverlapStay?.Invoke(item);
+                        ColliderStay?.Invoke(item);
                 }
             }
 
             foreach (var item in previousCollisions)
             {
                 if (!Intersections.Contains(item))
-                    OnOverlapExit?.Invoke(item);
+                    ColliderExit?.Invoke(item);
             }
 
             previousCollisions.Clear();
@@ -128,15 +123,15 @@ namespace Engine.Modules
             return max.LengthSquared() <= distance * distance;
         }
 
-        protected override void PostDispose()
+        public override void ForceDestroy()
         {
+            base.ForceDestroy();
+
             Updater.Unregister(this);
-            
-            Drawer.Unregister(DrawBounds);
             Drawer.Unregister(DrawShape);
             
-            collisions.Clear();
-            previousCollisions.Clear();
+            collisions?.Clear();
+            previousCollisions?.Clear();
 
             collisions = null;
             previousCollisions = null;

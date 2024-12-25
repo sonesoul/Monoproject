@@ -3,6 +3,7 @@
     public static class FrameEvents
     {
         public static OrderedEvent Update { get; } = new();
+        public static OrderedEvent UpdateUnscaled { get; } = new();
         public static OrderedEvent EndUpdate { get; } = new();
         public static OrderedEvent FixedUpdate { get; } = new();
 

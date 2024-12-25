@@ -1,5 +1,4 @@
 ﻿using Engine.Types.Interfaces;
-using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -74,7 +73,7 @@ namespace Engine.Types
             Vertices.Clear();
 
             foreach (var item in originalVertices)
-                Vertices.Add(item.RotateAround(Center, rotationAngle));
+                Vertices.Add(item.RotateAround(Center, rotationAngle).Rounded());
 
             Vector2 pos = IntegerPosition;
 

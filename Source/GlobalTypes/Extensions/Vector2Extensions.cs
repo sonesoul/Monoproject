@@ -1,5 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace GlobalTypes.Extensions
@@ -14,6 +13,8 @@ namespace GlobalTypes.Extensions
 
             public BothAxes(float x, float y) => vector = new(x, y);
             public BothAxes(Vector2 vector) => this.vector = vector;
+
+            public readonly Vector2 Clamp(float min, float max) => new(X.Clamp(min, max), Y.Clamp(min, max));
 
             public readonly override bool Equals([NotNullWhen(true)] object obj) => (obj is float axis) ? Equals(this, axis) : base.Equals(obj);
             private static bool Equals(BothAxes vector, float value) => vector.X == value && vector.Y == value;
@@ -59,19 +60,19 @@ namespace GlobalTypes.Extensions
         public static Vector2 Normalized(this Vector2 v) => Vector2.Normalize(v);
         public static float DistanceTo(this Vector2 a, Vector2 b) => Vector2.Distance(a, b);
         public static float Dot(this Vector2 a, Vector2 b) => Vector2.Dot(a, b);
-        public static Vector2 RotateAround(this Vector2 v, Vector2 origin, float rotation)
+        public static Vector2 RotateAround(this Vector2 v, Vector2 origin, float rotationDeg)
         {
-            rotation = rotation.Deg2Rad();
+            rotationDeg = rotationDeg.Deg2Rad();
 
-            float cos = (float)Math.Cos(rotation);
-            float sin = (float)Math.Sin(rotation);
+            float cos = (float)Math.Cos(rotationDeg);
+            float sin = (float)Math.Sin(rotationDeg);
 
             Vector2 translatedPoint = v - origin;
 
             float newX = translatedPoint.X * cos - translatedPoint.Y * sin;
             float newY = translatedPoint.X * sin + translatedPoint.Y * cos;
 
-            return (new Vector2(newX, newY) + origin).Rounded();
+            return new Vector2(newX, newY) + origin;
         }
 
         public static BothAxes Both(this Vector2 v) => new(v);

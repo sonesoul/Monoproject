@@ -1,10 +1,9 @@
-﻿using System;
+﻿using GlobalTypes.Interfaces;
+using System;
 
 namespace InGame.Interfaces
 {
-    public interface ILevelObject
+    public interface ILevelObject : IDestroyable
     {
-        void OnAdd() { }
-        void OnRemove() { }
     }
 }

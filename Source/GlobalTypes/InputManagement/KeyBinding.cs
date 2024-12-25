@@ -21,7 +21,7 @@ namespace GlobalTypes.InputManagement
             Action = action;
             Order = order;
         }
-
+        public void Unbind() => Input.Unbind(this);
         public void Update()
         {
             bool isDown = IsDown = Input.IsKeyDown(Key);

@@ -21,13 +21,14 @@ namespace Engine.Modules
                     UpdateCollisions();
                 }, EndUpdateOrders.RigidbodyUpdater);
 
-                FrameEvents.PostDraw.Add(() =>
+                FrameEvents.EndUpdate.Add(() =>
                 {
                     ApplyGravity();
                     ApplyForces();
 
                     ApplyVelocity();
-                });
+
+                }, EndUpdateOrders.RigidbodyForces);
             }
 
             public static void Register(Rigidbody rb)

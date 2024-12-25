@@ -1,14 +1,16 @@
 ﻿global using GlobalTypes.Extensions;
 global using MonoconsoleLib;
+global using Microsoft.Xna.Framework;
+global using GlobalTypes.Assets;
+global using static GlobalTypes.Extensions.ActionExtensions;
 
 using System;
 using System.Globalization;
+
 using System.Threading;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using GlobalTypes;
 using GlobalTypes.Events;
-using GlobalTypes.Interfaces;
 using GlobalTypes.InputManagement;
 using Engine.Drawing;
 using InGame;
@@ -20,8 +22,6 @@ namespace Monoproject
 {
     public class Main : Game
     {
-        public static Color BackgroundColor { get; set; } = Color.Black;
-        
         public Thread WindowThread { get; init; }
         public SynchronizationContext SyncContext { get; private set; }
         public static Main Instance { get; private set; }
@@ -32,12 +32,10 @@ namespace Monoproject
 
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private GameMain _gameInstance;
+        private double updateBuffer = 0;
 
         public Main()
         {
-            long memCtor = GC.GetTotalMemory(true);
-
             Instance = this;
 
             _graphics = new(this)
@@ -48,15 +46,19 @@ namespace Monoproject
             };
             
             Window.AllowUserResizing = false;
-            IsFixedTimeStep = false;
+
             Content.RootDirectory = "Content";
+            
+            IsFixedTimeStep = true;
+            IsMouseVisible = true;
 
             SyncContext = SynchronizationContext.Current;
             WindowThread = Thread.CurrentThread;
             WindowThread.CurrentUICulture = new CultureInfo("en-US");
             WindowThread.CurrentCulture = new CultureInfo("en-US");
 
-            MainContext.UpdateInfo();
+            GlobalTypes.Window.UpdateInfo();
+            Asset.Content = Content;
 
             Monoconsole.Handler = input => Executor.FromString(input);
             Monoconsole.Opened += async () =>
@@ -66,16 +68,29 @@ namespace Monoproject
                 Random rnd = new();
 
                 for (int i = 0; i < 5; i++)
-                    sb.Append(chars[rnd.Next(chars.Length)]);
+                {
+                    int index = rnd.Next(chars.Length);
+                    sb.Append(chars[index]);
+                }
 
-                List<ConsoleColor> colors = Enum.GetValues<ConsoleColor>().Where(c => c != ConsoleColor.Black).ToList();
-                await Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[new Random().Next(colors.Count)]);
+                List<ConsoleColor> colors = 
+                    Enum.GetValues<ConsoleColor>()
+                    .Where(c => c != ConsoleColor.Black)
+                    .ToList();
+                
+                int colorIndex = rnd.Next(colors.Count);
+
+                await Monoconsole.WriteLine($"| monoconsole [{sb}]\n", colors[colorIndex]);
             };
 
-            Monoconsole.HideButtons = false;
             Monoconsole.HideFromTaskbar = false;
+            Monoconsole.HideButtons = false;
+
             Monoconsole.New();
-            Monoconsole.WriteInfo($"ctor: {memCtor.ToSizeString()}");
+            Monoconsole.Execute("size 40 15");
+            //Monoconsole.Execute("drawperf");
+
+            Monoconsole.WriteLine("\nType \"help\" to start tutorial");
         }
 
         protected override void LoadContent() => LoadAttribute.Invoke();
@@ -85,16 +100,13 @@ namespace Monoproject
             base.Initialize();
 
             _spriteBatch = new(GraphicsDevice);
-           
-            MainContext.UpdateInfo();
+
+            GlobalTypes.Window.UpdateInfo();
             
             InitAttribute.Invoke();
-            
-            _gameInstance = new();
-           
-            Monoconsole.WriteInfo("init: " + GC.GetTotalMemory(false).ToSizeString());
-            Monoconsole.Execute("ram");
-            
+
+            Session.GoToMainMenu();
+
             Input.Bind(Key.F1, KeyPhase.Press, () => Monoconsole.Execute("f1"));
             Input.Bind(ConsoleToggleKey, KeyPhase.Press, () => Monoconsole.Toggle());
         }
@@ -104,8 +116,25 @@ namespace Monoproject
             FrameState.UpdateGameTime(gameTime);
             FrameState.Update();
 
-            FrameEvents.Update.Trigger();
-            FrameEvents.EndUpdate.Trigger();
+            FrameEvents.UpdateUnscaled.Trigger();
+
+            updateBuffer += FrameState.DeltaTime;
+            double interval = FrameState.FixedDeltaTime;
+
+            if (FrameState.DeltaTimeMs > 20)
+            {
+                Monoconsole.WriteLine($"{FrameState.DeltaTimeMs}ms, {updateBuffer * 1000:0.00}/{interval * 1000:0.00}", ConsoleColor.Red);
+            }
+
+            while (updateBuffer > 0)
+            {
+                updateBuffer -= interval;
+
+                FrameEvents.Update.Trigger();
+                FrameEvents.EndUpdate.Trigger();
+            }
+
+            
 
             FrameEvents.EndSingle.Trigger();
         }
@@ -121,20 +150,9 @@ namespace Monoproject
 
             base.Draw(gameTime);
         }
-                 
-        public void PostToMainThread(Action action)
-        {
-            SyncContext.Post(_ =>
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    DialogBox.ShowException(ex);
-                }
-            }, null);
-        }
+
+
+        public void ForceGC() => PostToMainThread(GC.Collect);
+        public void PostToMainThread(Action action) => SyncContext.Post(_ => action(), null);
     }
 }

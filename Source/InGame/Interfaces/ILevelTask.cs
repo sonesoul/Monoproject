@@ -1,4 +1,4 @@
-﻿using InGame.Generators;
+﻿using InGame.TileProcessing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +11,7 @@ namespace InGame.Interfaces
     {
         public int CycleCount { get; }
 
-        public event Action OnCycleComplete;
+        public event Action CycleCompleted;
 
         public void Start();
         public void Finish();

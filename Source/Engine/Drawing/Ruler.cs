@@ -1,5 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using GlobalTypes;
 
 namespace Engine.Drawing
@@ -16,7 +15,7 @@ namespace Engine.Drawing
 
 
         public Color InfoColor { get; set; } = Color.White;
-        public Vector2 InfoPosition { get; set; } = MainContext.WindowSize / 2;
+        public Vector2 InfoPosition { get; set; } = Window.Center;
         public float InfoSize { get; set; } = 1;
 
         public void Show()
@@ -40,7 +39,7 @@ namespace Engine.Drawing
         {
             context.Line(Start, End, LineColor, Thickness);
             
-            SpriteFont font = InGame.UI.Silk;
+            SpriteFont font = Fonts.Silk;
 
             string startText = $"({Start.X}, {Start.Y})";
             string endText = $"({End.X}, {End.Y})";

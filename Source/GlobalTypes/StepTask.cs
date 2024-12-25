@@ -2,10 +2,12 @@ using System.Collections;
 using GlobalTypes.Events;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using GlobalTypes.Interfaces;
 
 namespace GlobalTypes
 {
-    public class StepTask
+    public class StepTask : IDisposable
     {
         private static class StepTaskManager
         {
@@ -15,58 +17,115 @@ namespace GlobalTypes
             private static void Init()
             {
                 FrameEvents.Update.Add(() => Update(), UpdateOrders.StepTaskManager);
+                FrameEvents.UpdateUnscaled.Add(() => UpdateUnscaled(), UpdateUnscaledOrders.StepTaskManager);
             }
 
             private static void Update()
+            {
+                UpdateTasks(tasks.Where(t => t.IsTimeScaled).ToList());
+            }
+            private static void UpdateUnscaled()
+            {
+                UpdateTasks(tasks.Where(t => !t.IsTimeScaled).ToList());
+            }
+
+            private static void UpdateTasks(List<StepTask> tasks)
             {
                 for (int i = tasks.Count - 1; i >= 0; i--)
                 {
                     if (tasks[i].IsPaused)
                         continue;
 
-                    var action = tasks[i].workingTask;
+                    StepTask task = tasks[i];
+                    IEnumerator iterator = task.Iterator;
 
-                    if (action.Current is IEnumerator subCoroutine)
+                    Stack<IEnumerator> nestedTasks = GetNestedTasks(iterator);
+
+                    if (NextNested(nestedTasks))
+                        continue;
+
+                    try
                     {
-                        if (subCoroutine.MoveNext())
-                            continue;
+                        if (!iterator.MoveNext())
+                        {
+                            task.Complete();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new AggregateException($"{task.Action.Method.Name} threw an exception during iterating. ({ex.Message})");
                     }
                     
-                    if (!action.MoveNext())
-                    {
-                        tasks[i].OnComplete?.Invoke();
-                        tasks.RemoveAt(i);
-                    }
                 }
             }
 
-            public static void Register(StepTask orderedTask) => tasks.Add(orderedTask);
-            public static void Unregister(StepTask orderedTask) => tasks.Remove(orderedTask);
+            private static Stack<IEnumerator> GetNestedTasks(IEnumerator iterator)
+            {
+                Stack<IEnumerator> nestedTasks = new();
+
+                while (iterator.Current is IEnumerator subTask)
+                {
+                    iterator = subTask;
+
+                    if (subTask != null)
+                        nestedTasks.Push(iterator);
+                }
+
+                return nestedTasks;
+            }
+            private static bool NextNested(Stack<IEnumerator> nestedTasks)
+            {
+                while (nestedTasks.Count > 0)
+                {
+                    if (nestedTasks.Peek().MoveNext())
+                        break;
+
+                    nestedTasks.Pop();
+                }
+
+                return nestedTasks.Count > 0;
+            }
+
+            public static void Register(StepTask orderedTask)
+            {
+                tasks.Add(orderedTask);
+            }
+            public static void Unregister(StepTask orderedTask)
+            {
+                tasks.Remove(orderedTask);
+            }
         }
 
-        public bool IsRunning => item != null && !IsPaused;
+        public Func<IEnumerator> Action { get; set; }
+        public IEnumerator Iterator { get; private set; }
+
         public bool IsPaused { get; set; } = false;
-        public int Order { get; set; }
-        public Func<IEnumerator> Task { get; set; }
+        public bool IsTimeScaled { get; set; } = true;
+        public bool IsRunning => updateItem != null && !IsPaused;
 
-        public event Action OnComplete;
+        public event Action<StepTask> Completed;
 
-        private IEnumerator workingTask;
-        private StepTask item = null;
+        private StepTask updateItem = null;
 
-        public StepTask(Func<IEnumerator> task, bool run = false)
+        public StepTask(Func<IEnumerator> action)
         {
-            Task = task;
-
+            Action = action;
+        }
+        public StepTask(Func<IEnumerator> action, bool isTimeScaled) : this(action) 
+        {
+            IsTimeScaled = isTimeScaled;
+        }
+        public StepTask(Func<IEnumerator> action, bool isTimeScaled, bool run) : this(action, isTimeScaled)
+        {
             if (run)
                 Start();
         }
         
         public void Start()
         {
-            workingTask = Task() ?? throw new ArgumentNullException(nameof(Task), "Action can't be null.");
-            item = this;
-            StepTaskManager.Register(item);
+            Iterator = Action() ?? throw new ArgumentNullException(nameof(Action), "Action can't be null.");
+            updateItem = this;
+            StepTaskManager.Register(updateItem);
         }
         public void Restart()
         {
@@ -76,37 +135,69 @@ namespace GlobalTypes
             Start();
         }
         
-        public void Pause()
-        {
-            if (IsPaused)
-                return;
-
-            IsPaused = true;
-        }
-        public void Resume()
-        {
-            if (!IsPaused)
-                return;
-
-            IsPaused = false;
-        }
+        public void Pause() => IsPaused = true;
+        public void Resume() => IsPaused = false;
 
         public void Break()
         {
-            if (item != null)
+            if (updateItem != null)
             {
-                StepTaskManager.Unregister(item);
-                item = null;
+                StepTaskManager.Unregister(updateItem);
+                updateItem = null;
             }
         }
+        public void Complete()
+        {
+            Break();
+            Completed?.Invoke(this);
+        }
 
-        public static StepTask Run(Func<IEnumerator> action) => new(action, true);
-        public static StepTask Run(IEnumerator task) => Run(() => task);
+        public void Dispose()
+        {
+            Break();
+            GC.SuppressFinalize(this);
+        }
+
+        #region Static
+        public static StepTask Run(Func<IEnumerator> action, bool isTimeScaled = true)
+        {
+            return new(action, isTimeScaled, true);
+        }
+        public static StepTask Run(IEnumerator iterator, bool isTimeScaled = true)
+        {
+            return Run(() => iterator, isTimeScaled);
+        }
+
+        public static void Replace(ref StepTask task, Func<IEnumerator> iterator, bool isTimeScaled = true)
+        {
+            task?.Dispose();
+            task = Run(iterator, isTimeScaled);
+        }
+        public static void Replace(ref StepTask task, IEnumerator iterator, bool isTimeScaled = true)
+        {
+            task?.Dispose();
+            task = Run(iterator, isTimeScaled);
+        }
+
+        public static StepTask RunDelayed(Action action, Func<IEnumerator> waitUntil, bool isTimeScaled = true)
+        {
+            IEnumerator Task()
+            {
+                yield return waitUntil();
+                action();
+            }
+
+            return Run(Task(), isTimeScaled);
+        }
+        #endregion
 
         #region WaitMethods
-        
-        public static IEnumerator WaitForSeconds(float seconds) => WaitForFrames((int)(seconds / FrameState.DeltaTime));
-        public static IEnumerator WaitForRealSeconds(float seconds)
+
+        public delegate void RefFloatInterpolation(ref float e);
+
+        public static IEnumerator Delay(float seconds) => WaitForFrames((int)(seconds / FrameState.DeltaTime));
+        public static IEnumerator DelayUnscaled(float seconds) => WaitForFrames((int)(seconds / FrameState.DeltaTimeUnscaled));
+        public static IEnumerator RealTimeDelay(float seconds)
         {
             TimeSpan start = FrameState.GameTime.TotalGameTime;
 
@@ -115,6 +206,7 @@ namespace GlobalTypes
                 yield return null;
             }
         }
+        
         public static IEnumerator WaitForFrames(int frames)
         {
             while (frames > 0)
@@ -134,6 +226,28 @@ namespace GlobalTypes
         {
             while (!condition())
             {
+                yield return null;
+            }
+        }
+
+        public static IEnumerator Interpolate(RefFloatInterpolation action)
+        {
+            float elapsed = 0;
+
+            while (elapsed >= 0 && elapsed <= 1)
+            {
+                action(ref elapsed);
+
+                if (elapsed < 0 || elapsed > 1)
+                {
+                    yield return null;
+
+                    elapsed = elapsed.Clamp01();
+                    action(ref elapsed);
+
+                    break;
+                }
+
                 yield return null;
             }
         }

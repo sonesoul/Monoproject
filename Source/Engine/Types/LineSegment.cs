@@ -1,5 +1,4 @@
 ﻿using Engine.Types.Interfaces;
-using Microsoft.Xna.Framework;
 using System;
 using System.Diagnostics;
 
@@ -56,7 +55,7 @@ namespace Engine.Types
             Vector2 ap = point - Start;
 
             float proj = Vector2.Dot(ap, ab);
-            float d = (proj / ab.LengthSquared()).Clamp(0, 1);
+            float d = (proj / ab.LengthSquared()).Clamp01();
 
             return Start + ab * d;
         }

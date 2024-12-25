@@ -17,45 +17,31 @@ namespace GlobalTypes
         }
         public static object CreateInstance(Type t, object[] args = null) => Activator.CreateInstance(t.GetType(), args);
 
-        public static List<T> CreateInstances<T>() where T : class
+        public static void CallMethod<T>(string methodName, T instance, object[] parameters = null)
         {
-            var instances = new List<T>();
-
-            var types = Assembly.GetExecutingAssembly().GetTypes()
-                .Where(t => typeof(T).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
-
-            foreach (var type in types)
-            {
-                if (Activator.CreateInstance(type) is T instance)
-                    instances.Add(instance);
-            }
-
-            return instances;
+            CallMethod(typeof(T), methodName, instance, parameters);
         }
-        public static List<Type> GetSubtypes<T>()
-        {
-            return Assembly.GetExecutingAssembly().GetTypes()
-                .Where(t => typeof(T).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                .ToList();
-        }
-
-        public static void CallMethod<T>(T instance, string methodName, object[] parameters = null)
+        public static void CallMethod(Type type, string methodName, object instance, object[] parameters = null)
         {
             BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
 
             if (instance == null)
             {
                 bindingFlags |= BindingFlags.Static;
-                var type = typeof(T);
-                MethodInfo method = type.GetMethod(methodName, bindingFlags)
-                    ?? throw new InvalidOperationException($"Static method [{methodName}] not found.");
+
+                MethodInfo[] methods = type
+                    .GetMethods(bindingFlags)
+                    .Where(m => m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                MethodInfo method = methods.Where(m => m.GetParameters().Length == (parameters?.Length ?? 0)).FirstOrDefault()
+                    ?? throw new InvalidOperationException($"Method {methodName} with {parameters?.Length ?? 0} arguments not found.");
                 method.Invoke(null, parameters);
             }
             else
             {
-                var instanceType = typeof(T);
-                MethodInfo method = instanceType.GetMethod(methodName, bindingFlags)
-                    ?? throw new InvalidOperationException($"Instance method [{methodName}] not found.");
+                MethodInfo method = type.GetMethod(methodName, bindingFlags)
+                    ?? throw new InvalidOperationException($"Method {methodName} with {parameters?.Length ?? 0} arguments not found.");
                 method.Invoke(instance, parameters);
             }
         }
@@ -79,6 +65,5 @@ namespace GlobalTypes
                 ?? throw new InvalidOperationException($"Field [{fieldName}] not found.");
             return field.GetValue(instance);
         }
-
     }
 }

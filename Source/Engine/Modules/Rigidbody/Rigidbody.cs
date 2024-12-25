@@ -1,6 +1,5 @@
 ﻿using Engine.Types;
 using GlobalTypes;
-using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -129,7 +128,7 @@ namespace Engine.Modules
         private Queue<Contact.ContactBatch> contactBatches = new();
         private List<Rigidbody> suppresedPhysics = new();
 
-        private static float Delta => FrameState.FixedDeltaTime;
+        private static float Delta => (float)FrameState.FixedDeltaTime;
 
         public Rigidbody(ModularObject owner = null) : base(owner) { }
         protected override void PostConstruct()
@@ -141,7 +140,7 @@ namespace Engine.Modules
 
             Updater.Register(this);
 
-            UsedCollider.OnDispose += () => UsedCollider = null;
+            UsedCollider.Destroyed += () => UsedCollider = null;
         }
 
         public void AddForce(Vector2 force) => forces += force;
@@ -290,8 +289,10 @@ namespace Engine.Modules
             return j * touchNormal;
         }
         
-        protected override void PostDispose()
+        public override void ForceDestroy()
         {
+            base.ForceDestroy();
+
             Updater.Unregister(this);
 
             contactBatches.Clear();

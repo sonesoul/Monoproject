@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using InGame;
+using System;
+using System.Linq;
 
 namespace GlobalTypes.Extensions
 {
@@ -25,6 +27,11 @@ namespace GlobalTypes.Extensions
         public static void Partition(this string str, char divider, out string first, out string second)
             => (first, second) = str.Partition(divider);
 
+        public static int ToInt(this string str) => int.Parse(str);
+        public static float ToFloat(this string str) => float.Parse(str);
+        public static bool ToBool(this string str) => bool.Parse(str);
+
+        public static bool HasContent(this string str) => !string.IsNullOrWhiteSpace(str);
         #endregion
 
         #region char

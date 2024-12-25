@@ -8,6 +8,5 @@ namespace InGame.Interfaces
 {
     public interface IPersistentObject : ILevelObject
     {
-        public void OnLoad() { }
     }
 }
