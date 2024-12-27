@@ -7,7 +7,7 @@ namespace GlobalTypes
 {
     public static class FrameState
     {
-        public static float FixedDeltaTime { get; set; } = 1.0f / 60;
+        public const float FixedDeltaTime = 1.0f / 60;
 
         public static GameTime GameTime { get; private set; }
 
