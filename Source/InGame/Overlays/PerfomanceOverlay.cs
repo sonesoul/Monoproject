@@ -17,9 +17,9 @@ namespace InGame.Overlays
         {
             drawOptions = new()
             {
-                font = Fonts.SilkBold,
-                scale = new Vector2(0.45f, 0.5f),
-                position = new(2.5f, 1)
+                font = Fonts.PicoMono,
+                scale = new Vector2(0.4f),
+                position = new(3f, 3f)
             };
 
             Drawer.Register(DrawPerfomance, false, 0);
@@ -32,16 +32,10 @@ namespace InGame.Overlays
 
             string spacing = " ".Times(3);
 
-            context.String($"|FPS: {FrameState.FPS}|{spacing}|FTMS: {FrameState.DeltaTimeUnscaled * 1000:00}|{spacing}|MEM: {GC.GetTotalMemory(false).ToSizeString()}|", drawOptions);
-
-            //custom info
             context.String(
-                Fonts.Silk,
-                Info ?? "",
-                new Vector2(5, 10),
-                Palette.White,
-                Vector2.Zero,
-                Vector2.One);
+                $"{FrameState.FPS}{spacing}({FrameState.DeltaTimeUnscaled * 1000:00}ms){spacing}" +
+                $"{GC.GetTotalMemory(false).ToSizeString().ToLower()}{spacing}" +
+                $"{Info}", drawOptions);
         }
     }
 }
