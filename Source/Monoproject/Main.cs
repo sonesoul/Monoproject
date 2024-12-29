@@ -51,7 +51,7 @@ namespace Monoproject
             
             IsFixedTimeStep = true;
             IsMouseVisible = true;
-
+            
             SyncContext = SynchronizationContext.Current;
             WindowThread = Thread.CurrentThread;
             WindowThread.CurrentUICulture = new CultureInfo("en-US");
@@ -60,7 +60,7 @@ namespace Monoproject
             GlobalTypes.Window.UpdateInfo();
             Asset.Content = Content;
 
-            Monoconsole.Handler = input => Executor.FromString(input);
+            Monoconsole.Handler = Executor.FromString;
             Monoconsole.Opened += async () =>
             {
                 string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -86,9 +86,10 @@ namespace Monoproject
             Monoconsole.HideFromTaskbar = false;
             Monoconsole.HideButtons = false;
 
+            return;
             Monoconsole.New();
             Monoconsole.Execute("size 40 15");
-            //Monoconsole.Execute("drawperf");
+            Monoconsole.Execute("drawperf");
 
             Monoconsole.WriteLine("\nType \"help\" to start tutorial");
         }
@@ -121,20 +122,13 @@ namespace Monoproject
             updateBuffer += FrameState.DeltaTime;
             double interval = FrameState.FixedDeltaTime;
 
-            if (FrameState.DeltaTimeMs > 20)
-            {
-                Monoconsole.WriteLine($"{FrameState.DeltaTimeMs}ms, {updateBuffer * 1000:0.00}/{interval * 1000:0.00}", ConsoleColor.Red);
-            }
-
             while (updateBuffer > 0)
             {
                 updateBuffer -= interval;
 
                 FrameEvents.Update.Trigger();
                 FrameEvents.EndUpdate.Trigger();
-            }
-
-            
+            }            
 
             FrameEvents.EndSingle.Trigger();
         }

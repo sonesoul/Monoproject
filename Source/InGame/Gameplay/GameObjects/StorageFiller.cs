@@ -2,10 +2,9 @@
 using Engine.Modules;
 using Engine.Types;
 using GlobalTypes;
-using GlobalTypes.Interfaces;
 using InGame.Interfaces;
-using InGame.Overlays;
 using System;
+using System.Collections;
 
 namespace InGame.GameObjects
 {
@@ -15,27 +14,34 @@ namespace InGame.GameObjects
 
         public string Sequence { get; set; } = "";
         public bool IsInputEnabled { get; set; } = true;
+
         public int Size { get; private set; }
-
-        public bool IsFilled => Sequence.Length >= Size;
         public bool IsActive { get; private set; }
-
-
-        public event Action Activated, Deactivated, Cleared;
-        public event Action<char> CharAdded;
-        public event Action<Code> Pushed;
-
-        public event Action InputFailed, InputEnabled, InputDisabled;
-        public event Action<Code?> TargetCodeChanged;
+        public int MistakeCount { get; private set; }
+        public bool IsFilled => Sequence.Length >= Size;
 
         public Code? TargetCode { get; private set; } = null;
         public char? TargetChar => (IsFilled || !TargetCode.HasValue) ? null : TargetCode.Value[Sequence.Length];
 
+        public float TotalInputTime { get; private set; } = 0;
+       
+        public event Action Activated, Deactivated, Cleared;
+        public event Action<char> CharAdded;
+        public event Action<Code> Pushed;
+
+        public event Action MistakeOccured, InputEnabled;
+        public event Action<Code?> TargetCodeChanged;
+
+        private StepTask inputTimeCounting = null;
+
+        private float timeBuffer = 0;
+
         public StorageFiller()
         {
-            Size = LevelConfig.CodeSize;
+            Size = LevelConfig.CodeLength;
 
-            Level.Created += GetStorage;
+            Action setStorage = () => Storage = Level.GetObject<CodeStorage>();
+            setStorage.Invoke(w => Level.Created += w, w => Level.Created -= w);
             
             AddModule(new Collider()
             {
@@ -44,20 +50,18 @@ namespace InGame.GameObjects
             });
         }
 
-        public bool Push()
+        public void Push()
         {
-            if (IsFilled)
-            {
-                Code code = new(Sequence);
-                bool isPushed = Storage.Push(code);
-                SetCode(null);
-                
-                Pushed?.Invoke(code);
+            if (!IsFilled)
+                return;
 
-                return isPushed;
-            }
+            FixateCount();
 
-            return false;
+            Code code = new(Sequence);
+            
+            Storage.Push(code);
+            SetCode(null);
+            Pushed?.Invoke(code);
         }
         public void Append(char c)
         {
@@ -67,7 +71,7 @@ namespace InGame.GameObjects
             {
                 if (TargetChar.Value != c)
                 {
-                    LockInput();
+                    HandleMistake();
                     return;
                 }
 
@@ -89,6 +93,9 @@ namespace InGame.GameObjects
             TargetCode = code;
             Clear();
 
+            if (code.HasValue)
+                StartCount();
+
             TargetCodeChanged?.Invoke(code);
         }
 
@@ -98,6 +105,7 @@ namespace InGame.GameObjects
                 return;
 
             IsActive = true;
+            
             Activated?.Invoke();
         }
         public void Deactivate() 
@@ -106,30 +114,30 @@ namespace InGame.GameObjects
                 return;
 
             IsActive = false;
-            Deactivated?.Invoke();
-
             SetCode(null);
+
+            BreakCount();
+
+            Deactivated?.Invoke();
         }
 
-        public void LockInput()
+        public void HandleMistake()
         {
             Clear();
+            
             IsInputEnabled = false;
-            InputDisabled?.Invoke();
+            MistakeCount++;
+
+            BreakCount();
 
             StepTask.RunDelayed(() =>
             {
                 IsInputEnabled = true;
                 InputEnabled?.Invoke();
+                StartCount();
             }, () => StepTask.Delay(0.5f));
 
-
-            InputFailed?.Invoke();
-        }
-
-        private void GetStorage()
-        {
-            Storage = Level.GetObject<CodeStorage>();
+            MistakeOccured?.Invoke();
         }
 
         public override void ForceDestroy()
@@ -141,14 +149,29 @@ namespace InGame.GameObjects
             Cleared = null;
             CharAdded = null;
             Pushed = null;
-
-            Level.Created -= GetStorage;
         }
 
-
-        ~StorageFiller()
+        private void StartCount() => StepTask.Replace(ref inputTimeCounting, InputTimeCount);
+        private void FixateCount()
         {
-            //Monoconsole.WriteLine("Filler dector");
+            TotalInputTime += timeBuffer;
+            BreakCount();
         }
+        private void BreakCount()
+        {
+            inputTimeCounting?.Break();
+            inputTimeCounting = null;
+            timeBuffer = 0;
+        }
+
+        private IEnumerator InputTimeCount()
+        {
+            while (true)
+            {
+                timeBuffer += FrameState.DeltaTime;
+                yield return null;
+            }
+        }
+        //~StorageFiller() => Monoconsole.WriteLine("Filler dector");
     }
 }

@@ -12,9 +12,10 @@ namespace InGame.Managers
         public static bool IsStarted { get; private set; } = false;
         public static bool IsFreezed { get; private set; } = false;
         public static DifficultyScaler Difficulty { get; set; } = new();
+        public static Score Score { get; set; } = null;
 
         public static event Action Started, Ended;
-       
+        
         private static Player player;
 
         [Init]
@@ -37,7 +38,11 @@ namespace InGame.Managers
             Unfreeze();
             LoadLevel();
 
+            Difficulty.ResetProgress();
             Difficulty.StartScaling();
+            Score?.Destroy();
+            Score = new(player);
+
             Started?.Invoke();
         }
         public static void End()

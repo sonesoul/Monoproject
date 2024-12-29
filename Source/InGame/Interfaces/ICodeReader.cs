@@ -7,7 +7,7 @@
         public string Sequence { get; }
         public Code? TargetCode { get; }
         
-        public bool Push();
+        public void Push();
         public void Append(char c);
         public void Clear();
 

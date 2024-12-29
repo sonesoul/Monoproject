@@ -1,6 +1,6 @@
 using GlobalTypes;
+using GlobalTypes.Interfaces;
 using InGame.Interfaces;
-using InGame.Managers;
 using InGame.Overlays;
 using InGame.Pools;
 using System;
@@ -9,13 +9,11 @@ using System.Collections.Generic;
 
 namespace InGame.Difficulty
 {
-    public class DifficultyScaler
+    public class DifficultyScaler : IDestroyable
     {
-        public static float BaseFactor { get; set; } = 0f;
-        public float ProcProgress { get; private set; } = BaseFactor;
-        public float ProcStep { get; set; } = 1f;
-        public float IncrementFactor { get; set; } = 1;
-
+        public float ProcProgress { get; private set; } = 0f;
+        public float IncrementFactor { get; private set; } = 1;
+        public bool IsDestroyed { get; set; }
 
         public event Action<IDifficultyModifier> ModifierAdded, ModifierApplied;
 
@@ -38,7 +36,6 @@ namespace InGame.Difficulty
                 var m = queuedApplies.Dequeue();
                 m.Apply();
                 ModifierApplied?.Invoke(m);
-                ProcProgress = BaseFactor;
                 IncrementFactor = 1;
             }
         }
@@ -49,39 +46,28 @@ namespace InGame.Difficulty
             ModifierAdded?.Invoke(modifier);
         }
 
-        public void StartScaling()
-        {
-            StepTask.Replace(ref scaleTask, DifficultyScale);
-        }
-        public void StopScaling()
-        {
-            scaleTask?.Break();
-        }
+        public void StartScaling() => StepTask.Replace(ref scaleTask, DifficultyScale);
+        public void StopScaling() => scaleTask?.Break();
 
         private float CalculateIncrement(float interval)
         {
-            float timeFactor = MathF.Log(1 + (Level.TimePlayed / 30));
+            float timeFactor = MathF.Log(1 + ((Level.TimePlayed / 5).Clamp01()));
             
-            return (0.03f * timeFactor / (1 / interval)) * IncrementFactor;
+            return (0.04f * timeFactor / (1 / interval)) * IncrementFactor;
         }
 
         private IEnumerator DifficultyScale()
         {
             while (true)
             {
-                PerfomanceOverlay.Info = $"\n{ProcProgress:0.00}";
-
                 float increment = CalculateIncrement(FrameState.DeltaTime);
                 ProcProgress += increment;
 
-                if (ProcProgress >= ProcStep)
+                if (ProcProgress >= 1)
                 {
-                    float interval = random.Next(1, (int)this.interval);
-                    yield return StepTask.Delay(interval);
-
                     var modifier = ModifierPool.GetRandomUp();
                     AddModifier(modifier);
-                    ProcProgress -= ProcStep;
+                    ProcProgress--;
                     IncrementFactor /= 10;
                 }
 
@@ -95,8 +81,22 @@ namespace InGame.Difficulty
             modifiers.Clear();
 
             queuedApplies.Clear();
-            
+
+            ResetProgress();
+
             LevelConfig.Reset();
+        }
+
+        public void ResetProgress()
+        {
+            ProcProgress = 0;
+            IncrementFactor = 1;
+        }
+
+        public void Destroy() => IDestroyable.Destroy(this);
+        public void ForceDestroy()
+        {
+            Level.Completed -= OnLevelCompleted;
         }
     }
 }

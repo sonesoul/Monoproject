@@ -10,5 +10,6 @@ namespace GlobalTypes.Extensions
         public static float Floored(this float value) => (float)Math.Floor(value);
         public static float Ceiled(this float value) => (float)Math.Ceiling(value);
         public static float Rounded(this float value) => (float)Math.Round(value);
+        public static float Rounded(this float value, int digits) => (float)Math.Round(value, digits);
     }
 }

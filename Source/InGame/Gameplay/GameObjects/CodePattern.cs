@@ -6,29 +6,32 @@ namespace InGame.GameObjects
 {
     public class CodePattern
     {
-        public char[] Chars { get; set; }
+        public string CharSet { get; set; }
+        public int CharCount => CharSet.Length;
+        public int Length { get; set; }
 
-        public CodePattern(string pattern)
+        public CodePattern(string set) : this(set, set.Length) { }
+        public CodePattern(string set, int length)
         {
-            Chars = pattern.ToCharArray();
-        }
-        public CodePattern(char[] pattern)
-        {
-            Chars = pattern;
+            if (!set.HasContent())
+                throw new ArgumentException("Char set doesn't have any content.");
+
+            CharSet = new(set.ToUpper().Where(c => char.IsLetterOrDigit(c)).Distinct().ToArray());
+            Length = length;
         }
 
-        public char RandomChar() => Chars.RandomElement();
-        public Key RandomKey() => Enum.Parse<Key>(Chars.RandomElement().ToString());
+        public char RandomChar() => CharSet.RandomElement();
+        public Key RandomKey() => Enum.Parse<Key>(RandomChar().ToString());
 
         public bool Contains(Key key)
         {
-            return Chars.Any(c => Enum.Parse<Key>(c.ToString(), true) == key);
+            return CharSet.Any(c => Enum.Parse<Key>(c.ToString(), true) == key);
         }
-        public bool Contains(char c) => Chars.Contains(c);
+        public bool Contains(char c) => CharSet.Contains(c);
 
         public override string ToString()
         {
-            return string.Join("", Chars);
+            return string.Join("", CharSet);
         }
 
         public override bool Equals(object obj)
@@ -38,44 +41,14 @@ namespace InGame.GameObjects
 
             return Equals((CodePattern)obj);
         }
-        private bool Equals(CodePattern other)
-        {
-            return Equals(other.Chars);
-        }
-        private bool Equals(char[] otherChars)
-        {
-            if (otherChars.Length != Chars.Length)
-                return false;
+        private bool Equals(CodePattern other) => Equals(other.CharSet) && other.Length == Length;
+        private bool Equals(string otherChars) => CharSet == otherChars;
+        public override int GetHashCode() => HashCode.Combine(CharSet, Length);
 
-            for (int i = 0; i < Chars.Length; i++)
-            {
-                if (Chars[i] != otherChars[i])
-                    return false;
-            }
+        public static bool operator ==(CodePattern left, CodePattern right) => left.Equals(right);
+        public static bool operator !=(CodePattern left, CodePattern right) => !(left == right);
 
-            return true;
-        }
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Chars);
-        }
-
-        public static bool operator ==(CodePattern left, CodePattern right)
-        {
-            return left.Equals(right);
-        }
-        public static bool operator !=(CodePattern left, CodePattern right)
-        {
-            return !(left == right);
-        }
-
-        public static bool operator ==(CodePattern left, char[] right)
-        {
-            return left.Equals(right);
-        }
-        public static bool operator !=(CodePattern left, char[] right)
-        {
-            return !(left == right);
-        }
+        public static bool operator ==(CodePattern left, string right) => left.Equals(right);
+        public static bool operator !=(CodePattern left, string right) => !(left == right);
     }
 }

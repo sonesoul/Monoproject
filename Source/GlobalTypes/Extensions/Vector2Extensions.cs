@@ -115,5 +115,10 @@ namespace GlobalTypes.Extensions
 
         public static Vector2 WhereX(this Vector2 v, float x) => new(x, v.Y);
         public static Vector2 WhereY(this Vector2 v, float y) => new(v.X, y);
+
+        public static Vector2 Randomize(this Vector2 min, Vector2 max, Random rnd)
+        {
+            return new(rnd.Next((int)min.X, (int)max.X), rnd.Next((int)min.Y, (int)max.Y));
+        }
     }
 }

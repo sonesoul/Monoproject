@@ -4,26 +4,26 @@ namespace GlobalTypes.Extensions
 {
     public static class ActionExtensions
     {
-        public static void Invoke(this Action action, Action<Action> calling, Action<Action> since)
+        public static void Invoke(this Action action, Action<Action> before, Action<Action> after)
         {
             void Callback()
             {
                 action();
-                since(Callback);
+                after(Callback);
             }
 
-            calling(Callback);
+            before(Callback);
         }
 
-        public static void Invoke<T>(this Action<T> action, Action<Action<T>> calling, Action<Action<T>> since)
+        public static void Invoke<T>(this Action<T> action, Action<Action<T>> before, Action<Action<T>> after)
         {
             void Callback(T arg)
             {
                 action(arg);
-                since(Callback);
+                after(Callback);
             }
 
-            calling(Callback);
+            before(Callback);
         }
     }
 }

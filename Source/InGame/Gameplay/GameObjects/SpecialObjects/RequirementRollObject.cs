@@ -3,7 +3,7 @@
     public class RequirementRollObject : PurchasableObject
     {
         public override int Price { get; protected set; } = 5;
-        protected override string Sprite => "[?]";
+        protected override string Sprite => "(?)";
 
         public RequirementRollObject(Vector2 position) : base(position) { }
 

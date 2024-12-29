@@ -143,7 +143,7 @@ namespace InGame.GameObjects
                 coyoteJumpTask?.Break();
             }
 
-            ~MovementManager() => Monoconsole.WriteLine("Movement dector");
+            //~MovementManager() => Monoconsole.WriteLine("Movement dector");
         }
         public class CodeManager : IDestroyable
         {
@@ -289,7 +289,7 @@ namespace InGame.GameObjects
                 Input.Unbind(popBind);
             }
 
-            ~CodeManager() => Monoconsole.WriteLine($"Code dector");
+            //~CodeManager() => Monoconsole.WriteLine($"Code dector");
         }
         public class BitWalletManager
         {
@@ -449,6 +449,6 @@ namespace InGame.GameObjects
                 Input.Unbind(interactBind);
         }
 
-        ~Player() => Monoconsole.WriteLine($"Player dector");
+        //~Player() => Monoconsole.WriteLine($"Player dector");
     }
 }

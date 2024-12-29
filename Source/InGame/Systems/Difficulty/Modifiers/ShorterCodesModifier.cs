@@ -8,7 +8,7 @@ namespace InGame.Difficulty.Modifiers
 
         private int Amount { get; } = 1;
 
-        public void Apply() => LevelConfig.CodeSize -= Amount;
-        public void Cancel() => LevelConfig.CodeSize += Amount;
+        public void Apply() => LevelConfig.CodeLength -= Amount;
+        public void Cancel() => LevelConfig.CodeLength += Amount;
     }
 }

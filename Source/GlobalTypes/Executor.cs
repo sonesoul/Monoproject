@@ -128,7 +128,7 @@ namespace GlobalTypes
                                 filler.SetCode(new(fillerArg));
                                 break;
                             case "mistake":
-                                filler.LockInput();
+                                filler.HandleMistake();
                                 break;
                         }
 

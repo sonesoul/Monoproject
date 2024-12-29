@@ -23,22 +23,30 @@ namespace InGame.Visuals.FillerVisuals
             public Vector2 CharOrigin => Font.MeasureString(FirstChar) / 2;
             public Vector2 CodeOrigin => (Font.MeasureString(RestCode) / 2).WhereX(0);
 
-            public float CodeAlpha { get; set; } = 0;
+            public Vector2 CharScale { get; set; } = Vector2.One;
+            public Vector2 CodeScale { get; set; } = new Vector2(0.7f);
+
+            public Color charColor = Palette.White;
+            public Color codeColor = new(Palette.White, 0);
 
             public SpriteFont Font { get; set; }
 
             private int index = 0;
             private string targetCode;
 
-            public CodeUIElement(SpriteFont font)
+            private byte visibleCodeAlpha = 155;
+
+            public CodeUIElement()
             {
-                Font = font;
+                Font = Fonts.SilkBold;
+
                 SetTarget(null);
             }
 
             private StepTask charDropTask = null;
             private StepTask codeMoveTask = null;
-            
+            private StepTask codeAlphaLerp = null;
+
             public void SetTarget(Code? code)
             {
                 index = 0;
@@ -48,14 +56,13 @@ namespace InGame.Visuals.FillerVisuals
                 }
                 else
                 {
-                    targetCode = NullChar.Times(LevelConfig.CodeSize);
+                    targetCode = NullChar.Times(LevelConfig.CodeLength);
                 }
-
                 UpdateCode();
             }
             public void MoveNext()
             {
-                CodeOffset = Font.MeasureString(FirstChar).WhereY(0);
+                CodeOffset += Font.MeasureString(FirstChar).WhereY(0) * CharScale;
                 index++;
 
                 if (index >= targetCode.Length)
@@ -70,16 +77,26 @@ namespace InGame.Visuals.FillerVisuals
 
                 StepTask.Replace(ref codeMoveTask, MoveRestCode);
             }
-            
+
+            public void ShowCode()
+            {
+                codeAlphaLerp?.Break();
+                codeColor.A = visibleCodeAlpha;
+            }
+            public void HideCode()
+            {
+                codeAlphaLerp?.Break();
+                codeColor.A = 0;
+            }
+
             public void Shake()
             {
-                string[] chars = new[] { "?", "!", "?!", ":<", "F-", "F1", "^^", "X", };
-
+                string[] chars = new[] { "?", "!", "?!", ":(", "F-", "F1", "P", "X", };
                 FirstChar = chars.RandomElement();
                 RestCode = " ";
 
                 CodeOffset = Vector2.Zero;
-                StepTask.Run(FailureShake());
+                StepTask.Run(MistakeShake());
             }
 
             private void UpdateCode()
@@ -87,8 +104,7 @@ namespace InGame.Visuals.FillerVisuals
                 FirstChar = targetCode[index].ToString();
                 RestCode = targetCode[(index + 1)..].ToString();
             }
-
-            private IEnumerator FailureShake()
+            private IEnumerator MistakeShake()
             {
                 Vector2 radius = new(3, 3);
                 Random random = new();
@@ -99,7 +115,7 @@ namespace InGame.Visuals.FillerVisuals
 
                     e += FrameState.DeltaTime / 0.1f;
                 });
-
+                
                 CharPosition = Vector2.Zero;
             }
             private IEnumerator MoveRestCode()
@@ -115,14 +131,10 @@ namespace InGame.Visuals.FillerVisuals
             }
             private IEnumerator DropDown()
             {
-                Vector2 dropDistance = new(0, 7);
-
-                CharPosition = dropDistance / 2;
-                yield return null;
+                Vector2 dropDistance = new(0, 6);
                 CharPosition = dropDistance;
-                yield return null;
 
-                while (CharPosition.Length () > 1)
+                while (CharPosition.Length() > 1)
                 {
                     CharPosition = Vector2.Lerp(CharPosition, Vector2.Zero, 0.1f);
                     yield return null;
@@ -132,7 +144,7 @@ namespace InGame.Visuals.FillerVisuals
             }
         }
 
-        private static CodeUIElement visual = new(Fonts.SilkBold);
+        private static CodeUIElement visual = new();
         private static StorageFiller filler;
         private static bool isShaking = false;
 
@@ -144,7 +156,7 @@ namespace InGame.Visuals.FillerVisuals
             Level.Created += () =>
             {
                 visual.SetTarget(null);
-                visual.CodeAlpha = 0;
+                visual.codeColor.A = 0;
 
                 filler = Level.GetObject<StorageFiller>();
 
@@ -154,7 +166,7 @@ namespace InGame.Visuals.FillerVisuals
                 filler.TargetCodeChanged += (c) => UpdateState();
                 filler.CharAdded += (c) => visual.MoveNext();
 
-                filler.InputFailed += () =>
+                filler.MistakeOccured += () =>
                 {
                     visual.Shake();
                     isShaking = true;
@@ -165,8 +177,10 @@ namespace InGame.Visuals.FillerVisuals
                     UpdateState();
                 };
 
-                filler.Activated += () => visual.CodeAlpha = 150;
-                filler.Deactivated += () => visual.CodeAlpha = 0;
+                //filler.Activated += () => visual.codeColor.A = 150;
+                //filler.Deactivated += () => visual.codeColor.A = 0;
+                filler.Activated += visual.ShowCode;
+                filler.Deactivated += visual.HideCode;
             };
 
             Level.Cleared += () =>
@@ -185,25 +199,25 @@ namespace InGame.Visuals.FillerVisuals
             string stand = @"/\";
             var font = visual.Font;
 
-            context.Line(filler.Position, filler.Storage.Position, new(Palette.White, (byte)(visual.CodeAlpha / 2)), 2);
+            context.Line(filler.Position, filler.Storage.Position, new(Palette.White, (byte)(visual.codeColor.A / 2)), 2);
 
-            context.String(font, stand, filler.Position, Palette.White, font.MeasureString(stand) / 2, new(1));
+            context.String(Fonts.SilkBold, stand, filler.Position, Palette.White, Fonts.SilkBold.MeasureString(stand) / 2, new(1));
 
             context.String(
                 font,
                 visual.FirstChar,
                 targetPos + visual.CharPosition + visual.CodeOffset,
-                Palette.White,
+                visual.charColor,
                 visual.CharOrigin,
-                new Vector2(1));
+                visual.CharScale);
 
             context.String(
                 font,
                 visual.RestCode,
                 targetPos + visual.CodeOffset + new Vector2(10, 0),
-                new Color(Palette.White, (byte)visual.CodeAlpha),
+                visual.codeColor,
                 visual.CodeOrigin,
-                new Vector2(0.7f));
+                visual.CodeScale);
         }
 
         private static void UpdateState()

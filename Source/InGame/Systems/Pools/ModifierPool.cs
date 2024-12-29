@@ -10,10 +10,9 @@ namespace InGame.Pools
     {
         private static List<Func<IDifficultyModifier>> upCreators = new()
         {
-            () => new OtherPatternModifier(),
+            () => new OtherCharSetModifier(),
 
-            () => new StorageCapacityModifier(1),
-            () => new TimeModifier(10),
+            () => new StorageCapacityModifier(LevelConfig.CodeLength / 2),
             () => new CodeLengthModifier(1),
         };
         private static List<Func<IDifficultyModifier>> downCreators = new()

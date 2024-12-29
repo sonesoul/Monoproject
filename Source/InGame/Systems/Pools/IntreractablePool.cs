@@ -9,10 +9,7 @@ namespace InGame.Pools
     {
         private static List<Func<Vector2, IInteractable>> creators = new()
         {
-            p => new RandomCodeObject(p),
-            p => new RequirementRollObject(p),
-            p => new AdditionalTimeObject(p),
-            p => new DifficultyDownObject(p)
+            p => new RandomEffectObject(p)
         };
 
         private static IndexPool indexes = new(creators);

@@ -9,7 +9,7 @@
 
         public override void ApplyEffect(Player player)
         {
-            Level.GetObject<CodeStorage>()?.Timer.AddSeconds(15); 
+            Level.GetObject<CodeStorage>()?.Timer.AddSeconds(15);
         }
     }
 }
