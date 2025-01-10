@@ -65,7 +65,6 @@ namespace GlobalTypes
 
                 { "game", GameCommand },
                 { "touch", TouchCommand },
-                { "help", arg => Tutorial.Toggle() },
             };
 
             private static void TouchCommand(string arg)
@@ -205,7 +204,7 @@ namespace GlobalTypes
                 WriteInfo(
                     $"fps: {FrameState.FPS}\n" +
                     $"time: {FrameState.DeltaTimeUnscaled * 1000:00}ms\n" +
-                    $"ram: {GC.GetTotalMemory(false).ToSizeString()}\n" +
+                    $"ram: {GC.GetTotalMemory(false).AsSize()}\n" +
                     $"dc: {Drawer.DrawCalls}").Wait();
             }
             private static void Stopwatch(string arg)
@@ -331,8 +330,8 @@ $#*#*++*********!+**********++***********!+*************!**++++++++++++!=!++++!!
             public static void Ram()
             {
                 WriteInfo(
-                    $"usg: [{GC.GetTotalMemory(false).ToSizeString()}]\n" +
-                    $"avg: [{GC.GetTotalMemory(true).ToSizeString()}]\n" +
+                    $"usg: [{GC.GetTotalMemory(false).AsSize()}]\n" +
+                    $"avg: [{GC.GetTotalMemory(true).AsSize()}]\n" +
                     $"---\n" +
                     $"GC0: [{GC.CollectionCount(0)}]\n" +
                     $"GC1: [{GC.CollectionCount(1)}]\n" +

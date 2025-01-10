@@ -46,7 +46,7 @@ namespace InGame
                 CurrentTask = LevelTaskPool.GetRandom();
                 CurrentTask.Start();
 
-                StepTask.Replace(ref countTask, Count);
+                StepTask.Replace(ref countTask, CountPlayingTime);
 
                 Created?.Invoke();
             });
@@ -98,9 +98,10 @@ namespace InGame
         }
         public static void ContainsObject(ILevelObject levelObject) => levelObjects.Contains(levelObject);
 
-        public static T GetObject<T>() where T : class => levelObjects.OfType<T>().FirstOrDefault();
+        public static T GetObject<T>() where T : class, ILevelObject => levelObjects.OfType<T>().FirstOrDefault();
+        public static List<T> GetObjects<T>() where T : class, ILevelObject => levelObjects.OfType<T>().ToList();
         
-        private static IEnumerator Count()
+        private static IEnumerator CountPlayingTime()
         {
             TimePlayed = 0;
             while (true)

@@ -1,32 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace InGame
 {
     public class Grade
     {
-        public static List<string> Grades { get; } = new()
+        public static Dictionary<float, string> RangeRankPairs { get; } = new()
         {
-            "D",
-            "C",
-            "B",
-            "A",
-            "S",
-            "P",
+            { RankStep * 0, "D" },
+            { RankStep * 1, "C" },
+            { RankStep * 2, "B" },
+            { RankStep * 3, "A" },
+            { RankStep * 4, "S" },
         };
+        private static List<float> Ranges { get; } = RangeRankPairs.Keys.ToList();
+        private static List<string> Ranks { get; } = RangeRankPairs.Values.ToList();
+
+        public static float RankStep => 0.2f;
 
         public float Value { get => _value; set => SetValue(value); }
-        public int Index { get; private set; }
-        public float PercentValue => Value * 100;
-
-        public event Action<int, string> GradeChanged;
+        public string Rank { get; private set; }
+        
+        public event Action<string> RankChanged;
         public event Action<float> ValueChanged;
 
         private float _value;
+        private int lastLessRangeIndex = 0;
 
         public Grade() : this(0) { }
         public Grade(float gradeValue) => Value = gradeValue;
         
+        public float DistanceToNext()
+        {
+            float range = 1;
+            int index = lastLessRangeIndex + 1;
+            
+            if (index < Ranges.Count)
+            {
+                range = Ranges[index];
+            }
+            
+            return range - Value;
+        }
+        public float DistanceToPrevious()
+        {
+            return Value - Ranges[lastLessRangeIndex];
+        }
+
         private void SetValue(float value)
         {
             float oldValue = _value;
@@ -37,22 +58,36 @@ namespace InGame
                 ValueChanged?.Invoke(_value - oldValue);
             }
 
-            UpdateIndex();
+            string newRank = RangeRankPairs[GetRange(_value, out lastLessRangeIndex)];
+            
+            if (newRank != Rank)
+                RankChanged?.Invoke(newRank);
+
+            Rank = newRank;
         }
-        private void UpdateIndex()
+        public override string ToString() => Rank;
+
+        public static string ToRank(float value) => RangeRankPairs[GetRange(value)];
+
+        public static float GetRange(float value) => GetRange(value, out _);
+        public static float GetRange(float value, out int index)
         {
-            int oldIndex = Index;
-            Index = GetLetterIndex(Value);
+            value = value.Clamp01();
+            index = 0;
 
-            if (Index != oldIndex)
+            var ranges = Ranges;
+            for (int i = ranges.Count - 1; i >= 0; i--)
             {
-                GradeChanged?.Invoke(Index - oldIndex, ToString());
+                float range = ranges[i];
+            
+                if (range <= value) 
+                {
+                    index = i;
+                    return range;
+                }
             }
-        }
-        public override string ToString() => GetLetter(Index);
 
-        public static string GetLetter(float gradeValue) => GetLetter(GetLetterIndex(gradeValue));
-        public static string GetLetter(int index) => Grades[index];
-        public static int GetLetterIndex(float gradeValue) => (int)(gradeValue.Clamp01() * (Grades.Count - 1)).Rounded();
+            return 0;
+        }
     }
 }

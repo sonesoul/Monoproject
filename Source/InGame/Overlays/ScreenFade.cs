@@ -51,7 +51,10 @@ namespace InGame.Overlays
         {
             yield return StepTask.Interpolate((ref float e) =>
             {
-                alpha = MathHelper.Lerp(alpha, newAlpha, e /*0.2f - wth is this means*/);
+                float lerpE = (float)Math.Sin(e * Math.PI * 0.5f);
+
+                alpha = MathHelper.Lerp(alpha, newAlpha, e);
+                
                 e += FrameState.DeltaTimeUnscaled / time;
             });
 

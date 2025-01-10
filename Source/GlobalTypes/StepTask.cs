@@ -3,11 +3,10 @@ using GlobalTypes.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GlobalTypes.Interfaces;
 
 namespace GlobalTypes
 {
-    public class StepTask : IDisposable
+    public class StepTask
     {
         private static class StepTaskManager
         {
@@ -53,7 +52,7 @@ namespace GlobalTypes
                     }
                     catch (Exception ex)
                     {
-                        throw new AggregateException($"{task.Action.Method.Name} threw an exception during iterating. ({ex.Message})");
+                        throw new AggregateException($"StepTask inner exception: {ex.Message} ({task.Action.Method.Name})");
                     }
                     
                 }
@@ -86,14 +85,8 @@ namespace GlobalTypes
                 return nestedTasks.Count > 0;
             }
 
-            public static void Register(StepTask orderedTask)
-            {
-                tasks.Add(orderedTask);
-            }
-            public static void Unregister(StepTask orderedTask)
-            {
-                tasks.Remove(orderedTask);
-            }
+            public static void Register(StepTask orderedTask) => tasks.Add(orderedTask);
+            public static void Unregister(StepTask orderedTask) => tasks.Remove(orderedTask);
         }
 
         public Func<IEnumerator> Action { get; set; }
@@ -152,12 +145,6 @@ namespace GlobalTypes
             Completed?.Invoke(this);
         }
 
-        public void Dispose()
-        {
-            Break();
-            GC.SuppressFinalize(this);
-        }
-
         #region Static
         public static StepTask Run(Func<IEnumerator> action, bool isTimeScaled = true)
         {
@@ -170,12 +157,12 @@ namespace GlobalTypes
 
         public static void Replace(ref StepTask task, Func<IEnumerator> iterator, bool isTimeScaled = true)
         {
-            task?.Dispose();
+            task?.Break();
             task = Run(iterator, isTimeScaled);
         }
         public static void Replace(ref StepTask task, IEnumerator iterator, bool isTimeScaled = true)
         {
-            task?.Dispose();
+            task?.Break();
             task = Run(iterator, isTimeScaled);
         }
 

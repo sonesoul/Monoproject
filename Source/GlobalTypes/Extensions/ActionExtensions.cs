@@ -4,7 +4,7 @@ namespace GlobalTypes.Extensions
 {
     public static class ActionExtensions
     {
-        public static void Invoke(this Action action, Action<Action> before, Action<Action> after)
+        public static void Wrap(this Action action, Action<Action> before, Action<Action> after)
         {
             void Callback()
             {
@@ -15,7 +15,7 @@ namespace GlobalTypes.Extensions
             before(Callback);
         }
 
-        public static void Invoke<T>(this Action<T> action, Action<Action<T>> before, Action<Action<T>> after)
+        public static void Wrap<T>(this Action<T> action, Action<Action<T>> before, Action<Action<T>> after)
         {
             void Callback(T arg)
             {

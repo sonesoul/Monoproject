@@ -7,87 +7,52 @@ namespace InGame
     public class Score : IDestroyable
     {
         public bool IsDestroyed { get; set; } = false;
-        public int StagesCompleted { get; private set; } = 0;
 
-        public int BitsDeposited { get; private set; } = 0;
-        public int BitsSpent { get; private set; } = 0;
-
-        public int CodesPushed { get; private set; } = 0;
-        public int CodesPopped { get; private set; } = 0;
-        public int CodesPoppedManually { get; private set; } = 0;
-
-        public int TaskCyclesCompleted { get; private set; } = 0;
-
-        public int MistakesMade { get; private set; } = 0;
-
-        public int MatchedPushes { get; private set; }
-       
-        public Grade AverageGrade { get; private set; } = new(0);
+        public float Total { get; private set; }
 
         private List<Grade> grades = new();
 
+        private Player player;
+
+
         public Score(Player player)
         {
+            this.player = player;
+            player.Grade.Obj.ValueChanged += v =>
+            {
+                if (v > 0)
+                {
+                    Total += (v * 10) + 1;
+                }
+            };
+
             Level.Completed += OnLevelCompleted;
-
-            player.BitWallet.Deposited += a => BitsDeposited += a;
-            player.BitWallet.PaySuccessful += a => BitsSpent += a;
-
-            player.Codes.Pushed += c => CodesPushed++;
-            player.Codes.Popped += c => CodesPushed++;
-
-            player.Codes.ManuallyPopped += c => CodesPoppedManually++;
         }
 
         private void OnLevelCompleted()
         {
-            StagesCompleted++;
-            TaskCyclesCompleted += Level.CurrentTask.CycleCount;
-
-            var filler = Level.GetObject<StorageFiller>();
-            if (filler != null)
-            {
-                MistakesMade += filler.MistakeCount;
-            }
-
-            var storage = Level.GetObject<CodeStorage>();
-            if (storage != null)
-            {
-                CodesPushed += storage.TotalPushes;
-                MatchedPushes = storage.MatchedPushes;
-                grades.Add(storage.CompletionGrade);
-
-                float totalGradeValue = 0;
-                for (int i = 0; i < grades.Count; i++)
-                {
-                    totalGradeValue += grades[i].Value;
-                }
-
-                AverageGrade = new(totalGradeValue / grades.Count);
-            }
+            player.Grade.AddPoints(0.3f / (Level.TimePlayed / 15));
+            grades.Add(new(Level.GetObject<Player>().Grade.Value));
         }
-        
         public float GetTotal()
         {
-            return
-                (StagesCompleted * 100) +
-                (BitsDeposited * 10) +
-                
-                (CodesPushed * 12) +
-                (CodesPoppedManually * 3) +
-                
-                TaskCyclesCompleted -
-                (MistakesMade * 2) +
-                (MatchedPushes * 6) +
-                (AverageGrade.Value * 100);  
-        }
+            float averageGrade = 0;
+            int i = 0;
 
+            for (; i < grades.Count; i++)
+            {
+                averageGrade += grades[i].Value;
+            }
+
+            if (i > 0)
+                averageGrade /= i;
+
+            return Total + (averageGrade * 100);
+        }
         public void Destroy() => IDestroyable.Destroy(this); 
         public void ForceDestroy()
         {
             Level.Completed -= OnLevelCompleted;
         }
-
-        //~Score() => Monoconsole.WriteLine("Score dector");
     }
 }

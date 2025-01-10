@@ -37,7 +37,7 @@ namespace InGame.LevelTasks
             Drawer.Register(Draw);
             
             Action a = SetPlayer;
-            a.Invoke(w => Level.Created += w, w => Level.Created -= w);
+            a.Wrap(w => Level.Created += w, w => Level.Created -= w);
         }
 
         private void SetPlayer()
@@ -74,14 +74,15 @@ namespace InGame.LevelTasks
                         if (counter >= 1)
                         {
                             counter -= 1;
+
                             player.Codes.Push(Code.NewRandom());
+                            player.Grade.AddPoints(rewardTime / 20);
+                            CycleCompleted?.Invoke();
+                            CycleCount++;
                         }
                     }
                     
                 });
-
-                CycleCompleted?.Invoke();
-                CycleCount++;
             }           
         }
 

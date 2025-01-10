@@ -24,7 +24,7 @@ namespace GlobalTypes.InputManagement
 
         private readonly static List<KeyBinding> binds = new();
         private readonly static HashSet<Key> manuallyDownKeys = new();
-        private readonly static List<Key> wasPressed = new();
+        private readonly static HashSet<Key> wasPressed = new();
         
         [Init(InitOrders.Input)]
         private static void Init()
@@ -38,34 +38,29 @@ namespace GlobalTypes.InputManagement
 
             AddBinds(RightKey, LeftKey, UpKey, DownKey);
             FrameEvents.UpdateUnscaled.Add(Update, UpdateUnscaledOrders.InputManager);
-
-            Main.Instance.Window.KeyDown += (obj, k) =>
-            {
-                Key key = (Key)k.Key;
-
-                if (wasPressed.Contains(key))
-                    return;
-
-                KeyPressed?.Invoke(key);
-                wasPressed.Add(key);
-            };
-            Main.Instance.Window.KeyUp += (obj, k) =>
-            {
-                Key key = (Key)k.Key;
-
-                KeyReleased?.Invoke(key);
-                wasPressed.Remove(key);
-            };
         }
 
         private static void Update()
         {
-            Key[] pressed = GetPressedKeys();
+            var pressedKeys = GetPressedKeys().ToHashSet();
 
-            foreach (var key in pressed)
+            var pressed = pressedKeys.Except(wasPressed);
+            var holded = pressedKeys.Intersect(wasPressed);
+            var released = wasPressed.Except(pressedKeys);
+
+            foreach (var k in pressed)
             {
-                if (wasPressed.Contains(key))
-                    KeyHolded?.Invoke(key);
+                wasPressed.Add(k);
+                KeyPressed?.Invoke(k);
+            }
+            foreach (var k in released)
+            {
+                wasPressed.Remove(k);
+                KeyReleased?.Invoke(k);
+            }
+            foreach (var k in holded)
+            {
+                KeyHolded?.Invoke(k);
             }
 
             UpdateAxis();

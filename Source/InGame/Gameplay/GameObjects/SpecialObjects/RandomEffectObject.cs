@@ -36,11 +36,6 @@ namespace InGame.GameObjects.SpecialObjects
                     Price = 5;
                     effect = RollRequirement;
                 },
-                () =>
-                {
-                    Price = 10;
-                    effect = AddSeconds;
-                }
             };
 
             RollEffect();
@@ -92,12 +87,6 @@ namespace InGame.GameObjects.SpecialObjects
             Level.GetObject<CodeStorage>()?.RollRequirement();
 
             StepTask.Replace(ref descriptionTask, ShowEffect($"[{Level.GetObject<CodeStorage>()?.Requirement}]"));
-        }
-        private void AddSeconds(Player p)
-        {
-            Level.GetObject<CodeStorage>()?.Timer.AddSeconds(10);
-
-            StepTask.Replace(ref descriptionTask, ShowEffect($"+{10}s"));
         }
     }
 }

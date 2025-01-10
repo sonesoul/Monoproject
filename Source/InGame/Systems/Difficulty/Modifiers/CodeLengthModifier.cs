@@ -4,7 +4,8 @@ namespace InGame.Difficulty.Modifiers
 {
     public class CodeLengthModifier : IDifficultyUp
     {
-        public string Message => $"Codes length {(Amount >= 0 ? $"+{Amount}" : Amount)}";
+        public string Message => $"Codes length {Amount.AsDifference(0)}";
+        public bool IsForceApply => false;
 
         private int Amount { get; } = 1;
 

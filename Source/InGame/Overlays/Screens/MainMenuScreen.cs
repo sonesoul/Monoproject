@@ -6,19 +6,19 @@ namespace InGame.Overlays.Screens
 {
     public class MainMenuScreen : IOverlayScreen
     {
-        private HotKeyButton startButton, quitButton;
+        private BindButton startButton, quitButton;
 
         public void Show()
         {
             startButton = new("Start") { Position = Window.Center };
-            startButton.HotKeyReleased += () =>
+            startButton.Triggered += () =>
             {
                 Disable();
                 Session.Start();
             };
 
             quitButton = new("Quit") { Position = startButton.Position.WhereY(y => y + (startButton.Size.Y * 1.5f)) };
-            quitButton.HotKeyReleased += () =>
+            quitButton.Triggered += () =>
             {
                 Disable();
                 Main.Instance.Exit();

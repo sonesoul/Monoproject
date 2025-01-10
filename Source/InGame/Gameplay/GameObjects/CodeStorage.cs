@@ -26,7 +26,6 @@ namespace InGame.GameObjects
 
         public int Capacity { get; private set; }
         public string Requirement { get; private set; }
-        public LevelTimer Timer { get; private set; }
         public Grade CompletionGrade { get; private set; } = new();
 
         public int TotalPushes => pushedCodes.Count;
@@ -46,7 +45,6 @@ namespace InGame.GameObjects
         public bool IsFilled => Progress >= Capacity;
 
         public event Action Filled;
-        public event Action TimeOver;
         
         public event Action<float> ProgressChanged;
         public event Action<string> RequirementChanged;
@@ -65,47 +63,41 @@ namespace InGame.GameObjects
 
             Capacity = LevelConfig.StorageCapacity;
             
-            Timer = new(LevelConfig.TimeSeconds, true);
-            Timer.TimeOver += () =>
-            {
-                TimeOver?.Invoke();
-                Level.Fail();
-            };
-
             RollRequirement();
 
             Action setFiller = () => filler = Level.GetObject<StorageFiller>();
-            setFiller.Invoke(w => Level.Created += w, w => Level.Created -= w);
+            setFiller.Wrap(w => Level.Created += w, w => Level.Created -= w);
 
             Created?.Invoke(this);
         }
         
         public void Push(Code code)
         {
+            if (IsFilled)
+                return;
+
             pushedCodes.Add(new(Requirement, code));
             Progress += code.Length;
 
             Pushed?.Invoke(code);
 
+            var player = Level.GetObject<Player>();
+            if (player != null) 
+            {
+                float pushFactor = CalculatePushFactor();
+                player?.Grade.AddPoints(pushFactor);
+                player?.BitWallet.Deposit((int)(10f * pushFactor));
+            }
+
             if (IsFilled)
             {
+                StepTask.RunDelayed(Level.Complete, () => StepTask.DelayUnscaled(1f));
                 Filled?.Invoke();
-                Finish();
             }
             else
             {
                 RollRequirement();
             }
-        }
-        public void Finish()
-        {
-            Timer.Stop();
-            float baseReward = 7;
-
-            CompletionGrade.Value = CalculateGradeValue();
-            Level.GetObject<Player>()?.BitWallet.Deposit((int)(baseReward * CompletionGrade.Value));
-
-            StepTask.RunDelayed(Level.Complete, () => StepTask.DelayUnscaled(3f));
         }
 
         public void SetRequirement(string c)
@@ -115,33 +107,20 @@ namespace InGame.GameObjects
         }
         public void RollRequirement() => SetRequirement(LevelConfig.CodePattern.CharSet.RandomElement().ToString());
 
-        private float CalculateGradeValue()
+        private float CalculatePushFactor()
         {
             CodePattern pattern = LevelConfig.CodePattern;
-           
-            int lastUnmatchIndex = pushedCodes.Select(c => c.MatchesRequirement).ToList().LastIndexOf(false);
-            int matchedPushes = pushedCodes.Count - lastUnmatchIndex - 1;
-            int maxMatches = Math.Max(Capacity, pattern.Length) / pattern.Length;
 
-            float averageInputTime = filler.TotalInputTime / pushedCodes.Count;
+            float inputDifficultyFactor = 0.2f * (pattern.Length / 5f / filler.LastInputTime); 
+            float matchFactor = 0.2f * ((float)pattern.CharCount / pattern.Length);
 
-            float matchFactor = (float)maxMatches / 10 * ((float)pattern.CharCount / pattern.Length) * (matchedPushes / maxMatches);
-            float mistakeFactor = -(0.05f) * MathF.Pow(filler.MistakeCount, 1.3f);
-            float inputTimeFactor = 0.3f / averageInputTime;
-            float inputDifficultyFactor = 0.08f / averageInputTime * pattern.Length;
-
-            float total = mistakeFactor + matchFactor + inputDifficultyFactor + inputTimeFactor;
-
-            return total;
+            return Math.Max(matchFactor, inputDifficultyFactor);
         }
-
-        public string GetGrade() => CompletionGrade.ToString();
-
+        
         public override void ForceDestroy()
         {
             base.ForceDestroy();
 
-            Timer.Stop();
             Filled = null;
             RequirementChanged = null;
             Pushed = null;

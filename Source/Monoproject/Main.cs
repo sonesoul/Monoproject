@@ -17,6 +17,7 @@ using InGame;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Monoproject
 {
@@ -86,12 +87,8 @@ namespace Monoproject
             Monoconsole.HideFromTaskbar = false;
             Monoconsole.HideButtons = false;
 
-            return;
             Monoconsole.New();
             Monoconsole.Execute("size 40 15");
-            Monoconsole.Execute("drawperf");
-
-            Monoconsole.WriteLine("\nType \"help\" to start tutorial");
         }
 
         protected override void LoadContent() => LoadAttribute.Invoke();
@@ -128,7 +125,7 @@ namespace Monoproject
 
                 FrameEvents.Update.Trigger();
                 FrameEvents.EndUpdate.Trigger();
-            }            
+            }
 
             FrameEvents.EndSingle.Trigger();
         }

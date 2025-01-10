@@ -34,7 +34,7 @@ namespace InGame.Overlays
 
             context.String(
                 $"{FrameState.FPS}{spacing}({FrameState.DeltaTimeUnscaled * 1000:00}ms){spacing}" +
-                $"{GC.GetTotalMemory(false).ToSizeString().ToLower()}{spacing}" +
+                $"{GC.GetTotalMemory(false).AsSize().ToLower()}{spacing}" +
                 $"{Info}", drawOptions);
         }
     }

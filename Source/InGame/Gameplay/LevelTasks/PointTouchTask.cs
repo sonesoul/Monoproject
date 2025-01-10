@@ -64,7 +64,7 @@ namespace InGame.LevelTasks
             if (Obj == null)
                 return;
 
-            if (other.Owner is not Player)
+            if (other.Owner is not Player player)
                 return;
 
             if (moveTask?.IsRunning ?? false)
@@ -86,6 +86,9 @@ namespace InGame.LevelTasks
             {
                 Level.GetObject<Player>().Codes.Push(Code.NewRandom());
                 touchCount = 0;
+
+                player.Grade.AddPoints((float)touchesPerIteration / 20);
+
                 CycleCount++;
                 CycleCompleted?.Invoke();
             }

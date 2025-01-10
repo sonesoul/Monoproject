@@ -12,9 +12,6 @@ namespace Monoproject
         {
             Main main = Main.Instance;
 
-            if (main != null)
-                main.IsMouseVisible = true;
-
             string msg = 
                 $"{GetFrom(e)}\n\n" +
                 $"{GetMessage(e)}\n\n" +
@@ -24,8 +21,6 @@ namespace Monoproject
 
             if (exit)
                 main?.Exit();
-            else if (main != null)
-                main.IsMouseVisible = false;
         }
         public static void ShowCopyable(string msg, string caption, MessageBoxIcon icon = MessageBoxIcon.None)
         {

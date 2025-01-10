@@ -164,7 +164,7 @@ namespace InGame.Visuals.PlayerVisuals
             if (player == null)
                 return;
 
-            Vector2 bitCenter = (font.MeasureString(bitBar.Text) / 2).WhereY(0);
+            Vector2 bitCenter = (font.MeasureString(bitBar.Text) / 2).TakeX();
             Vector2 position = Position.WhereY(y => y - 40) + bitBar.Position;
 
             context.String(

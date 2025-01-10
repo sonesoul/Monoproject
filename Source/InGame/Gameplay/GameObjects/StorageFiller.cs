@@ -24,7 +24,9 @@ namespace InGame.GameObjects
         public char? TargetChar => (IsFilled || !TargetCode.HasValue) ? null : TargetCode.Value[Sequence.Length];
 
         public float TotalInputTime { get; private set; } = 0;
-       
+
+        public float LastInputTime { get; private set; } = 0;
+
         public event Action Activated, Deactivated, Cleared;
         public event Action<char> CharAdded;
         public event Action<Code> Pushed;
@@ -33,7 +35,7 @@ namespace InGame.GameObjects
         public event Action<Code?> TargetCodeChanged;
 
         private StepTask inputTimeCounting = null;
-
+        private Player player = null;
         private float timeBuffer = 0;
 
         public StorageFiller()
@@ -41,7 +43,7 @@ namespace InGame.GameObjects
             Size = LevelConfig.CodeLength;
 
             Action setStorage = () => Storage = Level.GetObject<CodeStorage>();
-            setStorage.Invoke(w => Level.Created += w, w => Level.Created -= w);
+            setStorage.Wrap(w => Level.Created += w, w => Level.Created -= w);
             
             AddModule(new Collider()
             {
@@ -52,7 +54,7 @@ namespace InGame.GameObjects
 
         public void Push()
         {
-            if (!IsFilled)
+            if (!IsFilled || !IsActive)
                 return;
 
             FixateCount();
@@ -65,17 +67,25 @@ namespace InGame.GameObjects
         }
         public void Append(char c)
         {
+            if (!IsActive)
+                return;
+
             c = char.ToUpper(c);
 
             if (!IsFilled && TargetCode.TryGetValue(out var targetCode) && IsInputEnabled)
             {
+                if (!inputTimeCounting?.IsRunning ?? true)
+                    StartCount();
+
                 if (TargetChar.Value != c)
                 {
                     HandleMistake();
                     return;
                 }
 
+                player.Grade.AddPoints(0.01f);
                 Sequence += c;
+                Sfx.Play(Sounds.CodeInput);
                 CharAdded?.Invoke(c);
             }
         }
@@ -93,17 +103,14 @@ namespace InGame.GameObjects
             TargetCode = code;
             Clear();
 
-            if (code.HasValue)
-                StartCount();
-
             TargetCodeChanged?.Invoke(code);
         }
 
-        public void Activate()
+        public void Activate(Player player)
         {
             if (IsActive)
                 return;
-
+            this.player = player;
             IsActive = true;
             
             Activated?.Invoke();
@@ -136,7 +143,7 @@ namespace InGame.GameObjects
                 InputEnabled?.Invoke();
                 StartCount();
             }, () => StepTask.Delay(0.5f));
-
+            
             MistakeOccured?.Invoke();
         }
 
@@ -151,10 +158,10 @@ namespace InGame.GameObjects
             Pushed = null;
         }
 
-        private void StartCount() => StepTask.Replace(ref inputTimeCounting, InputTimeCount);
+        private void StartCount() => StepTask.Replace(ref inputTimeCounting, CountTask);
         private void FixateCount()
         {
-            TotalInputTime += timeBuffer;
+            LastInputTime = timeBuffer;
             BreakCount();
         }
         private void BreakCount()
@@ -164,7 +171,7 @@ namespace InGame.GameObjects
             timeBuffer = 0;
         }
 
-        private IEnumerator InputTimeCount()
+        private IEnumerator CountTask()
         {
             while (true)
             {

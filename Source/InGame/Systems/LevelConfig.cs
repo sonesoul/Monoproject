@@ -7,29 +7,13 @@ namespace InGame
         public static CodePattern CodePattern { get; set; }
         public static int MapIndex { get; set; }
 
-        public static int CodeLength 
-        {
-            get => CodePattern.Length; 
-            set => CodePattern.Length = value.ClampMin(1); 
-        }
-        public static int StorageCapacity 
-        {
-            get => _storageCapacity; 
-            set => _storageCapacity = value.ClampMin(1);
-        }
+        public static int CodeLength { get => CodePattern.Length; set => CodePattern.Length = value.ClampMin(1); }
+        public static int StorageCapacity { get => _storageCapacity; set => _storageCapacity = value.ClampMin(1); }
 
-        public static int TaskDifficulty 
-        {
-            get => _taskDifficulty; 
-            set => _taskDifficulty = value.ClampMin(1);
-        }
-        public static float TimeSeconds 
-        {
-            get => _timeSeconds; 
-            set => _timeSeconds = value.Clamp(1, 61);
-        }
+        public static int TaskDifficulty { get => _taskDifficulty; set => _taskDifficulty = value.ClampMin(1); }
+        public static float SpeedFactor { get => _speedFactor; set => _speedFactor = value.Clamp(1, 5); }
 
-        private static float _timeSeconds;
+        private static float _speedFactor;
         private static int _taskDifficulty;
         private static int _storageCapacity;
 
@@ -40,7 +24,7 @@ namespace InGame
             CodePattern = new("QWER", 5);
             StorageCapacity = CodeLength * 3;
             MapIndex = 1;
-            TimeSeconds = 30;
+            SpeedFactor = 1f;
             TaskDifficulty = 2;
         }
     }

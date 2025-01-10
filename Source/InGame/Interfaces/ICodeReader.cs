@@ -1,4 +1,6 @@
-﻿namespace InGame.Interfaces
+﻿using InGame.GameObjects;
+
+namespace InGame.Interfaces
 {
     public interface ICodeReader
     {
@@ -13,7 +15,7 @@
 
         public void SetCode(Code? code);
 
-        public void Activate();
+        public void Activate(Player player);
         public void Deactivate();
     }
 }

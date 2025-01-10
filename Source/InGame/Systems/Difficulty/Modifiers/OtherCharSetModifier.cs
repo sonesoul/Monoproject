@@ -8,6 +8,7 @@ namespace InGame.Difficulty.Modifiers
     public class OtherCharSetModifier : IDifficultyUp
     {
         public string Message { get; private set; }
+        public bool IsForceApply => true;
 
         private string set;
         private string previousSet;

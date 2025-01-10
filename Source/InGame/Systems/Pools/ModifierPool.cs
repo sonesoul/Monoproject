@@ -10,21 +10,16 @@ namespace InGame.Pools
     {
         private static List<Func<IDifficultyModifier>> upCreators = new()
         {
-            () => new OtherCharSetModifier(),
+            () => new SpeedUpModifier(),
 
+            () => new OtherCharSetModifier(),
+            
             () => new StorageCapacityModifier(LevelConfig.CodeLength / 2),
             () => new CodeLengthModifier(1),
         };
-        private static List<Func<IDifficultyModifier>> downCreators = new()
-        {
-            () => new StorageCapacityModifier(-1),
-            () => new TimeModifier(-10),
-            () => new CodeLengthModifier(-1),
-        };
 
         private static IndexPool upIndexes = new(upCreators);
-        private static IndexPool downIndexes = new(downCreators);
-
+        
         public static List<T> GetModifiers<T>() where T : class, IDifficultyModifier
         {
             List<IDifficultyModifier> modifiers = new();
@@ -33,15 +28,10 @@ namespace InGame.Pools
             {
                 modifiers.Add(upCreators[i]());
             }
-            for (int i = 0; i < downCreators.Count; i++)
-            {
-                modifiers.Add(downCreators[i]());
-            }
-
+           
             return modifiers.OfType<T>().ToList();
         }
 
         public static IDifficultyModifier GetRandomUp() => upCreators[upIndexes.Pop()]();
-        public static IDifficultyModifier GetRandomDown() => downCreators[downIndexes.Pop()]();
     }
 }

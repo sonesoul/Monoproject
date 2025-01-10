@@ -20,8 +20,6 @@ namespace InGame.Difficulty
         private List<IDifficultyModifier> modifiers = new();
         private Queue<IDifficultyModifier> queuedApplies = new();
         
-        private Random random = new();
-        private float interval = 10f;
         private StepTask scaleTask = null;
         
         public DifficultyScaler()
@@ -33,22 +31,35 @@ namespace InGame.Difficulty
         {
             while (queuedApplies.Count > 0)
             {
-                var m = queuedApplies.Dequeue();
-                m.Apply();
-                ModifierApplied?.Invoke(m);
-                IncrementFactor = 1;
+                ApplyModifier(queuedApplies.Dequeue());
             }
+
+            IncrementFactor = 1;
         }
         public void AddModifier(IDifficultyModifier modifier)
         {
             modifiers.Add(modifier);
-            queuedApplies.Enqueue(modifier);
+            
+            if (modifier.IsForceApply)
+            {
+                ApplyModifier(modifier);
+            }
+            else
+            {
+                queuedApplies.Enqueue(modifier);
+            }
+            
             ModifierAdded?.Invoke(modifier);
+        }
+        public void ApplyModifier(IDifficultyModifier modifier)
+        {
+            modifier.Apply();
+            ModifierApplied?.Invoke(modifier);
         }
 
         public void StartScaling() => StepTask.Replace(ref scaleTask, DifficultyScale);
         public void StopScaling() => scaleTask?.Break();
-
+        
         private float CalculateIncrement(float interval)
         {
             float timeFactor = MathF.Log(1 + ((Level.TimePlayed / 5).Clamp01()));
@@ -62,6 +73,8 @@ namespace InGame.Difficulty
             {
                 float increment = CalculateIncrement(FrameState.DeltaTime);
                 ProcProgress += increment;
+
+                PerfomanceOverlay.Info = $"{ProcProgress}";
 
                 if (ProcProgress >= 1)
                 {

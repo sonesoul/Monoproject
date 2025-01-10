@@ -76,10 +76,10 @@ namespace Engine.Drawing
             SpriteEffects spriteEffects = SpriteEffects.None;
 
             if (options.scale.X < 0)
-                spriteEffects = SpriteEffects.FlipHorizontally;
+                spriteEffects &= SpriteEffects.FlipHorizontally;
 
             if (options.scale.Y < 0)
-                spriteEffects = SpriteEffects.FlipVertically;
+                spriteEffects &= SpriteEffects.FlipVertically;
 
             SpriteBatch.Draw(
                 texture,

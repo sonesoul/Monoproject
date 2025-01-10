@@ -40,7 +40,7 @@ namespace InGame.Overlays.Screens
         
         private StepTask animationTask;
         private ScoreElement scoreVisual = new();
-        private HotKeyButton restartButton, exitButton;
+        private BindButton restartButton, exitButton;
 
         private bool rectVisible, scoreVisible, gameOverVisible;
 
@@ -52,10 +52,12 @@ namespace InGame.Overlays.Screens
             exitButton = CreateButton("Quit the game", restartButton.Position.WhereY(y => y + restartButton.Size.Y * 1.5f), Main.Instance.Exit);
 
             animationTask = StepTask.Run(ShowGameOver(), false);
+
+            SetButtonPositions();
         }
         public void Hide()
         {
-            animationTask?.Dispose();
+            animationTask?.Break();
             rectAlpha = 0;
             
             restartButton.Destroy();
@@ -77,8 +79,6 @@ namespace InGame.Overlays.Screens
 
         private void Draw(DrawContext context)
         {
-            SetButtonPositions();
-
             if (rectVisible)
                 DrawRect(context);
 
@@ -103,7 +103,7 @@ namespace InGame.Overlays.Screens
         }
         private void DrawScore(DrawContext context)
         {
-            var font = Fonts.Silk;
+            var font = Fonts.PicoMono;
 
             string scoreStr = "";
             Vector2 scoreStrSize = font.MeasureString(scoreStr);
@@ -131,8 +131,8 @@ namespace InGame.Overlays.Screens
         }
         private void DrawGameOver(DrawContext context)
         {
-            var font = Fonts.SilkBold;
-            string gameOver = "Game over";
+            var font = Fonts.PicoMono;
+            string gameOver = "game over";
             context.String(
                 font,
                 gameOver,
@@ -151,6 +151,7 @@ namespace InGame.Overlays.Screens
         private IEnumerator ShowGameOver()
         {
             yield return StepTask.DelayUnscaled(1);
+            
             rectVisible = true;
             gameOverVisible = true;
             rectAlpha = 255;
@@ -159,46 +160,26 @@ namespace InGame.Overlays.Screens
 
             scoreVisual.Alpha = 255;
             scoreVisible = true;
-            scoreVisual.Value = SessionManager.Score.GetTotal();
-
-
-            Vector2 radius = new(10, 10);
-            Random rnd = new();
-
-            yield return ShakeScreen((-radius).Randomize(radius, rnd), 0.8f);
-            restartButton.Color = new(restartButton.Color, 255);
-            exitButton.Color = new(exitButton.Color, 255);
+            scoreVisual.Value = SessionManager.Score.Total;
+            
+            yield return StepTask.DelayUnscaled(0.8f);
+            restartButton.Alpha = 255;
+            exitButton.Alpha = 255;
             
             restartButton.Enabled = true;
             exitButton.Enabled = true;
-
-            yield return ShakeScreen((-radius).Randomize(radius, rnd), 3f);
         }
         
-        private IEnumerator ShakeScreen(Vector2 position, float time)
+        private BindButton CreateButton(string text, Vector2 position, Action pressAction)
         {
-            screenPosition += position / 2;
-            yield return null;
-            screenPosition += position / 2;
-            yield return StepTask.Interpolate((ref float e) =>
-            {
-                screenPosition = Vector2.Lerp(screenPosition, Window.Center, e);
-
-                e += FrameState.DeltaTimeUnscaled / time;
-            });
-        }
-
-        private HotKeyButton CreateButton(string text, Vector2 position, Action pressAction)
-        {
-            HotKeyButton button = new(text)
+            BindButton button = new(text)
             {
                 Position = position,
-                Color = new(Palette.White, 0),
-                IsTimeScaled = false,
+                Alpha = 0,
                 Enabled = false,
             };
 
-            button.HotKeyReleased += () =>
+            button.Triggered += () =>
             {
                 pressAction();
                 Disable();

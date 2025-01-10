@@ -185,7 +185,7 @@ namespace InGame.Visuals.PlayerVisuals
                 Vector2 scale = displays[i].Scale = new Vector2((1.0f - 0.2f * j).Clamp(0.6f, 1));
                 Code code = displays[i].Code;
 
-                lastPos += lastSize.WhereX(0);
+                lastPos += lastSize.TakeY();
                 lastSize = Fonts.SilkBold.MeasureString(code.Sequence) * scale;
 
                 displays[i].Move(lastPos);

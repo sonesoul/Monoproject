@@ -28,6 +28,7 @@ namespace GlobalTypes.Extensions
         {
             return value.ClampMin(min).ClampMax(max);
         }
+
         #endregion
 
         #region Abs
@@ -35,8 +36,8 @@ namespace GlobalTypes.Extensions
         public static float Abs(this float value) => Math.Abs(value);
         #endregion
 
-        #region ToSizeString
-        public static string ToSizeString(this long sizeInBytes)
+        #region Strings
+        public static string AsSize(this long sizeInBytes)
         {
             ulong sizeBytes = (ulong)sizeInBytes;
             double sizeKb = sizeBytes / 1024.0;
@@ -53,6 +54,17 @@ namespace GlobalTypes.Extensions
             else
                 finalSize = $"{sizeBytes} b";
             return finalSize.ToString();
+        }
+        public static string AsDifference<T>(this T value, T comparable) where T : IComparable<T>
+        {
+            if (value.CompareTo(comparable) >= 0)
+            {
+                return $"+{value}";
+            }
+            else
+            {
+                return $"-{value}";
+            }
         }
         #endregion
     }

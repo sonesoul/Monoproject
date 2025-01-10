@@ -128,11 +128,9 @@ namespace InGame.Visuals.StorageVisuals
             }
             private static IEnumerator MoveScreen()
             {
-                int gradeIndex = Storage.CompletionGrade.Index;
-
                 Vector2 startPosition = reqVisual.Position;
 
-                Camera.Position += -(Window.Center - Storage.Position).Normalized() * (gradeIndex * 2).ClampMin(3);
+                Camera.Position += -(Window.Center - Storage.Position).Normalized() * 3;
                 yield return StepTask.Interpolate((ref float e) =>
                 {
                     Camera.Position = Vector2.Lerp(Camera.Position, Vector2.Zero, e);
@@ -169,15 +167,6 @@ namespace InGame.Visuals.StorageVisuals
                 Storage.RequirementChanged += reqVisual.SetLetter;
                 reqVisual.SetLetter(Storage.Requirement);
                 Storage.ProgressChanged += (d) => UpdateProgress();
-                Storage.Filled += () =>
-                {
-                    Action showGrade = () =>
-                    {
-                        grade.SetGrade(Storage.GetGrade());
-                        progressDisplay.Hide();
-                    };
-                    showGrade.Invoke(w => progressDisplay.ScrollEnded += w, w => progressDisplay.ScrollEnded -= w);
-                };
 
                 IsGradeMode = false;
                 UpdateProgress();
@@ -198,7 +187,6 @@ namespace InGame.Visuals.StorageVisuals
             if (Storage == null)
                 return;
 
-            DrawTimer(context);
             DrawProgress(context);
 
             if (IsGradeMode)
@@ -244,18 +232,6 @@ namespace InGame.Visuals.StorageVisuals
             options.position = Position + offset;
             context.String("]", options);
         } 
-        private static void DrawTimer(DrawContext context)
-        {
-            string timerText = Storage.Timer.ToString();
-
-            context.String(
-                Font,
-                timerText,
-                Position.WhereY(y => y - 40),
-                Palette.White,
-                Font.MeasureString(timerText) / 2,
-                Vector2.One);
-        }
         private static void DrawProgress(DrawContext context)
         {
             string progressStr = $"{(int)progressDisplay.Progress.Rounded()}/{Storage.Capacity}";

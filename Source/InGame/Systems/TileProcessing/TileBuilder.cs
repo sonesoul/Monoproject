@@ -39,8 +39,9 @@ namespace InGame.TileProcessing
                 return tile;
             });
 
-            PlaceRandomly(tiles, PlaceFiller);
-            PlaceRandomly(tiles, PlaceSpecialObject);
+            
+            PlaceRandomly(tiles, PlaceFiller, new(17, tiles.YLength));
+            PlaceRandomly(tiles, PlaceSpecialObject, new(tiles.XLength, tiles.YLength));
         }
 
         public static List<Vector2> GetTopZones(TileSet tiles)
@@ -72,7 +73,7 @@ namespace InGame.TileProcessing
             return result;
         }
 
-        private static void PlaceRandomly(TileSet tiles, Func<Vector2, object> callback)
+        private static void PlaceRandomly(TileSet tiles, Func<Vector2, object> callback, Point maxIndex)
         {
             static bool TryGetZone(Point indexPosition, TileSet tiles, out List<Point> indexes)
             {
@@ -103,7 +104,7 @@ namespace InGame.TileProcessing
                 if (t.Color != TopZoneColor || t.Data != null)
                     return;
 
-                if (x == tiles.XLength - 1 || x == 0)
+                if (x == tiles.XLength - 1 || x == 0 || x > maxIndex.X || y > maxIndex.Y)
                     return;
 
                 indexes.Add(new(x, y));

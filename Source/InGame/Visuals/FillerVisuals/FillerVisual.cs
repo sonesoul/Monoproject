@@ -21,7 +21,7 @@ namespace InGame.Visuals.FillerVisuals
             public Vector2 CodeOffset { get; set; }
             
             public Vector2 CharOrigin => Font.MeasureString(FirstChar) / 2;
-            public Vector2 CodeOrigin => (Font.MeasureString(RestCode) / 2).WhereX(0);
+            public Vector2 CodeOrigin => (Font.MeasureString(RestCode) / 2).TakeY();
 
             public Vector2 CharScale { get; set; } = Vector2.One;
             public Vector2 CodeScale { get; set; } = new Vector2(0.7f);
@@ -62,7 +62,7 @@ namespace InGame.Visuals.FillerVisuals
             }
             public void MoveNext()
             {
-                CodeOffset += Font.MeasureString(FirstChar).WhereY(0) * CharScale;
+                CodeOffset += Font.MeasureString(FirstChar).TakeX() * CharScale;
                 index++;
 
                 if (index >= targetCode.Length)

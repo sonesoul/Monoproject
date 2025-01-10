@@ -26,9 +26,10 @@ namespace InGame.GameObjects
             public bool CanJump { get; set; } = true;
             public bool IsJumpHoldEnabled { get; set; } = true;
 
-            public float JumpPower { get; set; } = 8f;
+            public float JumpPower { get; set; }
             public float BaseJumpPower { get; private set; } = 8f;
-            public float MoveSpeed { get; set; } = 5;
+            public float MoveSpeed { get; set; }
+            public float BaseMoveSpeed { get; set; } = 5;
 
             public Key JumpKey { get; set; } = Key.Up;
             public Key LeftKey { get; set; } = Key.Left;
@@ -52,6 +53,9 @@ namespace InGame.GameObjects
             {
                 rigidbody = player.rigidbody;
                 collider = player.collider;
+
+                MoveSpeed = BaseMoveSpeed;
+                JumpPower = BaseJumpPower;
 
                 onUpdate = FrameEvents.Update.Append(Update);
 
@@ -119,7 +123,7 @@ namespace InGame.GameObjects
                 {
                     coyoteJumpTask.Restart();
                 }
-                else if (isOnGround)
+                else if (isOnGround && !hasJump)
                 {
                     hasJump = true;
                 }
@@ -164,11 +168,12 @@ namespace InGame.GameObjects
             private StepTask delayedPush;
 
             private KeyBinding popBind = null;
+            private Player player;
 
             public CodeManager(Player player)
             {
+                this.player = player;
                 collider = player.collider;
-
                 collider.ColliderEnter += OnColliderEnter;
                 collider.ColliderExit += OnColliderExit;
                 
@@ -193,18 +198,19 @@ namespace InGame.GameObjects
                     TrySetCode();
 
                     Pushed?.Invoke(code);
+                    Sfx.Play(Sounds.CodePush);
                 }
 
                 if (stack.Count >= StackSize)
                 {
                     Pop();
 
-                    delayedPush?.Dispose();
+                    delayedPush?.Break();
                     delayedPush = StepTask.RunDelayed(PushCode, () => StepTask.Delay(0.5f));
                 }
                 else
                 {
-                    delayedPush?.Dispose();
+                    delayedPush?.Break();
                     PushCode();
                 }
             }
@@ -255,7 +261,7 @@ namespace InGame.GameObjects
                 if (other.Owner is ICodeReader reader)
                 {
                     currentReader = reader;
-                    reader.Activate();
+                    reader.Activate(player);
 
                     if (stack.Count > 0)
                         reader.SetCode(Peek());
@@ -287,6 +293,7 @@ namespace InGame.GameObjects
             {
                 Input.KeyPressed -= OnKeyPress;
                 Input.Unbind(popBind);
+                player = null;
             }
 
             //~CodeManager() => Monoconsole.WriteLine($"Code dector");
@@ -344,6 +351,78 @@ namespace InGame.GameObjects
             }
         }
 
+        public class GradeManager : IDestroyable
+        {
+            public bool IsDestroyed { get; set; } = false;
+            public Grade Obj => grade;
+            public float DecreaseTime { get; set; } = 90f;
+            
+            public float Value => grade.Value;
+            public string Rank => grade.ToString();
+
+            private Grade grade;
+            private StepTask decreaseTask = null, decreaseTimeDown;
+            private MovementManager movement;
+
+            private float EndMoveSpeed => movement.BaseMoveSpeed + SpeedFactor;
+
+            private static float SpeedFactor => (LevelConfig.SpeedFactor / 2).ClampMin(1);
+
+            public GradeManager(MovementManager movement)
+            {
+                this.movement = movement;
+                grade = new();
+                grade.ValueChanged += OnValueChanged;
+                decreaseTask ??= StepTask.Run(DecreaseGrade);
+                AddPoints(1);
+                this.movement = movement;
+            }
+
+            public void AddPoints(float value)
+            {
+                grade.Value += value * SpeedFactor;
+
+                DecreaseTime = 15 / SpeedFactor;
+            }
+            public void RemovePoints(float value) => grade.Value -= value;
+           
+            public void ResumeDecreasing() => decreaseTask.Resume();
+            public void PauseDecreasing() => decreaseTask.Pause();
+
+            private void OnValueChanged(float value)
+            {
+                if (grade.Value == 0)
+                {
+                    Level.Fail();
+                }
+            }
+
+            private IEnumerator DecreaseGrade()
+            {
+                while (true)
+                {
+                    movement.MoveSpeed = MathHelper.Lerp(movement.BaseMoveSpeed, EndMoveSpeed, grade.Value);
+
+                    grade.Value -= FrameState.DeltaTime / DecreaseTime;
+
+                    //PerfomanceOverlay.Info = $"{grade.Value}";
+
+                    yield return null;
+                }
+            }
+            private IEnumerator DecreaseTimeDown(float time, float delay)
+            {
+                DecreaseTime = time * 2;
+                yield return StepTask.Delay(delay);
+                DecreaseTime = time;
+            }
+
+            public void ForceDestroy()
+            {
+                decreaseTask?.Break();
+            }
+        }
+
         public static Key ShowUIKey => Key.Tab;
 
         public static event Action<Player> Created;
@@ -354,6 +433,8 @@ namespace InGame.GameObjects
         public MovementManager Movement { get; private set; }
         public CodeManager Codes { get; private set; }
         public BitWalletManager BitWallet { get; private set; }
+        public GradeManager Grade { get; private set; }
+
 
         private Rigidbody rigidbody;
         private Collider collider;
@@ -382,6 +463,7 @@ namespace InGame.GameObjects
             Movement = new(this);
             Codes = new(this);
             BitWallet = new();
+            Grade = new(Movement);
 
             collider.ColliderEnter += OnColliderEnter;
             collider.ColliderExit += OnColliderExit;
@@ -440,10 +522,12 @@ namespace InGame.GameObjects
             
             Movement.ForceDestroy();
             Codes.ForceDestroy();
+            Grade.ForceDestroy();
 
             BitWallet = null;
             Movement = null;
             Codes = null;
+            Grade = null;
 
             if (interactBind != null)
                 Input.Unbind(interactBind);
